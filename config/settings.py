@@ -20,6 +20,9 @@ TAKE_PROFIT_PCT = float(os.getenv("TAKE_PROFIT_PCT", "0.06"))
 ATR_SL_MULTIPLIER = float(os.getenv("ATR_SL_MULTIPLIER", "1.5"))
 ATR_TP_MULTIPLIER = float(os.getenv("ATR_TP_MULTIPLIER", "3.0"))
 
+VOLUME_MA_PERIOD  = int(os.getenv("VOLUME_MA_PERIOD", "20"))
+VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.2"))
+
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

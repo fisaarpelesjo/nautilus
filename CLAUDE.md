@@ -65,6 +65,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo (fallback sem ATR) |
 | `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
+| `VOLUME_MA_PERIOD` | `20` | Janela da média de volume para filtro |
+| `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |
 | `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram (opcional) |
 | `TELEGRAM_CHAT_ID` | — | Chat ID Telegram (opcional) |
 
@@ -81,12 +83,13 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - `rsi` — RSI(14)
 - `macd` — MACD diff (logado, não usado no sinal ainda)
 - `atr` — ATR(14), usado pelo risk manager para SL/TP dinâmico
+- `volume_ma` — média móvel simples do volume (período `VOLUME_MA_PERIOD`)
 
 **Regras de entrada/saída:**
 
 | Sinal | Condição |
 |---|---|
-| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 |
+| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 **e** volume > 1.2× média(20) |
 | SELL | EMA9 cruza abaixo EMA21 **e** RSI > 35 |
 | HOLD | nenhuma das anteriores |
 
