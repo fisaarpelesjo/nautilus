@@ -86,6 +86,7 @@ def run():
                                 pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Stop Loss", current_price)
+                                manager.set_cooldown(symbol)
                                 trade_events.append(("result", f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
                             elif should_take_profit(current_price, pos.take_profit):
@@ -103,7 +104,7 @@ def run():
                         else:
                             open_count = len(manager.positions)
                             slots_left = MAX_POSITIONS - open_count
-                            if signal.signal == Signal.BUY and slots_left > 0 and _mtf_confirmed(symbol, current_price, strategy):
+                            if signal.signal == Signal.BUY and slots_left > 0 and not manager.is_in_cooldown(symbol) and _mtf_confirmed(symbol, current_price, strategy):
                                 if TRADING_MODE == "paper":
                                     available = manager.paper_balance_usdt / slots_left
                                 else:

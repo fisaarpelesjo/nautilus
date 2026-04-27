@@ -25,6 +25,8 @@ VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.2"))
 
 MTF_TIMEFRAME = os.getenv("MTF_TIMEFRAME", "1d")
 
+COOLDOWN_HOURS = int(os.getenv("COOLDOWN_HOURS", "4"))
+
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

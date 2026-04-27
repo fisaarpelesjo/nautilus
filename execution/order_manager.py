@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict
 import ccxt
-from config.settings import TRADING_MODE, MAX_ORDER_SIZE_USDT
+from config.settings import TRADING_MODE, MAX_ORDER_SIZE_USDT, COOLDOWN_HOURS
 from data.fetcher import get_exchange
 from data.trade_logger import log_trade, save_state, load_state
 from risk.manager import RiskLevels
@@ -32,6 +32,7 @@ class OrderManager:
         self.total_trades: int   = 0
         self.winning_trades: int = 0
         self.realized_pnl: float = 0.0
+        self.cooldowns: Dict[str, datetime] = {}
         self._restore_state()
 
     def _restore_state(self):
@@ -42,6 +43,8 @@ class OrderManager:
         self.total_trades       = state.get("total_trades", 0)
         self.winning_trades     = state.get("winning_trades", 0)
         self.realized_pnl       = state.get("realized_pnl", 0.0)
+        for symbol, ts in state.get("cooldowns", {}).items():
+            self.cooldowns[symbol] = datetime.fromisoformat(ts)
         for symbol, pos in state.get("positions", {}).items():
             if pos:
                 self.positions[symbol] = Position(
@@ -80,8 +83,18 @@ class OrderManager:
             "winning_trades":     self.winning_trades,
             "realized_pnl":       self.realized_pnl,
             "positions":          pos_data,
+            "cooldowns":          {s: dt.isoformat() for s, dt in self.cooldowns.items()},
             "updated_at":         datetime.now().isoformat(),
         })
+
+    def set_cooldown(self, symbol: str):
+        self.cooldowns[symbol] = datetime.now()
+        log.info(f"Cooldown ativado: {symbol} por {COOLDOWN_HOURS}h")
+
+    def is_in_cooldown(self, symbol: str) -> bool:
+        if symbol not in self.cooldowns:
+            return False
+        return datetime.now() - self.cooldowns[symbol] < timedelta(hours=COOLDOWN_HOURS)
 
     def has_position(self, symbol: str) -> bool:
         return symbol in self.positions
