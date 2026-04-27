@@ -13,6 +13,7 @@ Bot de trading algorítmico para cripto em Python. Conecta na Binance via API, c
 - Persistência completa: trades, sinais, candles e estado salvos em disco
 - Recuperação automática de posição após restart
 - Alertas opcionais via Telegram
+- Relatório diário automático via Telegram (PnL, trades, win rate, saldo)
 
 ---
 
@@ -54,6 +55,7 @@ VOLUME_MIN_RATIO=1.2      # volume mínimo para BUY = média × 1.2
 MTF_TIMEFRAME=1d          # timeframe de confirmação de tendência
 COOLDOWN_HOURS=4          # horas bloqueado após stop loss no par
 DAILY_DRAWDOWN_LIMIT=0.05 # para de abrir posições se perder 5% no dia
+DAILY_REPORT_HOUR=0       # hora (0–23) para envio do relatório diário via Telegram
 
 # Opcional — alertas Telegram
 TELEGRAM_BOT_TOKEN=

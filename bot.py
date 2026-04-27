@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME, ATR_SL_MULTIPLIER
+from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME, ATR_SL_MULTIPLIER, DAILY_REPORT_HOUR
 from data.fetcher import fetch_ohlcv, fetch_balance
 from data.trade_logger import log_signal, save_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
@@ -25,8 +25,9 @@ def _round_price(p: float) -> float:
 def run():
     header()
 
-    strategy = EmaRsiStrategy()
-    manager  = OrderManager()
+    strategy          = EmaRsiStrategy()
+    manager           = OrderManager()
+    last_report_date  = ""
 
     send_telegram(f"Bot iniciado | {len(PAIRS)} pares | Modo={TRADING_MODE}")
 
@@ -141,6 +142,12 @@ def run():
 
             pairs_table(pair_rows, manager.paper_balance_usdt, manager.pnl(), manager.total_trades, manager.win_rate())
 
+            now = datetime.now()
+            today = now.strftime("%Y-%m-%d")
+            if now.hour == DAILY_REPORT_HOUR and today != last_report_date:
+                _send_daily_report(manager)
+                last_report_date = today
+
         except KeyboardInterrupt:
             _shutdown()
             break
@@ -154,6 +161,20 @@ def run():
         except KeyboardInterrupt:
             _shutdown()
             break
+
+def _send_daily_report(manager: OrderManager):
+    today = datetime.now().strftime("%d/%m/%Y")
+    positions_info = f"{len(manager.positions)} aberta(s)" if manager.positions else "nenhuma"
+    msg = (
+        f"Relatorio diario — {today}\n"
+        f"PnL do dia: {manager.daily_pnl:+.2f} USDT\n"
+        f"Trades totais: {manager.total_trades}\n"
+        f"Win rate: {manager.win_rate():.0f}%\n"
+        f"Saldo: ${manager.paper_balance_usdt:.2f}\n"
+        f"Posicoes: {positions_info}"
+    )
+    send_telegram(msg)
+    log.info("Relatorio diario enviado")
 
 def _mtf_confirmed(symbol: str, price: float, strategy: EmaRsiStrategy) -> bool:
     try:

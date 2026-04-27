@@ -29,6 +29,8 @@ COOLDOWN_HOURS = int(os.getenv("COOLDOWN_HOURS", "4"))
 
 DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do saldo inicial
 
+DAILY_REPORT_HOUR = int(os.getenv("DAILY_REPORT_HOUR", "0"))  # hora do relatório (0 = meia-noite)
+
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

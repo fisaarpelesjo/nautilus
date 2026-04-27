@@ -70,6 +70,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Horas de bloqueio de reentrada após stop loss |
 | `DAILY_DRAWDOWN_LIMIT` | `0.05` | Limite de perda diária (5% do saldo inicial = $50) |
+| `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
 | `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram (opcional) |
 | `TELEGRAM_CHAT_ID` | — | Chat ID Telegram (opcional) |
 
