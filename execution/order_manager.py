@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 import ccxt
-from config.settings import TRADING_MODE, MAX_ORDER_SIZE_USDT, COOLDOWN_HOURS
+from config.settings import TRADING_MODE, MAX_ORDER_SIZE_USDT, COOLDOWN_HOURS, DAILY_DRAWDOWN_LIMIT
 from data.fetcher import get_exchange
 from data.trade_logger import log_trade, save_state, load_state
 from risk.manager import RiskLevels
@@ -33,6 +33,8 @@ class OrderManager:
         self.winning_trades: int = 0
         self.realized_pnl: float = 0.0
         self.cooldowns: Dict[str, datetime] = {}
+        self.daily_pnl: float = 0.0
+        self.daily_reset_date: str = ""
         self._restore_state()
 
     def _restore_state(self):
@@ -45,6 +47,14 @@ class OrderManager:
         self.realized_pnl       = state.get("realized_pnl", 0.0)
         for symbol, ts in state.get("cooldowns", {}).items():
             self.cooldowns[symbol] = datetime.fromisoformat(ts)
+        today = datetime.now().strftime("%Y-%m-%d")
+        saved_date = state.get("daily_reset_date", "")
+        if saved_date == today:
+            self.daily_pnl        = state.get("daily_pnl", 0.0)
+            self.daily_reset_date = saved_date
+        else:
+            self.daily_pnl        = 0.0
+            self.daily_reset_date = today
         for symbol, pos in state.get("positions", {}).items():
             if pos:
                 self.positions[symbol] = Position(
@@ -84,8 +94,24 @@ class OrderManager:
             "realized_pnl":       self.realized_pnl,
             "positions":          pos_data,
             "cooldowns":          {s: dt.isoformat() for s, dt in self.cooldowns.items()},
+            "daily_pnl":          self.daily_pnl,
+            "daily_reset_date":   self.daily_reset_date,
             "updated_at":         datetime.now().isoformat(),
         })
+
+    def _check_daily_reset(self):
+        today = datetime.now().strftime("%Y-%m-%d")
+        if self.daily_reset_date != today:
+            self.daily_pnl        = 0.0
+            self.daily_reset_date = today
+
+    def is_daily_limit_hit(self) -> bool:
+        self._check_daily_reset()
+        limit = DAILY_DRAWDOWN_LIMIT * 1000.0
+        if self.daily_pnl < -limit:
+            log.warning(f"Daily drawdown atingido: ${self.daily_pnl:.2f} (limite -${limit:.2f})")
+            return True
+        return False
 
     def set_cooldown(self, symbol: str):
         self.cooldowns[symbol] = datetime.now()
@@ -153,8 +179,10 @@ class OrderManager:
         pnl     = (exit_price - pos.entry_price) * pos.quantity
         pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
         self.paper_balance_usdt += pos.quantity * exit_price
+        self._check_daily_reset()
         self.total_trades += 1
         self.realized_pnl += pnl
+        self.daily_pnl    += pnl
         if pnl > 0:
             self.winning_trades += 1
 

@@ -104,7 +104,10 @@ def run():
                         else:
                             open_count = len(manager.positions)
                             slots_left = MAX_POSITIONS - open_count
-                            if signal.signal == Signal.BUY and slots_left > 0 and not manager.is_in_cooldown(symbol) and _mtf_confirmed(symbol, current_price, strategy):
+                            if (signal.signal == Signal.BUY and slots_left > 0
+                                    and not manager.is_daily_limit_hit()
+                                    and not manager.is_in_cooldown(symbol)
+                                    and _mtf_confirmed(symbol, current_price, strategy)):
                                 if TRADING_MODE == "paper":
                                     available = manager.paper_balance_usdt / slots_left
                                 else:

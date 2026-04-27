@@ -27,6 +27,8 @@ MTF_TIMEFRAME = os.getenv("MTF_TIMEFRAME", "1d")
 
 COOLDOWN_HOURS = int(os.getenv("COOLDOWN_HOURS", "4"))
 
+DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do saldo inicial
+
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

@@ -53,6 +53,7 @@ VOLUME_MA_PERIOD=20       # janela da média de volume
 VOLUME_MIN_RATIO=1.2      # volume mínimo para BUY = média × 1.2
 MTF_TIMEFRAME=1d          # timeframe de confirmação de tendência
 COOLDOWN_HOURS=4          # horas bloqueado após stop loss no par
+DAILY_DRAWDOWN_LIMIT=0.05 # para de abrir posições se perder 5% no dia
 
 # Opcional — alertas Telegram
 TELEGRAM_BOT_TOKEN=
