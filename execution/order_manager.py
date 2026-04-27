@@ -1,0 +1,189 @@
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional, Dict
+import ccxt
+from config.settings import TRADING_MODE, MAX_ORDER_SIZE_USDT
+from data.fetcher import get_exchange
+from data.trade_logger import log_trade, save_state, load_state
+from risk.manager import RiskLevels
+from utils.logger import get_logger
+from utils.notifier import send_telegram
+
+log = get_logger("orders")
+
+@dataclass
+class Position:
+    symbol: str
+    side: str
+    entry_price: float
+    quantity: float
+    stop_loss: float
+    take_profit: float
+    opened_at: datetime = field(default_factory=datetime.now)
+    order_id: Optional[str] = None
+
+class OrderManager:
+    def __init__(self):
+        self.exchange: ccxt.binance  = get_exchange()
+        self.positions: Dict[str, Position] = {}
+        self.paper_balance_usdt: float = 1000.0
+        self.total_trades: int   = 0
+        self.winning_trades: int = 0
+        self._restore_state()
+
+    def _restore_state(self):
+        state = load_state()
+        if not state:
+            return
+        self.paper_balance_usdt = state.get("paper_balance_usdt", 1000.0)
+        self.total_trades       = state.get("total_trades", 0)
+        self.winning_trades     = state.get("winning_trades", 0)
+        for symbol, pos in state.get("positions", {}).items():
+            if pos:
+                self.positions[symbol] = Position(
+                    symbol      = pos["symbol"],
+                    side        = pos["side"],
+                    entry_price = pos["entry_price"],
+                    quantity    = pos["quantity"],
+                    stop_loss   = pos["stop_loss"],
+                    take_profit = pos["take_profit"],
+                    opened_at   = datetime.fromisoformat(pos["opened_at"]),
+                    order_id    = pos.get("order_id"),
+                )
+        if self.positions:
+            log.info(f"Posicoes restauradas: {list(self.positions.keys())}")
+
+    def _persist_state(self):
+        pos_data = {}
+        for symbol, pos in self.positions.items():
+            pos_data[symbol] = {
+                "symbol":      pos.symbol,
+                "side":        pos.side,
+                "entry_price": pos.entry_price,
+                "quantity":    pos.quantity,
+                "stop_loss":   pos.stop_loss,
+                "take_profit": pos.take_profit,
+                "opened_at":   pos.opened_at.isoformat(),
+                "order_id":    pos.order_id,
+            }
+        save_state({
+            "paper_balance_usdt": self.paper_balance_usdt,
+            "total_trades":       self.total_trades,
+            "winning_trades":     self.winning_trades,
+            "positions":          pos_data,
+            "updated_at":         datetime.now().isoformat(),
+        })
+
+    def has_position(self, symbol: str) -> bool:
+        return symbol in self.positions
+
+    def get_position(self, symbol: str) -> Optional[Position]:
+        return self.positions.get(symbol)
+
+    def win_rate(self) -> float:
+        return (self.winning_trades / self.total_trades * 100) if self.total_trades else 0
+
+    def pnl(self) -> float:
+        return self.paper_balance_usdt - 1000.0
+
+    def open_long(self, symbol: str, risk: RiskLevels):
+        if self.has_position(symbol):
+            return
+        if TRADING_MODE == "paper":
+            self._paper_buy(symbol, risk)
+        else:
+            self._live_buy(symbol, risk)
+
+    def close_position(self, symbol: str, reason: str, current_price: float = 0.0):
+        if not self.has_position(symbol):
+            return
+        if TRADING_MODE == "paper":
+            self._paper_sell(symbol, reason, current_price)
+        else:
+            self._live_sell(symbol, reason)
+
+    def _paper_buy(self, symbol: str, risk: RiskLevels):
+        cost = risk.quantity * risk.entry_price
+        if cost > self.paper_balance_usdt:
+            log.warning(f"Saldo insuficiente para {symbol}: ${self.paper_balance_usdt:.2f}")
+            return
+        self.paper_balance_usdt -= cost
+        self.positions[symbol] = Position(
+            symbol      = symbol,
+            side        = "long",
+            entry_price = risk.entry_price,
+            quantity    = risk.quantity,
+            stop_loss   = risk.stop_loss,
+            take_profit = risk.take_profit,
+        )
+        self._persist_state()
+        msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
+        log.info(msg)
+        send_telegram(msg)
+
+    def _paper_sell(self, symbol: str, reason: str, current_price: float = 0.0):
+        pos = self.positions[symbol]
+        exit_price = current_price or (
+            pos.stop_loss if "stop" in reason.lower() else pos.take_profit
+        )
+        pnl     = (exit_price - pos.entry_price) * pos.quantity
+        pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
+        self.paper_balance_usdt += pos.quantity * exit_price
+        self.total_trades += 1
+        if pnl > 0:
+            self.winning_trades += 1
+
+        log_trade({
+            "opened_at":     pos.opened_at,
+            "closed_at":     datetime.now(),
+            "symbol":        pos.symbol,
+            "side":          pos.side,
+            "entry_price":   pos.entry_price,
+            "exit_price":    exit_price,
+            "quantity":      pos.quantity,
+            "pnl_usdt":      round(pnl, 6),
+            "pnl_pct":       round(pnl_pct, 4),
+            "exit_reason":   reason,
+            "balance_after": round(self.paper_balance_usdt, 4),
+        })
+
+        msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
+        log.info(msg)
+        send_telegram(msg)
+        del self.positions[symbol]
+        self._persist_state()
+
+    def _live_buy(self, symbol: str, risk: RiskLevels):
+        try:
+            order = self.exchange.create_market_buy_order(
+                symbol, risk.quantity,
+                params={"quoteOrderQty": risk.quantity * risk.entry_price}
+            )
+            self.positions[symbol] = Position(
+                symbol      = symbol,
+                side        = "long",
+                entry_price = risk.entry_price,
+                quantity    = risk.quantity,
+                stop_loss   = risk.stop_loss,
+                take_profit = risk.take_profit,
+                order_id    = order["id"],
+            )
+            self._persist_state()
+            msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
+            log.info(msg)
+            send_telegram(msg)
+        except Exception as e:
+            log.error(f"Erro ao comprar {symbol}: {e}")
+
+    def _live_sell(self, symbol: str, reason: str):
+        pos = self.positions[symbol]
+        try:
+            order = self.exchange.create_market_sell_order(symbol, pos.quantity)
+            msg = f"[LIVE] VENDA {symbol} | {reason} | ID={order['id']}"
+            log.info(msg)
+            send_telegram(msg)
+        except Exception as e:
+            log.error(f"Erro ao vender {symbol}: {e}")
+        finally:
+            del self.positions[symbol]
+            self._persist_state()

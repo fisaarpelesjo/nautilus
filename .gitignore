@@ -1,0 +1,18 @@
+.env
+logs/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+
+# claude code local config
+.claude/
+
+# runtime data
+data/signals.csv
+data/trades.csv
+data/state.json
+data/ohlcv/

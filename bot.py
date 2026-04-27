@@ -1,0 +1,148 @@
+import time
+from datetime import datetime
+from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS
+from data.fetcher import fetch_ohlcv, fetch_balance
+from data.trade_logger import log_signal, save_ohlcv
+from strategy.ema_rsi import EmaRsiStrategy
+from strategy.base import Signal
+from risk.manager import calculate_risk, should_stop_loss, should_take_profit
+from execution.order_manager import OrderManager
+from utils.display import (
+    console, header, spinner, pairs_table,
+    trade_result, waiting, error, buy_opened, shutdown
+)
+from utils.notifier import send_telegram
+from utils.logger import get_logger
+
+log = get_logger("bot")
+POLL_INTERVAL = 60
+
+def _round_price(p: float) -> float:
+    if p >= 1:    return round(p, 4)
+    if p >= 0.01: return round(p, 6)
+    return round(p, 10)
+
+def run():
+    header()
+
+    strategy = EmaRsiStrategy()
+    manager  = OrderManager()
+
+    send_telegram(f"Bot iniciado | {len(PAIRS)} pares | Modo={TRADING_MODE}")
+
+    while True:
+        try:
+            pair_rows = []
+
+            with spinner("atualizando pares..."):
+                for symbol in PAIRS:
+                    try:
+                        df         = fetch_ohlcv(symbol, TIMEFRAME)
+                        signal     = strategy.generate_signal(df)
+                        indicators = strategy.calculate_indicators(df).iloc[-1]
+                        current_price = signal.price
+
+                        save_ohlcv(symbol, TIMEFRAME, df)
+                        log_signal({
+                            "timestamp": datetime.now().isoformat(),
+                            "symbol":    symbol,
+                            "timeframe": TIMEFRAME,
+                            "price":     _round_price(current_price),
+                            "signal":    signal.signal.value,
+                            "ema_fast":  _round_price(float(indicators["ema_fast"])),
+                            "ema_slow":  _round_price(float(indicators["ema_slow"])),
+                            "ema_trend": _round_price(float(indicators["ema_trend"])),
+                            "rsi":       round(float(indicators["rsi"]), 4),
+                            "macd":      round(float(indicators["macd"]), 6),
+                            "reason":    signal.reason,
+                        })
+
+                        pos = manager.get_position(symbol)
+                        pnl_pct = None
+                        if pos:
+                            pnl_pct = (current_price - pos.entry_price) / pos.entry_price * 100
+
+                        pair_rows.append({
+                            "symbol":    symbol,
+                            "price":     current_price,
+                            "signal":    signal.signal.value,
+                            "rsi":       indicators["rsi"],
+                            "ema_fast":  indicators["ema_fast"],
+                            "ema_slow":  indicators["ema_slow"],
+                            "in_pos":    pos is not None,
+                            "pnl_pct":   pnl_pct,
+                        })
+
+                        if pos:
+                            if should_stop_loss(current_price, pos.entry_price):
+                                pnl     = (current_price - pos.entry_price) * pos.quantity
+                                pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
+                                manager.close_position(symbol, "Stop Loss", current_price)
+                                trade_result(f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt)
+
+                            elif should_take_profit(current_price, pos.entry_price):
+                                pnl     = (current_price - pos.entry_price) * pos.quantity
+                                pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
+                                manager.close_position(symbol, "Take Profit", current_price)
+                                trade_result(f"take profit  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt)
+
+                            elif signal.signal == Signal.SELL:
+                                pnl     = (current_price - pos.entry_price) * pos.quantity
+                                pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
+                                manager.close_position(symbol, "Sinal de venda", current_price)
+                                trade_result(f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt)
+
+                        else:
+                            open_count = len(manager.positions)
+                            slots_left = MAX_POSITIONS - open_count
+                            if signal.signal == Signal.BUY and slots_left > 0:
+                                if TRADING_MODE == "paper":
+                                    available = manager.paper_balance_usdt / slots_left
+                                else:
+                                    available = _get_usdt_balance() / slots_left
+                                risk = calculate_risk(current_price, available)
+                                manager.open_long(symbol, risk)
+                                buy_opened(symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit)
+
+                    except Exception as e:
+                        log.error(f"{symbol}: {e}")
+                        pair_rows.append({
+                            "symbol":  symbol,
+                            "price":   0,
+                            "signal":  "ERR",
+                            "rsi":     0,
+                            "ema_fast": 0,
+                            "ema_slow": 0,
+                            "in_pos":  False,
+                            "pnl_pct": None,
+                        })
+
+            pairs_table(pair_rows, manager.paper_balance_usdt, manager.pnl(), manager.total_trades, manager.win_rate())
+
+        except KeyboardInterrupt:
+            _shutdown()
+            break
+        except Exception as e:
+            error(str(e))
+            log.error(e)
+
+        try:
+            waiting(POLL_INTERVAL)
+            time.sleep(POLL_INTERVAL)
+        except KeyboardInterrupt:
+            _shutdown()
+            break
+
+def _shutdown():
+    shutdown()
+    send_telegram("Bot encerrado.")
+
+def _get_usdt_balance() -> float:
+    try:
+        balance = fetch_balance()
+        return float(balance.get("USDT", 0))
+    except Exception:
+        return 0.0
+
+if __name__ == "__main__":
+    run()
