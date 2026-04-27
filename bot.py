@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS
+from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME
 from data.fetcher import fetch_ohlcv, fetch_balance
 from data.trade_logger import log_signal, save_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
@@ -96,7 +96,7 @@ def run():
                         else:
                             open_count = len(manager.positions)
                             slots_left = MAX_POSITIONS - open_count
-                            if signal.signal == Signal.BUY and slots_left > 0:
+                            if signal.signal == Signal.BUY and slots_left > 0 and _mtf_confirmed(symbol, current_price, strategy):
                                 if TRADING_MODE == "paper":
                                     available = manager.paper_balance_usdt / slots_left
                                 else:
@@ -143,6 +143,14 @@ def run():
         except KeyboardInterrupt:
             _shutdown()
             break
+
+def _mtf_confirmed(symbol: str, price: float, strategy: EmaRsiStrategy) -> bool:
+    try:
+        df  = fetch_ohlcv(symbol, MTF_TIMEFRAME)
+        ind = strategy.calculate_indicators(df).iloc[-1]
+        return price > ind["ema_trend"]
+    except Exception:
+        return True  # em caso de erro, não bloqueia a entrada
 
 def _shutdown():
     shutdown()

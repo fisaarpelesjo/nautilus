@@ -51,6 +51,7 @@ ATR_SL_MULTIPLIER=1.5     # SL = entrada - 1.5 × ATR14
 ATR_TP_MULTIPLIER=3.0     # TP = entrada + 3.0 × ATR14
 VOLUME_MA_PERIOD=20       # janela da média de volume
 VOLUME_MIN_RATIO=1.2      # volume mínimo para BUY = média × 1.2
+MTF_TIMEFRAME=1d          # timeframe de confirmação de tendência
 
 # Opcional — alertas Telegram
 TELEGRAM_BOT_TOKEN=
@@ -88,7 +89,7 @@ python main.py status
 
 | Sinal | Condição |
 |---|---|
-| **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 + volume > 1.2× média(20) |
+| **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 + volume > 1.2× média(20) + preço > EMA50 no diário |
 | **VENDA** | EMA9 cruza abaixo EMA21 + RSI > 35 |
 | **Stop Loss** | `entrada - 1.5 × ATR14` (dinâmico por volatilidade) |
 | **Take Profit** | `entrada + 3.0 × ATR14` (dinâmico por volatilidade) |

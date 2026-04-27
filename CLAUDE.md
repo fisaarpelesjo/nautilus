@@ -67,6 +67,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
 | `VOLUME_MA_PERIOD` | `20` | Janela da média de volume para filtro |
 | `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |
+| `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
 | `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram (opcional) |
 | `TELEGRAM_CHAT_ID` | — | Chat ID Telegram (opcional) |
 
@@ -89,7 +90,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 | Sinal | Condição |
 |---|---|
-| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 **e** volume > 1.2× média(20) |
+| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) |
 | SELL | EMA9 cruza abaixo EMA21 **e** RSI > 35 |
 | HOLD | nenhuma das anteriores |
 
