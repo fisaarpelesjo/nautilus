@@ -102,6 +102,11 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 **Stop Loss / Trailing Stop / Take Profit** são gerenciados no `bot.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
 
+**Regras de gestão de ciclo (bot.py):**
+- `MAX_ENTRIES_PER_CYCLE = 1` — máximo de 1 nova posição aberta por ciclo de 60s, evitando entradas correlacionadas simultâneas
+- Cooldown ativado após Stop Loss **e** após Sinal de Venda com prejuízo
+- `log_signal` só grava quando o sinal muda (HOLD→BUY, BUY→SELL, etc.), não em todo poll
+
 ---
 
 ## Gestão de risco — risk/manager.py

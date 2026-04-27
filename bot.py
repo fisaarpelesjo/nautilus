@@ -1,5 +1,6 @@
 import time
 from datetime import datetime
+from typing import Dict
 from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME, ATR_SL_MULTIPLIER, DAILY_REPORT_HOUR
 from data.fetcher import fetch_ohlcv, fetch_balance
 from data.trade_logger import log_signal, save_ohlcv
@@ -16,6 +17,7 @@ from utils.logger import get_logger
 
 log = get_logger("bot")
 POLL_INTERVAL = 60
+MAX_ENTRIES_PER_CYCLE = 1
 
 def _round_price(p: float) -> float:
     if p >= 1:    return round(p, 4)
@@ -28,6 +30,7 @@ def run():
     strategy          = EmaRsiStrategy()
     manager           = OrderManager()
     last_report_date  = ""
+    last_signals: Dict[str, str] = {}
 
     send_telegram(f"Bot iniciado | {len(PAIRS)} pares | Modo={TRADING_MODE}")
 
@@ -35,29 +38,34 @@ def run():
         try:
             pair_rows    = []
             trade_events = []
+            new_entries  = 0
 
             with spinner("atualizando pares..."):
                 for symbol in PAIRS:
                     try:
-                        df         = fetch_ohlcv(symbol, TIMEFRAME)
-                        signal     = strategy.generate_signal(df)
-                        indicators = strategy.calculate_indicators(df).iloc[-1]
+                        df            = fetch_ohlcv(symbol, TIMEFRAME)
+                        signal        = strategy.generate_signal(df)
+                        indicators    = strategy.calculate_indicators(df).iloc[-1]
                         current_price = signal.price
 
                         save_ohlcv(symbol, TIMEFRAME, df)
-                        log_signal({
-                            "timestamp": datetime.now().isoformat(),
-                            "symbol":    symbol,
-                            "timeframe": TIMEFRAME,
-                            "price":     _round_price(current_price),
-                            "signal":    signal.signal.value,
-                            "ema_fast":  _round_price(float(indicators["ema_fast"])),
-                            "ema_slow":  _round_price(float(indicators["ema_slow"])),
-                            "ema_trend": _round_price(float(indicators["ema_trend"])),
-                            "rsi":       round(float(indicators["rsi"]), 4),
-                            "macd":      round(float(indicators["macd"]), 6),
-                            "reason":    signal.reason,
-                        })
+
+                        # Fix 1: só loga quando o sinal muda
+                        if signal.signal.value != last_signals.get(symbol):
+                            log_signal({
+                                "timestamp": datetime.now().isoformat(),
+                                "symbol":    symbol,
+                                "timeframe": TIMEFRAME,
+                                "price":     _round_price(current_price),
+                                "signal":    signal.signal.value,
+                                "ema_fast":  _round_price(float(indicators["ema_fast"])),
+                                "ema_slow":  _round_price(float(indicators["ema_slow"])),
+                                "ema_trend": _round_price(float(indicators["ema_trend"])),
+                                "rsi":       round(float(indicators["rsi"]), 4),
+                                "macd":      round(float(indicators["macd"]), 6),
+                                "reason":    signal.reason,
+                            })
+                            last_signals[symbol] = signal.signal.value
 
                         pos = manager.get_position(symbol)
                         pnl_pct = None
@@ -100,12 +108,18 @@ def run():
                                 pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Sinal de venda", current_price)
+                                # Fix 2: cooldown também após saída por sinal com prejuízo
+                                if pnl < 0:
+                                    manager.set_cooldown(symbol)
                                 trade_events.append(("result", f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
                         else:
                             open_count = len(manager.positions)
                             slots_left = MAX_POSITIONS - open_count
-                            if (signal.signal == Signal.BUY and slots_left > 0
+                            # Fix 3: máximo de MAX_ENTRIES_PER_CYCLE novas entradas por ciclo
+                            if (signal.signal == Signal.BUY
+                                    and slots_left > 0
+                                    and new_entries < MAX_ENTRIES_PER_CYCLE
                                     and not manager.is_daily_limit_hit()
                                     and not manager.is_in_cooldown(symbol)
                                     and _mtf_confirmed(symbol, current_price, strategy)):
@@ -116,6 +130,7 @@ def run():
                                 atr  = float(indicators.get("atr", 0) or 0)
                                 risk = calculate_risk(current_price, available, atr)
                                 manager.open_long(symbol, risk)
+                                new_entries += 1
                                 trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
 
                     except Exception as e:
@@ -142,7 +157,7 @@ def run():
 
             pairs_table(pair_rows, manager.paper_balance_usdt, manager.pnl(), manager.total_trades, manager.win_rate())
 
-            now = datetime.now()
+            now   = datetime.now()
             today = now.strftime("%Y-%m-%d")
             if now.hour == DAILY_REPORT_HOUR and today != last_report_date:
                 _send_daily_report(manager)
@@ -182,7 +197,7 @@ def _mtf_confirmed(symbol: str, price: float, strategy: EmaRsiStrategy) -> bool:
         ind = strategy.calculate_indicators(df).iloc[-1]
         return price > ind["ema_trend"]
     except Exception:
-        return True  # em caso de erro, não bloqueia a entrada
+        return True
 
 def _shutdown():
     shutdown()
