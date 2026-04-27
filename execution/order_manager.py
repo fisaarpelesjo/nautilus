@@ -19,6 +19,8 @@ class Position:
     quantity: float
     stop_loss: float
     take_profit: float
+    atr: float = 0.0
+    highest_price: float = 0.0
     opened_at: datetime = field(default_factory=datetime.now)
     order_id: Optional[str] = None
 
@@ -43,14 +45,16 @@ class OrderManager:
         for symbol, pos in state.get("positions", {}).items():
             if pos:
                 self.positions[symbol] = Position(
-                    symbol      = pos["symbol"],
-                    side        = pos["side"],
-                    entry_price = pos["entry_price"],
-                    quantity    = pos["quantity"],
-                    stop_loss   = pos["stop_loss"],
-                    take_profit = pos["take_profit"],
-                    opened_at   = datetime.fromisoformat(pos["opened_at"]),
-                    order_id    = pos.get("order_id"),
+                    symbol        = pos["symbol"],
+                    side          = pos["side"],
+                    entry_price   = pos["entry_price"],
+                    quantity      = pos["quantity"],
+                    stop_loss     = pos["stop_loss"],
+                    take_profit   = pos["take_profit"],
+                    atr           = pos.get("atr", 0.0),
+                    highest_price = pos.get("highest_price", pos["entry_price"]),
+                    opened_at     = datetime.fromisoformat(pos["opened_at"]),
+                    order_id      = pos.get("order_id"),
                 )
         if self.positions:
             log.info(f"Posicoes restauradas: {list(self.positions.keys())}")
@@ -59,14 +63,16 @@ class OrderManager:
         pos_data = {}
         for symbol, pos in self.positions.items():
             pos_data[symbol] = {
-                "symbol":      pos.symbol,
-                "side":        pos.side,
-                "entry_price": pos.entry_price,
-                "quantity":    pos.quantity,
-                "stop_loss":   pos.stop_loss,
-                "take_profit": pos.take_profit,
-                "opened_at":   pos.opened_at.isoformat(),
-                "order_id":    pos.order_id,
+                "symbol":        pos.symbol,
+                "side":          pos.side,
+                "entry_price":   pos.entry_price,
+                "quantity":      pos.quantity,
+                "stop_loss":     pos.stop_loss,
+                "take_profit":   pos.take_profit,
+                "atr":           pos.atr,
+                "highest_price": pos.highest_price,
+                "opened_at":     pos.opened_at.isoformat(),
+                "order_id":      pos.order_id,
             }
         save_state({
             "paper_balance_usdt": self.paper_balance_usdt,
@@ -112,12 +118,14 @@ class OrderManager:
             return
         self.paper_balance_usdt -= cost
         self.positions[symbol] = Position(
-            symbol      = symbol,
-            side        = "long",
-            entry_price = risk.entry_price,
-            quantity    = risk.quantity,
-            stop_loss   = risk.stop_loss,
-            take_profit = risk.take_profit,
+            symbol        = symbol,
+            side          = "long",
+            entry_price   = risk.entry_price,
+            quantity      = risk.quantity,
+            stop_loss     = risk.stop_loss,
+            take_profit   = risk.take_profit,
+            atr           = risk.atr,
+            highest_price = risk.entry_price,
         )
         self._persist_state()
         msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"

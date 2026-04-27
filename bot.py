@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME
+from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME, ATR_SL_MULTIPLIER
 from data.fetcher import fetch_ohlcv, fetch_balance
 from data.trade_logger import log_signal, save_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
@@ -75,6 +75,13 @@ def run():
                         })
 
                         if pos:
+                            if current_price > pos.highest_price and pos.atr > 0:
+                                new_trail = current_price - ATR_SL_MULTIPLIER * pos.atr
+                                if new_trail > pos.stop_loss:
+                                    pos.highest_price = current_price
+                                    pos.stop_loss     = new_trail
+                                    manager._persist_state()
+
                             if should_stop_loss(current_price, pos.stop_loss):
                                 pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100

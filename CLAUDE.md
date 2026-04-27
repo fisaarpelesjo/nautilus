@@ -94,7 +94,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | SELL | EMA9 cruza abaixo EMA21 **e** RSI > 35 |
 | HOLD | nenhuma das anteriores |
 
-**Stop Loss / Take Profit** são gerenciados no `bot.py`, não na estratégia. Isso permite trocar a estratégia sem mexer na gestão de risco.
+**Stop Loss / Trailing Stop / Take Profit** são gerenciados no `bot.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
 
 ---
 

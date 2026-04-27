@@ -91,8 +91,9 @@ python main.py status
 |---|---|
 | **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 + volume > 1.2× média(20) + preço > EMA50 no diário |
 | **VENDA** | EMA9 cruza abaixo EMA21 + RSI > 35 |
-| **Stop Loss** | `entrada - 1.5 × ATR14` (dinâmico por volatilidade) |
-| **Take Profit** | `entrada + 3.0 × ATR14` (dinâmico por volatilidade) |
+| **Stop Loss** | `entrada - 1.5 × ATR14` (inicial) |
+| **Trailing Stop** | sobe para `máximo - 1.5 × ATR14` a cada novo topo |
+| **Take Profit** | `entrada + 3.0 × ATR14` (alvo máximo) |
 
 Risk/reward ratio: **1:2** (adaptado à volatilidade de cada par via ATR14)
 

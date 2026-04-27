@@ -11,6 +11,7 @@ class RiskLevels:
     take_profit: float
     quantity: float
     risk_usdt: float
+    atr: float = 0.0
 
 def calculate_risk(entry_price: float, available_usdt: float, atr: float = 0.0) -> RiskLevels:
     order_size = min(MAX_ORDER_SIZE_USDT, available_usdt * 0.95)
@@ -38,6 +39,7 @@ def calculate_risk(entry_price: float, available_usdt: float, atr: float = 0.0) 
         take_profit=take_profit,
         quantity=quantity,
         risk_usdt=risk_usdt,
+        atr=atr,
     )
 
 def should_stop_loss(current_price: float, stop_loss: float) -> bool:
