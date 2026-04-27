@@ -45,8 +45,10 @@ TIMEFRAME=4h
 
 MAX_ORDER_SIZE_USDT=100.0
 MAX_POSITIONS=5           # máximo de posições abertas simultaneamente
-STOP_LOSS_PCT=0.015       # 1.5%
-TAKE_PROFIT_PCT=0.06      # 6%
+STOP_LOSS_PCT=0.015       # fallback se ATR indisponível
+TAKE_PROFIT_PCT=0.06      # fallback se ATR indisponível
+ATR_SL_MULTIPLIER=1.5     # SL = entrada - 1.5 × ATR14
+ATR_TP_MULTIPLIER=3.0     # TP = entrada + 3.0 × ATR14
 
 # Opcional — alertas Telegram
 TELEGRAM_BOT_TOKEN=
@@ -86,10 +88,10 @@ python main.py status
 |---|---|
 | **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 |
 | **VENDA** | EMA9 cruza abaixo EMA21 + RSI > 35 |
-| **Stop Loss** | Preço cai 1.5% da entrada |
-| **Take Profit** | Preço sobe 6% da entrada |
+| **Stop Loss** | `entrada - 1.5 × ATR14` (dinâmico por volatilidade) |
+| **Take Profit** | `entrada + 3.0 × ATR14` (dinâmico por volatilidade) |
 
-Risk/reward ratio: **1:4**
+Risk/reward ratio: **1:2** (adaptado à volatilidade de cada par via ATR14)
 
 ---
 

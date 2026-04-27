@@ -19,6 +19,7 @@ class EmaRsiStrategy(BaseStrategy):
         df["ema_trend"] = ta.trend.EMAIndicator(df["close"], window=EMA_TREND).ema_indicator()
         df["rsi"]       = ta.momentum.RSIIndicator(df["close"], window=RSI_PERIOD).rsi()
         df["macd"]      = ta.trend.MACD(df["close"]).macd_diff()
+        df["atr"]       = ta.volatility.AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
         df.dropna(inplace=True)
         return df
 

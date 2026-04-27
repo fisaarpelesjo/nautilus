@@ -61,8 +61,10 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `TIMEFRAME` | `4h` | Timeframe dos candles |
 | `MAX_ORDER_SIZE_USDT` | `100.0` | Teto por ordem em USDT |
 | `MAX_POSITIONS` | `5` | Máximo de posições abertas simultaneamente |
-| `STOP_LOSS_PCT` | `0.015` | Stop loss (1.5%) |
-| `TAKE_PROFIT_PCT` | `0.06` | Take profit (6%) |
+| `STOP_LOSS_PCT` | `0.015` | Stop loss fixo (fallback sem ATR) |
+| `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo (fallback sem ATR) |
+| `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
+| `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
 | `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram (opcional) |
 | `TELEGRAM_CHAT_ID` | — | Chat ID Telegram (opcional) |
 
@@ -78,6 +80,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - `ema_trend` — EMA(50), filtro de tendência
 - `rsi` — RSI(14)
 - `macd` — MACD diff (logado, não usado no sinal ainda)
+- `atr` — ATR(14), usado pelo risk manager para SL/TP dinâmico
 
 **Regras de entrada/saída:**
 
@@ -94,9 +97,10 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 ## Gestão de risco — risk/manager.py
 
 - Tamanho da ordem: `min(MAX_ORDER_SIZE_USDT, saldo * 0.95)`
-- Stop loss: `entry_price * (1 - STOP_LOSS_PCT)` → 1.5% abaixo
-- Take profit: `entry_price * (1 + TAKE_PROFIT_PCT)` → 6% acima
-- Risk/reward ratio implícito: 1:4
+- **SL/TP dinâmico via ATR:** `SL = entrada - ATR_SL_MULTIPLIER × ATR14` / `TP = entrada + ATR_TP_MULTIPLIER × ATR14`
+- Fallback (se ATR = 0): SL fixo em `STOP_LOSS_PCT` (1.5%), TP fixo em `TAKE_PROFIT_PCT` (6%)
+- SL mínimo: nunca abaixo de 50% do preço de entrada
+- Risk/reward ratio padrão com ATR: 1:2 (1.5× ATR de risco, 3× ATR de alvo)
 
 ---
 

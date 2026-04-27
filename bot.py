@@ -75,13 +75,13 @@ def run():
                         })
 
                         if pos:
-                            if should_stop_loss(current_price, pos.entry_price):
+                            if should_stop_loss(current_price, pos.stop_loss):
                                 pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Stop Loss", current_price)
                                 trade_events.append(("result", f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
-                            elif should_take_profit(current_price, pos.entry_price):
+                            elif should_take_profit(current_price, pos.take_profit):
                                 pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Take Profit", current_price)
@@ -101,7 +101,8 @@ def run():
                                     available = manager.paper_balance_usdt / slots_left
                                 else:
                                     available = _get_usdt_balance() / slots_left
-                                risk = calculate_risk(current_price, available)
+                                atr  = float(indicators.get("atr", 0) or 0)
+                                risk = calculate_risk(current_price, available, atr)
                                 manager.open_long(symbol, risk)
                                 trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
 
