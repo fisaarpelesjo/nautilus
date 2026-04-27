@@ -29,6 +29,7 @@ class OrderManager:
         self.paper_balance_usdt: float = 1000.0
         self.total_trades: int   = 0
         self.winning_trades: int = 0
+        self.realized_pnl: float = 0.0
         self._restore_state()
 
     def _restore_state(self):
@@ -38,6 +39,7 @@ class OrderManager:
         self.paper_balance_usdt = state.get("paper_balance_usdt", 1000.0)
         self.total_trades       = state.get("total_trades", 0)
         self.winning_trades     = state.get("winning_trades", 0)
+        self.realized_pnl       = state.get("realized_pnl", 0.0)
         for symbol, pos in state.get("positions", {}).items():
             if pos:
                 self.positions[symbol] = Position(
@@ -70,6 +72,7 @@ class OrderManager:
             "paper_balance_usdt": self.paper_balance_usdt,
             "total_trades":       self.total_trades,
             "winning_trades":     self.winning_trades,
+            "realized_pnl":       self.realized_pnl,
             "positions":          pos_data,
             "updated_at":         datetime.now().isoformat(),
         })
@@ -84,7 +87,7 @@ class OrderManager:
         return (self.winning_trades / self.total_trades * 100) if self.total_trades else 0
 
     def pnl(self) -> float:
-        return self.paper_balance_usdt - 1000.0
+        return self.realized_pnl
 
     def open_long(self, symbol: str, risk: RiskLevels):
         if self.has_position(symbol):
@@ -130,6 +133,7 @@ class OrderManager:
         pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
         self.paper_balance_usdt += pos.quantity * exit_price
         self.total_trades += 1
+        self.realized_pnl += pnl
         if pnl > 0:
             self.winning_trades += 1
 

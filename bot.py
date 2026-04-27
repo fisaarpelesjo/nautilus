@@ -32,7 +32,8 @@ def run():
 
     while True:
         try:
-            pair_rows = []
+            pair_rows    = []
+            trade_events = []
 
             with spinner("atualizando pares..."):
                 for symbol in PAIRS:
@@ -75,22 +76,22 @@ def run():
 
                         if pos:
                             if should_stop_loss(current_price, pos.entry_price):
-                                pnl     = (current_price - pos.entry_price) * pos.quantity
+                                pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Stop Loss", current_price)
-                                trade_result(f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt)
+                                trade_events.append(("result", f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
                             elif should_take_profit(current_price, pos.entry_price):
-                                pnl     = (current_price - pos.entry_price) * pos.quantity
+                                pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Take Profit", current_price)
-                                trade_result(f"take profit  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt)
+                                trade_events.append(("result", f"take profit  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
                             elif signal.signal == Signal.SELL:
-                                pnl     = (current_price - pos.entry_price) * pos.quantity
+                                pnl         = (current_price - pos.entry_price) * pos.quantity
                                 pnl_pct_val = (current_price - pos.entry_price) / pos.entry_price * 100
                                 manager.close_position(symbol, "Sinal de venda", current_price)
-                                trade_result(f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt)
+                                trade_events.append(("result", f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
                         else:
                             open_count = len(manager.positions)
@@ -102,20 +103,29 @@ def run():
                                     available = _get_usdt_balance() / slots_left
                                 risk = calculate_risk(current_price, available)
                                 manager.open_long(symbol, risk)
-                                buy_opened(symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit)
+                                trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
 
                     except Exception as e:
                         log.error(f"{symbol}: {e}")
                         pair_rows.append({
-                            "symbol":  symbol,
-                            "price":   0,
-                            "signal":  "ERR",
-                            "rsi":     0,
+                            "symbol":   symbol,
+                            "price":    0,
+                            "signal":   "ERR",
+                            "rsi":      0,
                             "ema_fast": 0,
                             "ema_slow": 0,
-                            "in_pos":  False,
-                            "pnl_pct": None,
+                            "in_pos":   False,
+                            "pnl_pct":  None,
                         })
+
+            for row in pair_rows:
+                row["in_pos"] = manager.has_position(row["symbol"])
+
+            for ev in trade_events:
+                if ev[0] == "result":
+                    trade_result(ev[1], ev[2], ev[3], ev[4])
+                elif ev[0] == "buy":
+                    buy_opened(ev[1], ev[2], ev[3], ev[4], ev[5])
 
             pairs_table(pair_rows, manager.paper_balance_usdt, manager.pnl(), manager.total_trades, manager.win_rate())
 
