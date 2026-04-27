@@ -93,7 +93,7 @@ python main.py status
 
 | Sinal | Condição |
 |---|---|
-| **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 + volume > 1.2× média(20) + preço > EMA50 no diário |
+| **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 + volume > 1.2× média(20) + preço > EMA50 no diário + preço ≤ Banda Superior BB(20,2) |
 | **VENDA** | EMA9 cruza abaixo EMA21 + RSI > 35 |
 | **Stop Loss** | `entrada - 1.5 × ATR14` (inicial) |
 | **Trailing Stop** | sobe para `máximo - 1.5 × ATR14` a cada novo topo |

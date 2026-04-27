@@ -71,6 +71,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `COOLDOWN_HOURS` | `4` | Horas de bloqueio de reentrada após stop loss |
 | `DAILY_DRAWDOWN_LIMIT` | `0.05` | Limite de perda diária (5% do saldo inicial = $50) |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
+| `BB_PERIOD` | `20` | Período das Bollinger Bands |
+| `BB_STD` | `2.0` | Desvios padrão das Bollinger Bands |
 | `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram (opcional) |
 | `TELEGRAM_CHAT_ID` | — | Chat ID Telegram (opcional) |
 
@@ -88,12 +90,13 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - `macd` — MACD diff (logado, não usado no sinal ainda)
 - `atr` — ATR(14), usado pelo risk manager para SL/TP dinâmico
 - `volume_ma` — média móvel simples do volume (período `VOLUME_MA_PERIOD`)
+- `bb_upper`, `bb_middle`, `bb_lower` — Bollinger Bands(20, 2)
 
 **Regras de entrada/saída:**
 
 | Sinal | Condição |
 |---|---|
-| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) |
+| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) **e** preço ≤ BB superior (não sobreextendido) |
 | SELL | EMA9 cruza abaixo EMA21 **e** RSI > 35 |
 | HOLD | nenhuma das anteriores |
 

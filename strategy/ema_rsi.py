@@ -1,6 +1,6 @@
 import pandas as pd
 import ta
-from config.settings import EMA_FAST, EMA_SLOW, EMA_TREND, RSI_PERIOD, RSI_OVERSOLD, RSI_OVERBOUGHT, VOLUME_MA_PERIOD, VOLUME_MIN_RATIO
+from config.settings import EMA_FAST, EMA_SLOW, EMA_TREND, RSI_PERIOD, RSI_OVERSOLD, RSI_OVERBOUGHT, VOLUME_MA_PERIOD, VOLUME_MIN_RATIO, BB_PERIOD, BB_STD
 from strategy.base import BaseStrategy, TradeSignal, Signal
 from utils.logger import get_logger
 
@@ -21,6 +21,10 @@ class EmaRsiStrategy(BaseStrategy):
         df["macd"]      = ta.trend.MACD(df["close"]).macd_diff()
         df["atr"]       = ta.volatility.AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
         df["volume_ma"] = df["volume"].rolling(window=VOLUME_MA_PERIOD).mean()
+        bb = ta.volatility.BollingerBands(df["close"], window=BB_PERIOD, window_dev=BB_STD)
+        df["bb_upper"]  = bb.bollinger_hband()
+        df["bb_middle"] = bb.bollinger_mavg()
+        df["bb_lower"]  = bb.bollinger_lband()
         df.dropna(inplace=True)
         return df
 
@@ -38,12 +42,13 @@ class EmaRsiStrategy(BaseStrategy):
         bullish_cross = prev["ema_fast"] < prev["ema_slow"] and curr["ema_fast"] > curr["ema_slow"]
         bearish_cross = prev["ema_fast"] > prev["ema_slow"] and curr["ema_fast"] < curr["ema_slow"]
 
-        above_trend   = price > curr["ema_trend"]
-        volume_ok     = curr["volume"] >= curr["volume_ma"] * VOLUME_MIN_RATIO
+        above_trend    = price > curr["ema_trend"]
+        volume_ok      = curr["volume"] >= curr["volume_ma"] * VOLUME_MIN_RATIO
+        not_overextended = price <= curr["bb_upper"]
 
-        if bullish_cross and above_trend and rsi < RSI_OVERBOUGHT and volume_ok:
-            log.info(f"COMPRA | EMA cross alta + acima EMA{EMA_TREND} | RSI={rsi:.1f} | Vol={curr['volume']:.0f} (MA={curr['volume_ma']:.0f})")
-            return TradeSignal(Signal.BUY, price, f"EMA{EMA_FAST} cruzou acima EMA{EMA_SLOW} | acima EMA{EMA_TREND} | RSI={rsi:.1f} | vol OK")
+        if bullish_cross and above_trend and rsi < RSI_OVERBOUGHT and volume_ok and not_overextended:
+            log.info(f"COMPRA | EMA cross alta + acima EMA{EMA_TREND} | RSI={rsi:.1f} | Vol={curr['volume']:.0f} (MA={curr['volume_ma']:.0f}) | BB_upper={curr['bb_upper']:.4f}")
+            return TradeSignal(Signal.BUY, price, f"EMA{EMA_FAST} cruzou acima EMA{EMA_SLOW} | acima EMA{EMA_TREND} | RSI={rsi:.1f} | vol OK | BB OK")
 
         if bearish_cross and rsi > RSI_OVERSOLD:
             log.info(f"VENDA | EMA cross baixa | RSI={rsi:.1f}")

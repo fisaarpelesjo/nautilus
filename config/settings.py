@@ -43,5 +43,9 @@ RSI_PERIOD = 14
 RSI_OVERSOLD = 35
 RSI_OVERBOUGHT = 65
 
+# Bollinger Bands
+BB_PERIOD = int(os.getenv("BB_PERIOD", "20"))
+BB_STD    = float(os.getenv("BB_STD", "2.0"))
+
 # Candles para carregar
 CANDLE_LIMIT = 1000
