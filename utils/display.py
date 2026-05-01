@@ -1,37 +1,42 @@
-import sys
 import io
-from rich.console import Console
-from rich.table import Table
-from rich import box
+import sys
 from contextlib import contextmanager
 from datetime import datetime
+
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.rule import Rule
+from rich.table import Table
 
 _out = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 console = Console(file=_out, highlight=False, force_terminal=True)
 
-# ── palette ────────────────────────────────────────────────────
-C_DIAMOND  = "bold cyan"
-C_PIPE     = "dim"
-C_OK       = "bold bright_green"
-C_FAIL     = "bold bright_red"
-C_WARN     = "bold yellow"
-C_PRICE    = "bold white"
-C_LABEL    = "dim"
-C_DIM      = "dim"
-C_BUY      = "bold bright_green"
-C_SELL     = "bold bright_red"
-C_HOLD     = "dim"
-C_CYAN     = "cyan"
-C_RSI_OK   = "white"
-C_RSI_HOT  = "bright_red"
+C_DIAMOND = "bold cyan"
+C_PIPE = "dim"
+C_OK = "bold bright_green"
+C_FAIL = "bold bright_red"
+C_WARN = "bold yellow"
+C_PRICE = "bold white"
+C_LABEL = "dim"
+C_DIM = "dim"
+C_BUY = "bold bright_green"
+C_SELL = "bold bright_red"
+C_HOLD = "dim"
+C_CYAN = "cyan"
+C_RSI_OK = "white"
+C_RSI_HOT = "bright_red"
 C_RSI_COLD = "bright_green"
-C_POS      = "bright_green"
-C_NEG      = "bright_red"
+C_POS = "bright_green"
+C_NEG = "bright_red"
+C_PANEL = "cyan"
 
-def _d(txt):   return f"[{C_DIAMOND}]◆[/{C_DIAMOND}]  {txt}"
-def _p(txt):   return f"[{C_PIPE}]│[/{C_PIPE}]  {txt}"
-def _ok(txt):  return f"[{C_OK}]✓[/{C_OK}]  {txt}"
+
+def _d(txt): return f"[{C_DIAMOND}]◆[/{C_DIAMOND}]  {txt}"
+def _p(txt): return f"[{C_PIPE}]│[/{C_PIPE}]  {txt}"
+def _ok(txt): return f"[{C_OK}]✓[/{C_OK}]  {txt}"
 def _err(txt): return f"[{C_FAIL}]✗[/{C_FAIL}]  {txt}"
+
 
 def _fmt_price(price: float) -> str:
     if price == 0:
@@ -44,6 +49,7 @@ def _fmt_price(price: float) -> str:
         return f"${price:.6f}"
     return f"${price:.8f}"
 
+
 def _fmt_num(value: float) -> str:
     if value == 0:
         return "0"
@@ -55,193 +61,269 @@ def _fmt_num(value: float) -> str:
         return f"{value:.6f}"
     return f"{value:.8f}"
 
+
 def _rsi_color(rsi):
-    if rsi > 65: return C_RSI_HOT
-    if rsi < 35: return C_RSI_COLD
+    if rsi > 65:
+        return C_RSI_HOT
+    if rsi < 35:
+        return C_RSI_COLD
     return C_RSI_OK
 
-def _pnl_color(v):
-    return C_POS if v >= 0 else C_NEG
 
-# ── header ─────────────────────────────────────────────────────
+def _pnl_color(value):
+    return C_POS if value >= 0 else C_NEG
+
+
+def _pct_color(value: float, positive_good: bool = True):
+    if value == 0:
+        return C_DIM
+    good = value > 0 if positive_good else value < 0
+    return C_POS if good else C_NEG
+
+
 def header():
-    from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
+    from config.settings import DYNAMIC_PAIRS_ENABLED, SYMBOL, TIMEFRAME, TRADING_MODE
+
+    mode_color = C_WARN if TRADING_MODE == "live" else C_CYAN
+    pair_mode = "dinamico" if DYNAMIC_PAIRS_ENABLED else "fixo"
     console.print()
-    console.print(_d(f"[bold white]crypto trader[/bold white]"))
-    console.print(_p(f"[{C_DIM}]{SYMBOL}  ·  {TIMEFRAME}  ·  {TRADING_MODE}[/{C_DIM}]"))
+    console.print(Panel.fit(
+        f"[bold white]crypto trader[/bold white]\n"
+        f"[{C_LABEL}]par base[/] [{C_PRICE}]{SYMBOL}[/]   "
+        f"[{C_LABEL}]timeframe[/] [{C_CYAN}]{TIMEFRAME}[/]   "
+        f"[{C_LABEL}]modo[/] [{mode_color}]{TRADING_MODE}[/]   "
+        f"[{C_LABEL}]pares[/] [{C_CYAN}]{pair_mode}[/]",
+        border_style=C_PANEL,
+        box=box.ROUNDED,
+    ))
     console.print()
 
-# ── spinner ─────────────────────────────────────────────────────
+
+def bot_boot(active_pairs: list, max_positions: int, poll_interval: int, dynamic_enabled: bool):
+    pair_mode = "selecao dinamica" if dynamic_enabled else "lista fixa"
+    console.print(Rule("[bold cyan]inicializacao[/bold cyan]", style="dim"))
+    console.print(_p(
+        f"[{C_LABEL}]pares ativos[/] [white]{len(active_pairs)}[/white]"
+        f"   [{C_LABEL}]max posicoes[/] [white]{max_positions}[/white]"
+        f"   [{C_LABEL}]intervalo[/] [white]{poll_interval}s[/white]"
+        f"   [{C_LABEL}]origem[/] [white]{pair_mode}[/white]"
+    ))
+    preview = ", ".join(active_pairs[:8])
+    suffix = " ..." if len(active_pairs) > 8 else ""
+    console.print(_p(f"[{C_LABEL}]universo[/] [{C_CYAN}]{preview}{suffix}[/{C_CYAN}]"))
+    console.print()
+
+
+def cycle_start(cycle_id: int, active_pairs: list, open_positions: int, balance: float, daily_pnl: float):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    daily_color = _pnl_color(daily_pnl)
+    console.print(Rule(f"[bold cyan]ciclo {cycle_id}[/bold cyan]  [dim]{now}[/dim]", style="dim"))
+    console.print(_p(
+        f"[{C_LABEL}]checando[/] [white]{len(active_pairs)} pares[/white]"
+        f"   [{C_LABEL}]posicoes abertas[/] [white]{open_positions}[/white]"
+        f"   [{C_LABEL}]saldo[/] [{C_PRICE}]${balance:,.2f}[/{C_PRICE}]"
+        f"   [{C_LABEL}]pnl dia[/] [{daily_color}]{daily_pnl:+.2f}[/{daily_color}]"
+    ))
+    console.print(_p(f"[{C_DIM}]fases: candles -> indicadores -> sinais -> risco -> execucao -> resumo[/{C_DIM}]"))
+    console.print()
+
+
+def phase(name: str, detail: str = ""):
+    suffix = f" [{C_DIM}]{detail}[/{C_DIM}]" if detail else ""
+    console.print(_d(f"[bold white]{name}[/bold white]{suffix}"))
+
+
 @contextmanager
 def spinner(text: str):
-    with console.status(
-        f"[{C_DIM}]{text}[/{C_DIM}]",
-        spinner="dots",
-        spinner_style=C_CYAN,
-    ):
+    with console.status(f"[{C_DIM}]{text}[/{C_DIM}]", spinner="dots", spinner_style=C_CYAN):
         yield
 
-# ── signal line ─────────────────────────────────────────────────
+
 def signal_line(price: float, signal: str, rsi: float, ema_fast: float, ema_slow: float):
-    now = datetime.now().strftime("%H:%M:%S")
-
-    if signal == "BUY":
-        sig = f"[{C_BUY}]▲  BUY[/{C_BUY}]"
-    elif signal == "SELL":
-        sig = f"[{C_SELL}]▼  SELL[/{C_SELL}]"
-    else:
-        sig = f"[{C_HOLD}]hold[/{C_HOLD}]"
-
-    rc    = _rsi_color(rsi)
-    rsi_s = f"[{rc}]{rsi:.0f}[/{rc}]"
-
-    console.print(_d(f"[{C_DIM}]{now}[/{C_DIM}]"))
+    sig = _signal_markup(signal)
+    rc = _rsi_color(rsi)
+    console.print(_d(f"[{C_DIM}]{datetime.now().strftime('%H:%M:%S')}[/{C_DIM}]"))
+    console.print(_p(f"[{C_LABEL}]preco[/] [{C_PRICE}]{_fmt_price(price)}[/]      {sig}"))
     console.print(_p(
-        f"[{C_LABEL}]preço[/{C_LABEL}]   [{C_PRICE}]{_fmt_price(price)}[/{C_PRICE}]"
-        f"      {sig}"
-    ))
-    console.print(_p(
-        f"[{C_LABEL}]RSI[/{C_LABEL}]     {rsi_s}"
-        f"   [{C_LABEL}]EMA[/{C_LABEL}] [{C_CYAN}]{_fmt_num(ema_fast)}[/{C_CYAN}]"
-        f"  [{C_LABEL}]/[/{C_LABEL}]  [{C_DIM}]{_fmt_num(ema_slow)}[/{C_DIM}]"
+        f"[{C_LABEL}]RSI[/] [{rc}]{rsi:.0f}[/{rc}]"
+        f"   [{C_LABEL}]EMA[/] [{C_CYAN}]{_fmt_num(ema_fast)}[/] / [{C_DIM}]{_fmt_num(ema_slow)}[/]"
     ))
 
-# ── position line ───────────────────────────────────────────────
+
 def position_line(entry: float, current: float, sl: float, tp: float):
-    pnl     = (current - entry) / entry * 100
-    pc      = _pnl_color(pnl)
-    pnl_s   = f"[{pc}]{pnl:+.2f}%[/{pc}]"
+    pnl = (current - entry) / entry * 100
+    pc = _pnl_color(pnl)
     console.print(_p(
-        f"[{C_LABEL}]posição[/{C_LABEL}] [{C_LABEL}]entrada[/{C_LABEL}] [{C_PRICE}]{_fmt_price(entry)}[/{C_PRICE}]"
-        f"   pnl {pnl_s}"
-        f"   [{C_LABEL}]sl[/{C_LABEL}] [{C_NEG}]{_fmt_price(sl)}[/{C_NEG}]"
-        f"   [{C_LABEL}]tp[/{C_LABEL}] [{C_POS}]{_fmt_price(tp)}[/{C_POS}]"
+        f"[{C_LABEL}]posicao[/] [{C_LABEL}]entrada[/] [{C_PRICE}]{_fmt_price(entry)}[/]"
+        f"   [{C_LABEL}]pnl[/] [{pc}]{pnl:+.2f}%[/{pc}]"
+        f"   [{C_LABEL}]sl[/] [{C_NEG}]{_fmt_price(sl)}[/]"
+        f"   [{C_LABEL}]tp[/] [{C_POS}]{_fmt_price(tp)}[/]"
     ))
 
-# ── stats line ──────────────────────────────────────────────────
+
 def stats_line(balance: float, pnl: float, trades: int, win_rate: float):
-    pc  = _pnl_color(pnl)
-    wc  = C_POS if win_rate >= 50 else C_NEG
+    pc = _pnl_color(pnl)
+    wc = C_POS if win_rate >= 50 else C_NEG
     console.print(_p(
-        f"[{C_LABEL}]saldo[/{C_LABEL}]   [{C_PRICE}]${balance:,.2f}[/{C_PRICE}]"
-        f"   [{C_LABEL}]pnl[/{C_LABEL}] [{pc}]{pnl:+.2f}[/{pc}]"
-        f"   [{C_LABEL}]trades[/{C_LABEL}] [white]{trades}[/white]"
-        f"   [{C_LABEL}]win[/{C_LABEL}] [{wc}]{win_rate:.0f}%[/{wc}]"
+        f"[{C_LABEL}]saldo[/] [{C_PRICE}]${balance:,.2f}[/]"
+        f"   [{C_LABEL}]pnl[/] [{pc}]{pnl:+.2f}[/{pc}]"
+        f"   [{C_LABEL}]trades[/] [white]{trades}[/white]"
+        f"   [{C_LABEL}]win[/] [{wc}]{win_rate:.0f}%[/{wc}]"
     ))
 
-# ── buy opened ──────────────────────────────────────────────────
+
 def buy_opened(symbol: str, price: float, qty: float, sl: float, tp: float):
     console.print()
-    console.print(_ok(f"[{C_BUY}]compra aberta  {symbol}[/{C_BUY}]"))
-    console.print(_p(
-        f"[{C_LABEL}]entrada[/{C_LABEL}] [{C_PRICE}]{_fmt_price(price)}[/{C_PRICE}]"
-        f"   [{C_LABEL}]qty[/{C_LABEL}] [{C_CYAN}]{qty:.4f}[/{C_CYAN}]"
-    ))
-    console.print(_p(
-        f"[{C_LABEL}]sl[/{C_LABEL}]      [{C_NEG}]{_fmt_price(sl)}[/{C_NEG}]"
-        f"   [{C_LABEL}]tp[/{C_LABEL}] [{C_POS}]{_fmt_price(tp)}[/{C_POS}]"
+    console.print(Panel.fit(
+        f"[{C_BUY}]compra aberta[/] [bold white]{symbol}[/]\n"
+        f"[{C_LABEL}]entrada[/] [{C_PRICE}]{_fmt_price(price)}[/]   "
+        f"[{C_LABEL}]qty[/] [{C_CYAN}]{qty:.6f}[/]\n"
+        f"[{C_LABEL}]stop[/] [{C_NEG}]{_fmt_price(sl)}[/]   "
+        f"[{C_LABEL}]alvo[/] [{C_POS}]{_fmt_price(tp)}[/]",
+        border_style=C_POS,
+        box=box.ROUNDED,
     ))
     console.print()
 
-# ── trade result ────────────────────────────────────────────────
+
 def trade_result(action: str, pnl: float, pnl_pct: float, balance: float):
+    color = C_POS if pnl >= 0 else C_NEG
+    title = "trade fechado com lucro" if pnl >= 0 else "trade fechado com perda"
     console.print()
-    if pnl >= 0:
-        console.print(_ok(f"[{C_BUY}]{action}[/{C_BUY}]"))
-        console.print(_p(f"[{C_POS}]+${pnl:.4f}  ({pnl_pct:+.2f}%)[/{C_POS}]   [{C_LABEL}]saldo[/{C_LABEL}] [{C_PRICE}]${balance:,.2f}[/{C_PRICE}]"))
-    else:
-        console.print(_err(f"[{C_SELL}]{action}[/{C_SELL}]"))
-        console.print(_p(f"[{C_NEG}]-${abs(pnl):.4f}  ({pnl_pct:+.2f}%)[/{C_NEG}]   [{C_LABEL}]saldo[/{C_LABEL}] [{C_PRICE}]${balance:,.2f}[/{C_PRICE}]"))
+    console.print(Panel.fit(
+        f"[bold white]{action}[/]\n"
+        f"[{C_LABEL}]resultado[/] [{color}]{pnl:+.4f} USDT ({pnl_pct:+.2f}%)[/{color}]   "
+        f"[{C_LABEL}]saldo[/] [{C_PRICE}]${balance:,.2f}[/]",
+        title=f"[{color}]{title}[/{color}]",
+        border_style=color,
+        box=box.ROUNDED,
+    ))
     console.print()
 
-# ── multi-pair table ────────────────────────────────────────────
+
 def pairs_table(rows: list, balance: float, pnl: float, trades: int, win_rate: float):
-    now = datetime.now().strftime("%H:%M:%S")
     console.print()
-    console.print(_d(f"[{C_DIM}]{now}[/{C_DIM}]"))
+    console.print(_d(f"[{C_DIM}]{datetime.now().strftime('%H:%M:%S')}[/] [bold white]resumo dos pares[/bold white]"))
 
-    table = Table(
-        box=box.SIMPLE,
-        show_header=True,
-        header_style="bold dim",
-        border_style="dim",
-        pad_edge=False,
-    )
-    table.add_column("  par",      style="white",   min_width=14)
-    table.add_column("preço",      justify="right", min_width=12)
-    table.add_column("sinal",      justify="center", min_width=6)
-    table.add_column("RSI",        justify="right", min_width=5)
-    table.add_column("EMA rápida", justify="right", min_width=12)
-    table.add_column("EMA lenta",  justify="right", min_width=12)
-    table.add_column("posição",    justify="center", min_width=8)
-    table.add_column("pnl",        justify="right", min_width=8)
+    table = Table(box=box.SIMPLE_HEAVY, show_header=True, header_style="bold cyan", border_style="dim", pad_edge=False)
+    table.add_column("  par", style="white", min_width=12)
+    table.add_column("preco", justify="right", min_width=11)
+    table.add_column("sinal", justify="center", min_width=7)
+    table.add_column("RSI", justify="right", min_width=5)
+    table.add_column("trend", justify="right", min_width=8)
+    table.add_column("vol", justify="right", min_width=7)
+    table.add_column("ATR", justify="right", min_width=7)
+    table.add_column("pos", justify="center", min_width=6)
+    table.add_column("pnl", justify="right", min_width=8)
+    table.add_column("decisao", style="white", min_width=24)
 
-    for r in rows:
-        sig = r["signal"]
-        if sig == "BUY":
-            sig_s = f"[{C_BUY}]▲ BUY[/{C_BUY}]"
-        elif sig == "SELL":
-            sig_s = f"[{C_SELL}]▼ SELL[/{C_SELL}]"
-        elif sig == "ERR":
-            sig_s = f"[{C_FAIL}]ERR[/{C_FAIL}]"
-        else:
-            sig_s = f"[{C_HOLD}]hold[/{C_HOLD}]"
+    for row in rows:
+        signal = row.get("signal", "HOLD")
+        rsi = float(row.get("rsi") or 0)
+        price = float(row.get("price") or 0)
+        trend_gap = float(row.get("trend_gap_pct") or 0)
+        volume_ratio = float(row.get("volume_ratio") or 0)
+        atr_pct = float(row.get("atr_pct") or 0)
+        pnl_pct = row.get("pnl_pct")
 
-        rsi   = r["rsi"]
-        rc    = _rsi_color(rsi)
-        rsi_s = f"[{rc}]{rsi:.0f}[/{rc}]" if rsi else "[dim]—[/dim]"
-
-        price_s = f"[{C_PRICE}]{_fmt_price(r['price'])}[/{C_PRICE}]" if r["price"] else "[dim]—[/dim]"
-        ef_s    = f"[{C_CYAN}]{_fmt_num(r['ema_fast'])}[/{C_CYAN}]" if r["ema_fast"] else "[dim]—[/dim]"
-        es_s    = f"[{C_DIM}]{_fmt_num(r['ema_slow'])}[/{C_DIM}]"   if r["ema_slow"] else "[dim]—[/dim]"
-
-        if r["in_pos"]:
-            pos_s = f"[{C_BUY}]● long[/{C_BUY}]"
-        else:
-            pos_s = f"[{C_DIM}]—[/{C_DIM}]"
-
-        pnl_pct = r.get("pnl_pct")
-        if pnl_pct is not None:
-            pc    = _pnl_color(pnl_pct)
-            pnl_s = f"[{pc}]{pnl_pct:+.2f}%[/{pc}]"
-        else:
-            pnl_s = f"[{C_DIM}]—[/{C_DIM}]"
+        trend_color = _pct_color(trend_gap)
+        vol_color = C_POS if volume_ratio >= 1.2 else C_WARN if volume_ratio >= 1.0 else C_DIM
+        atr_color = C_WARN if atr_pct >= 5 else C_CYAN if atr_pct > 0 else C_DIM
+        pos_s = f"[{C_BUY}]long[/]" if row.get("in_pos") else f"[{C_DIM}]-[/]"
+        pnl_s = f"[{_pnl_color(pnl_pct)}]{pnl_pct:+.2f}%[/{_pnl_color(pnl_pct)}]" if pnl_pct is not None else f"[{C_DIM}]-[/]"
 
         table.add_row(
-            f"  {r['symbol']}",
-            price_s,
-            sig_s,
-            rsi_s,
-            ef_s,
-            es_s,
+            f"  {row.get('symbol', '')}",
+            f"[{C_PRICE}]{_fmt_price(price)}[/]" if price else f"[{C_DIM}]-[/]",
+            _signal_markup(signal),
+            f"[{_rsi_color(rsi)}]{rsi:.0f}[/{_rsi_color(rsi)}]" if rsi else f"[{C_DIM}]-[/]",
+            f"[{trend_color}]{trend_gap:+.2f}%[/{trend_color}]",
+            f"[{vol_color}]{volume_ratio:.2f}x[/{vol_color}]" if volume_ratio else f"[{C_DIM}]-[/]",
+            f"[{atr_color}]{atr_pct:.2f}%[/{atr_color}]" if atr_pct else f"[{C_DIM}]-[/]",
             pos_s,
             pnl_s,
+            _decision_markup(row.get("decision", "monitorando")),
         )
 
     console.print(table)
+    _decision_table(rows)
+    stats_line(balance, pnl, trades, win_rate)
+    console.print()
 
-    pc  = _pnl_color(pnl)
-    wc  = C_POS if win_rate >= 50 else C_NEG
+
+def cycle_summary(pair_rows: list, trade_events: list, new_entries: int, blocked_entries: int):
+    signals = {"BUY": 0, "SELL": 0, "HOLD": 0, "ERR": 0}
+    for row in pair_rows:
+        signals[row.get("signal", "HOLD")] = signals.get(row.get("signal", "HOLD"), 0) + 1
+    console.print(Panel.fit(
+        f"[{C_LABEL}]sinais[/] "
+        f"[{C_BUY}]BUY {signals.get('BUY', 0)}[/]  "
+        f"[{C_SELL}]SELL {signals.get('SELL', 0)}[/]  "
+        f"[{C_HOLD}]HOLD {signals.get('HOLD', 0)}[/]  "
+        f"[{C_FAIL}]ERR {signals.get('ERR', 0)}[/]\n"
+        f"[{C_LABEL}]eventos[/] [white]{len(trade_events)}[/white]   "
+        f"[{C_LABEL}]novas entradas[/] [white]{new_entries}[/white]   "
+        f"[{C_LABEL}]compras bloqueadas[/] [white]{blocked_entries}[/white]",
+        title="[bold cyan]resumo do ciclo[/bold cyan]",
+        border_style=C_PANEL,
+        box=box.ROUNDED,
+    ))
+
+
+def _decision_table(rows: list):
+    table = Table(box=box.SIMPLE, show_header=True, header_style="bold dim", border_style="dim", pad_edge=False)
+    table.add_column("  par", style="white", min_width=12)
+    table.add_column("decisao do ciclo", style="white", min_width=42)
+
+    for row in rows:
+        table.add_row(f"  {row.get('symbol', '')}", _decision_markup(row.get("decision", "monitorando")))
+
+    console.print(table)
+
+
+def waiting(seconds: int):
+    next_check = datetime.now().timestamp() + seconds
+    next_time = datetime.fromtimestamp(next_check).strftime("%H:%M:%S")
+    console.print()
     console.print(_p(
-        f"[{C_LABEL}]saldo[/{C_LABEL}]   [{C_PRICE}]${balance:,.2f}[/{C_PRICE}]"
-        f"   [{C_LABEL}]pnl[/{C_LABEL}] [{pc}]{pnl:+.2f}[/{pc}]"
-        f"   [{C_LABEL}]trades[/{C_LABEL}] [white]{trades}[/white]"
-        f"   [{C_LABEL}]win[/{C_LABEL}] [{wc}]{win_rate:.0f}%[/{wc}]"
+        f"[{C_LABEL}]proxima checagem[/] [white]{next_time}[/white]"
+        f"   [{C_LABEL}]aguardando[/] [white]{seconds}s[/white]"
+        f"   [{C_DIM}]proximo ciclo repetira candles -> sinais -> risco -> execucao[/]"
     ))
     console.print()
 
-# ── waiting ─────────────────────────────────────────────────────
-def waiting(seconds: int):
-    console.print()
-    console.print(f"  [{C_DIM}]⏳ próxima checagem em {seconds}s[/{C_DIM}]")
-    console.print()
 
-# ── error ───────────────────────────────────────────────────────
 def error(msg: str):
     console.print(_err(f"[{C_DIM}]{msg}[/{C_DIM}]"))
 
-# ── shutdown ────────────────────────────────────────────────────
+
 def shutdown():
     console.print()
+    console.print(Rule("[bold cyan]encerramento[/bold cyan]", style="dim"))
     console.print(_d(f"[{C_DIM}]bot encerrado.[/{C_DIM}]"))
     console.print()
+
+
+def _signal_markup(signal: str):
+    if signal == "BUY":
+        return f"[{C_BUY}]▲ BUY[/{C_BUY}]"
+    if signal == "SELL":
+        return f"[{C_SELL}]▼ SELL[/{C_SELL}]"
+    if signal == "ERR":
+        return f"[{C_FAIL}]ERR[/{C_FAIL}]"
+    return f"[{C_HOLD}]hold[/{C_HOLD}]"
+
+
+def _decision_markup(decision: str):
+    low = decision.lower()
+    if "compr" in low or "aberta" in low:
+        color = C_BUY
+    elif "fech" in low or "stop" in low or "venda" in low:
+        color = C_SELL
+    elif "bloque" in low or "aguard" in low:
+        color = C_WARN
+    elif "erro" in low:
+        color = C_FAIL
+    else:
+        color = C_DIM
+    return f"[{color}]{decision}[/{color}]"
