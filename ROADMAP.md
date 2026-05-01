@@ -28,3 +28,5 @@ Este roteiro registra melhorias identificadas ao comparar este bot com projetos 
 ## Notas de Implementação
 
 Mantenha cada item pequeno o suficiente para ter seu próprio commit e etapa de validação. Prefira testes determinísticos antes de mudanças de comportamento. Qualquer funcionalidade que possa afetar negociação real deve preservar `TRADING_MODE=paper` como padrão e manter salvaguardas explícitas para o modo real.
+
+Para avaliação da estratégia atual, resultados locais e próximos experimentos de validação, consulte `STRATEGY_REVIEW.md`.
