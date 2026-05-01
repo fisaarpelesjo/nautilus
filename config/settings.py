@@ -14,6 +14,8 @@ TIMEFRAME    = os.getenv("TIMEFRAME", "4h")
 _pairs_env = os.getenv("PAIRS", "ENSO/USDT,AAVE/USDT,ZEC/USDT,LDO/USDT,TON/USDT")
 PAIRS      = [p.strip() for p in _pairs_env.split(",") if p.strip()]
 SYMBOL     = PAIRS[0]  # compatibilidade com backtest single-pair
+_blacklist_env = os.getenv("BLACKLIST_PAIRS", "")
+BLACKLIST_PAIRS = {p.strip().upper() for p in _blacklist_env.split(",") if p.strip()}
 
 DYNAMIC_PAIRS_ENABLED = os.getenv("DYNAMIC_PAIRS_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
 DYNAMIC_PAIRS_TOP_N = int(os.getenv("DYNAMIC_PAIRS_TOP_N", "5"))
@@ -74,6 +76,9 @@ def validate_config():
     invalid_pairs = [pair for pair in PAIRS if "/" not in pair or not pair.endswith("/USDT")]
     if invalid_pairs:
         errors.append(f"PAIRS invalidos: {', '.join(invalid_pairs)}. Use o formato BASE/USDT.")
+    invalid_blacklist = [pair for pair in BLACKLIST_PAIRS if "/" not in pair and not pair.isalpha()]
+    if invalid_blacklist:
+        errors.append(f"BLACKLIST_PAIRS invalido: {', '.join(invalid_blacklist)}.")
     if not TIMEFRAME.strip():
         errors.append("TIMEFRAME nao pode ficar vazio.")
     if MAX_ORDER_SIZE_USDT <= 0:

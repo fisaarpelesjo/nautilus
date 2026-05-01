@@ -1,6 +1,6 @@
 import pandas as pd
 
-from market.selector import _filter_tickers, _spread_pct, _trend_pct, _volatility_pct, selected_symbols
+from market.selector import _filter_tickers, _spread_pct, _trend_pct, _volatility_pct, is_blacklisted, selected_symbols
 
 
 def _df(closes):
@@ -32,6 +32,26 @@ def test_filter_tickers_keeps_liquid_usdt_pairs_with_small_spread():
     result = _filter_tickers(tickers, min_volume_usdt=10_000_000, max_spread_pct=0.003)
 
     assert selected_symbols(result) == ["BTC/USDT"]
+
+
+def test_filter_tickers_skips_blacklisted_pair(monkeypatch):
+    from market import selector
+
+    monkeypatch.setattr(selector, "BLACKLIST_PAIRS", {"BTC/USDT"})
+    tickers = {
+        "BTC/USDT": {"quoteVolume": 50_000_000, "bid": 100, "ask": 100.1},
+        "ETH/USDT": {"quoteVolume": 40_000_000, "bid": 100, "ask": 100.1},
+    }
+
+    result = _filter_tickers(tickers, min_volume_usdt=10_000_000, max_spread_pct=0.003)
+
+    assert selected_symbols(result) == ["ETH/USDT"]
+
+
+def test_is_blacklisted_accepts_symbol_or_base_asset():
+    assert is_blacklisted("BTC/USDT", {"BTC/USDT"})
+    assert is_blacklisted("ETH/USDT", {"ETH"})
+    assert not is_blacklisted("SOL/USDT", {"ETH"})
 
 
 def test_volatility_and_trend_metrics():

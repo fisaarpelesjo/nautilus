@@ -7,6 +7,8 @@ from rich.table import Table
 from rich import box
 
 from backtesting.engine import run_backtest
+from config.settings import BLACKLIST_PAIRS
+from market.selector import is_blacklisted
 from utils.logger import get_logger
 
 log = get_logger("scanner")
@@ -47,7 +49,7 @@ def get_top_pairs() -> List[str]:
         if not symbol.endswith("/USDT"):
             continue
         base = symbol.split("/")[0]
-        if base in STABLECOINS:
+        if base in STABLECOINS or is_blacklisted(symbol, BLACKLIST_PAIRS):
             continue
         vol = ticker.get("quoteVolume") or 0
         if vol >= MIN_VOLUME_USDT:

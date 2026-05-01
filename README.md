@@ -43,6 +43,7 @@ BINANCE_API_SECRET=seu_api_secret
 TRADING_MODE=paper        # paper (simulado) ou live (real)
 LIVE_TRADING_CONFIRMATION= # obrigatório para live: I_UNDERSTAND_LIVE_TRADING_RISK
 PAIRS=BTC/USDT,ETH/USDT,SOL/USDT   # lista de pares; primeiro é usado no backtest simples
+BLACKLIST_PAIRS=                  # pares ou bases bloqueadas: USDC/USDT,FDUSD,BUSD
 TIMEFRAME=4h
 DYNAMIC_PAIRS_ENABLED=false # true para selecionar pares automaticamente ao iniciar o bot
 DYNAMIC_PAIRS_TOP_N=5

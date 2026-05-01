@@ -7,6 +7,7 @@ from backtesting.engine import simulate_backtest
 from config.settings import (
     DYNAMIC_PAIRS_CANDIDATES,
     DYNAMIC_PAIRS_TOP_N,
+    BLACKLIST_PAIRS,
     MAX_SPREAD_PCT,
     MIN_VOLATILITY_PCT,
     MIN_VOLUME_USDT,
@@ -78,7 +79,7 @@ def _filter_tickers(tickers: dict, min_volume_usdt: float, max_spread_pct: float
         if not symbol.endswith("/USDT"):
             continue
         base = symbol.split("/")[0]
-        if base in STABLECOINS:
+        if base in STABLECOINS or is_blacklisted(symbol):
             continue
 
         volume = float(ticker.get("quoteVolume") or 0)
@@ -97,6 +98,13 @@ def _filter_tickers(tickers: dict, min_volume_usdt: float, max_spread_pct: float
         ))
 
     return sorted(candidates, key=lambda item: item.volume_24h, reverse=True)
+
+
+def is_blacklisted(symbol: str, blacklist: set[str] | None = None) -> bool:
+    blacklist = blacklist if blacklist is not None else BLACKLIST_PAIRS
+    normalized = symbol.upper()
+    base = normalized.split("/")[0]
+    return normalized in blacklist or base in blacklist
 
 
 def _spread_pct(bid: float, ask: float) -> float:

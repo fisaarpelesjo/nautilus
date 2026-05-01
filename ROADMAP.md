@@ -8,7 +8,7 @@ Este roteiro registra melhorias identificadas ao comparar este bot com projetos 
 - [x] Comando de análise: adicionar `python main.py analisar` para ler `data/trades.csv` e gerar um resumo local de desempenho após sessões em simulado ou real.
 - [x] Otimização de parâmetros: adicionar `python main.py otimizar` para testar faixas de EMA, RSI, ATR, volume e Bollinger Bands.
 - [x] Lista permitida dinâmica: selecionar pares negociáveis automaticamente usando volume, diferença entre compra e venda, volatilidade, tendência e resultados recentes de teste histórico.
-- [ ] Lista bloqueada de pares: suportar `BLACKLIST_PAIRS` e ignorar moedas estáveis, pares com baixa liquidez ou ativos problemáticos.
+- [x] Lista bloqueada de pares: suportar `BLACKLIST_PAIRS` e ignorar moedas estáveis, pares com baixa liquidez ou ativos problemáticos.
 
 ## Prioridade Média
 
