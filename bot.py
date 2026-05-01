@@ -78,14 +78,16 @@ def run():
                     try:
                         df = fetch_ohlcv(symbol, TIMEFRAME)
                         signal = strategy.generate_signal(df)
-                        indicators = strategy.calculate_indicators(df).iloc[-1]
+                        prepared = strategy.calculate_indicators(df)
+                        indicators = prepared.iloc[-1]
+                        previous = prepared.iloc[-2] if len(prepared) >= 2 else None
                         current_price = signal.price
 
                         save_ohlcv(symbol, TIMEFRAME, df)
                         _log_signal_change(symbol, signal, indicators, current_price, last_signals)
 
                         pos = manager.get_position(symbol)
-                        row = _build_pair_row(symbol, signal, indicators, current_price, pos)
+                        row = _build_pair_row(symbol, signal, indicators, previous, current_price, pos, strategy)
                         pair_rows.append(row)
 
                         if pos:
@@ -160,7 +162,7 @@ def _log_signal_change(symbol: str, signal, indicators, current_price: float, la
     last_signals[symbol] = signal.signal.value
 
 
-def _build_pair_row(symbol: str, signal, indicators, current_price: float, pos):
+def _build_pair_row(symbol: str, signal, indicators, previous, current_price: float, pos, strategy: EmaRsiStrategy):
     pnl_pct = (current_price - pos.entry_price) / pos.entry_price * 100 if pos else None
     volume_ma = float(indicators.get("volume_ma", 0) or 0)
     volume_ratio = float(indicators.get("volume", 0) or 0) / volume_ma if volume_ma else 0.0
@@ -180,7 +182,7 @@ def _build_pair_row(symbol: str, signal, indicators, current_price: float, pos):
         "atr_pct": atr_pct,
         "in_pos": pos is not None,
         "pnl_pct": pnl_pct,
-        "decision": "posicao aberta: monitorando saidas" if pos else "aguardando gatilho",
+        "decision": "posicao aberta: monitorando saidas" if pos else _hold_diagnosis(signal, indicators, previous, current_price, strategy),
     }
 
 
@@ -229,7 +231,6 @@ def _handle_entry_candidate(
     blockers = []
 
     if signal.signal != Signal.BUY:
-        row["decision"] = "aguardando: " + signal.reason[:52]
         return False
     if slots_left <= 0:
         blockers.append("sem slot")
@@ -276,6 +277,38 @@ def _error_row(symbol: str, exc: Exception):
         "pnl_pct": None,
         "decision": f"erro: {str(exc)[:42]}",
     }
+
+
+def _hold_diagnosis(signal, indicators, previous, current_price: float, strategy: EmaRsiStrategy) -> str:
+    if signal.signal == Signal.BUY:
+        return "gatilho BUY detectado: validando risco/MTF"
+    if signal.signal == Signal.SELL:
+        return "gatilho SELL detectado sem posicao aberta"
+    if previous is None:
+        return "aguardando: historico insuficiente"
+
+    params = strategy.params
+    checks = []
+    bullish_cross = previous["ema_fast"] < previous["ema_slow"] and indicators["ema_fast"] > indicators["ema_slow"]
+    trend_ok = current_price > indicators["ema_trend"]
+    rsi_ok = indicators["rsi"] < params.rsi_overbought
+    volume_ma = float(indicators.get("volume_ma", 0) or 0)
+    volume_ratio = float(indicators.get("volume", 0) or 0) / volume_ma if volume_ma else 0.0
+    volume_ok = volume_ratio >= params.volume_min_ratio
+    bb_ok = current_price <= indicators["bb_upper"]
+
+    if not bullish_cross:
+        checks.append("sem cruzamento EMA")
+    if not trend_ok:
+        checks.append("abaixo EMA50")
+    if not rsi_ok:
+        checks.append(f"RSI alto {indicators['rsi']:.0f}")
+    if not volume_ok:
+        checks.append(f"volume {volume_ratio:.2f}x")
+    if not bb_ok:
+        checks.append("acima Bollinger")
+
+    return "aguardando: " + ", ".join(checks[:3]) if checks else "aguardando confirmacao final"
 
 
 def _send_daily_report(manager: OrderManager):

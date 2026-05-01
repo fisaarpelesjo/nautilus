@@ -215,7 +215,6 @@ def pairs_table(rows: list, balance: float, pnl: float, trades: int, win_rate: f
     table.add_column("ATR", justify="right", min_width=7)
     table.add_column("pos", justify="center", min_width=6)
     table.add_column("pnl", justify="right", min_width=8)
-    table.add_column("decisao", style="white", min_width=24)
 
     for row in rows:
         signal = row.get("signal", "HOLD")
@@ -242,7 +241,6 @@ def pairs_table(rows: list, balance: float, pnl: float, trades: int, win_rate: f
             f"[{atr_color}]{atr_pct:.2f}%[/{atr_color}]" if atr_pct else f"[{C_DIM}]-[/]",
             pos_s,
             pnl_s,
-            _decision_markup(row.get("decision", "monitorando")),
         )
 
     console.print(table)
@@ -271,11 +269,22 @@ def cycle_summary(pair_rows: list, trade_events: list, new_entries: int, blocked
 
 
 def _decision_table(rows: list):
+    actionable = [
+        row for row in rows
+        if row.get("signal") in {"BUY", "SELL", "ERR"}
+        or row.get("in_pos")
+        or "bloqueada" in row.get("decision", "")
+        or "fechou" in row.get("decision", "")
+    ]
+    if not actionable:
+        console.print(_p(f"[{C_DIM}]decisoes: nenhum gatilho acionavel neste ciclo; pares seguem em monitoramento.[/{C_DIM}]"))
+        return
+
     table = Table(box=box.SIMPLE, show_header=True, header_style="bold dim", border_style="dim", pad_edge=False)
     table.add_column("  par", style="white", min_width=12)
-    table.add_column("decisao do ciclo", style="white", min_width=42)
+    table.add_column("decisao do ciclo", style="white", min_width=58)
 
-    for row in rows:
+    for row in actionable:
         table.add_row(f"  {row.get('symbol', '')}", _decision_markup(row.get("decision", "monitorando")))
 
     console.print(table)
