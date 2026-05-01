@@ -1,30 +1,30 @@
 # Roadmap
 
-This roadmap tracks improvements identified by comparing this bot with mature open-source crypto trading bots such as Freqtrade, Jesse, Hummingbot, VibeTrading, and Wisp. Prioritize changes that improve validation, observability, and decision quality before adding advanced automation.
+Este roteiro registra melhorias identificadas ao comparar este bot com projetos maduros de negociação cripto de código aberto, como Freqtrade, Jesse, Hummingbot, VibeTrading e Wisp. Priorize mudanças que melhorem validação, observabilidade e qualidade de decisão antes de adicionar automações avançadas.
 
 ## Prioridade Alta
 
-- Advanced backtest metrics: add profit factor, expectancy, average win/loss, largest win/loss, max losing streak, simplified Sharpe, exposure, and return by pair/timeframe.
-- `analyze` command: read `data/trades.csv` and generate a local performance summary after paper or live sessions.
-- Parameter optimization: add `python main.py optimize` to test ranges for EMA, RSI, ATR, volume, and Bollinger Band parameters.
-- Dynamic whitelist: select tradable pairs automatically using volume, spread, volatility, trend, and recent backtest results.
-- Pair blacklist: support `BLACKLIST_PAIRS` and skip stablecoins, low-liquidity pairs, or assets known to be problematic.
+- Métricas avançadas de teste histórico: adicionar fator de lucro, expectativa, média de ganho/perda, maior ganho/perda, maior sequência de perdas, Sharpe simplificado, exposição e retorno por par/período gráfico.
+- Comando de análise: adicionar `python main.py analisar` para ler `data/trades.csv` e gerar um resumo local de desempenho após sessões em simulado ou real.
+- Otimização de parâmetros: adicionar `python main.py otimizar` para testar faixas de EMA, RSI, ATR, volume e Bollinger Bands.
+- Lista permitida dinâmica: selecionar pares negociáveis automaticamente usando volume, diferença entre compra e venda, volatilidade, tendência e resultados recentes de teste histórico.
+- Lista bloqueada de pares: suportar `BLACKLIST_PAIRS` e ignorar moedas estáveis, pares com baixa liquidez ou ativos problemáticos.
 
 ## Prioridade Média
 
-- Local dashboard: add `python main.py dashboard` to show balance, open positions, PnL, latest trades, latest signals, and pair status.
-- Strategy debug mode: explain why each pair is `BUY`, `SELL`, or `HOLD`, including EMA, RSI, volume, MTF, and Bollinger filter results.
-- Strategy benchmark: compare multiple strategies, presets, pairs, and timeframes in one command.
-- Report exports: save backtest and analysis output under `reports/` as JSON, CSV, and Markdown.
-- Charts: generate equity curve, drawdown, PnL by pair, and candle charts with trade markers.
+- Painel local: adicionar `python main.py painel` para mostrar saldo, posições abertas, PnL, últimas operações, últimos sinais e status dos pares.
+- Modo debug da estratégia: explicar por que cada par está em `BUY`, `SELL` ou `HOLD`, incluindo EMA, RSI, volume, MTF e filtros de Bollinger.
+- Comparativo de estratégias: comparar múltiplas estratégias, predefinições, pares e períodos gráficos em um único comando.
+- Exportação de relatórios: salvar resultados de teste histórico e análise em `reports/` nos formatos JSON, CSV e Markdown.
+- Gráficos: gerar curva de capital, rebaixamento, PnL por par e candles com marcações de operações.
 
 ## Prioridade Baixa / Avançado
 
-- Monte Carlo analysis: stress-test trade sequences and candle variations to estimate robustness and overfitting risk.
-- ML signal filter: collect labeled features from backtests and optionally gate entries by model confidence.
-- Multiple exchanges: generalize exchange configuration beyond Binance using the existing `ccxt` foundation.
-- Smart order handling: add limit/stop orders, order reconciliation, partial-fill tracking, and safer live execution controls.
+- Análise Monte Carlo: testar sequências de operações e variações de candles para estimar robustez e risco de sobreajuste.
+- Filtro de sinal com aprendizado de máquina: coletar características rotuladas em testes históricos e opcionalmente filtrar entradas por confiança do modelo.
+- Múltiplas corretoras: generalizar a configuração de corretora além da Binance usando a base existente com `ccxt`.
+- Execução inteligente de ordens: adicionar ordens limit/stop, reconciliação de ordens, rastreamento de preenchimento parcial e controles mais seguros para live.
 
-## Implementation Notes
+## Notas de Implementação
 
-Keep each item small enough for its own commit and validation step. Prefer deterministic tests before behavior changes. Any feature that can affect live trading must preserve `TRADING_MODE=paper` as the default and keep explicit live-mode safeguards.
+Mantenha cada item pequeno o suficiente para ter seu próprio commit e etapa de validação. Prefira testes determinísticos antes de mudanças de comportamento. Qualquer funcionalidade que possa afetar negociação real deve preservar `TRADING_MODE=paper` como padrão e manter salvaguardas explícitas para o modo real.
