@@ -41,6 +41,7 @@ BINANCE_API_KEY=sua_api_key
 BINANCE_API_SECRET=seu_api_secret
 
 TRADING_MODE=paper        # paper (simulado) ou live (real)
+LIVE_TRADING_CONFIRMATION= # obrigatório para live: I_UNDERSTAND_LIVE_TRADING_RISK
 PAIRS=BTC/USDT,ETH/USDT,SOL/USDT   # lista de pares; primeiro é usado no backtest simples
 TIMEFRAME=4h
 

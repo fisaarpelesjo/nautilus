@@ -7,6 +7,7 @@ BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 
 TRADING_MODE = os.getenv("TRADING_MODE", "paper")  # "paper" ou "live"
+LIVE_TRADING_CONFIRMATION = os.getenv("LIVE_TRADING_CONFIRMATION", "")
 TIMEFRAME    = os.getenv("TIMEFRAME", "4h")
 
 _pairs_env = os.getenv("PAIRS", "ENSO/USDT,AAVE/USDT,ZEC/USDT,LDO/USDT,TON/USDT")

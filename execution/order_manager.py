@@ -2,7 +2,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 import ccxt
-from config.settings import TRADING_MODE, MAX_ORDER_SIZE_USDT, COOLDOWN_HOURS, DAILY_DRAWDOWN_LIMIT
+from config.settings import (
+    BINANCE_API_KEY,
+    BINANCE_API_SECRET,
+    LIVE_TRADING_CONFIRMATION,
+    TRADING_MODE,
+    COOLDOWN_HOURS,
+    DAILY_DRAWDOWN_LIMIT,
+)
 from data.fetcher import get_exchange
 from data.trade_logger import log_trade, save_state, load_state
 from risk.manager import RiskLevels
@@ -10,6 +17,8 @@ from utils.logger import get_logger
 from utils.notifier import send_telegram
 
 log = get_logger("orders")
+
+LIVE_CONFIRMATION_TEXT = "I_UNDERSTAND_LIVE_TRADING_RISK"
 
 @dataclass
 class Position:
@@ -26,7 +35,7 @@ class Position:
 
 class OrderManager:
     def __init__(self):
-        self.exchange: ccxt.binance  = get_exchange()
+        self.exchange: Optional[ccxt.binance] = None
         self.positions: Dict[str, Position] = {}
         self.paper_balance_usdt: float = 1000.0
         self.total_trades: int   = 0
@@ -35,7 +44,19 @@ class OrderManager:
         self.cooldowns: Dict[str, datetime] = {}
         self.daily_pnl: float = 0.0
         self.daily_reset_date: str = ""
+        if TRADING_MODE == "live":
+            self._assert_live_trading_allowed()
+            self.exchange = get_exchange()
         self._restore_state()
+
+    def _assert_live_trading_allowed(self):
+        if LIVE_TRADING_CONFIRMATION != LIVE_CONFIRMATION_TEXT:
+            raise RuntimeError(
+                "Live trading bloqueado: defina "
+                f"LIVE_TRADING_CONFIRMATION={LIVE_CONFIRMATION_TEXT} no .env para operar com dinheiro real."
+            )
+        if not BINANCE_API_KEY or not BINANCE_API_SECRET:
+            raise RuntimeError("Live trading bloqueado: BINANCE_API_KEY e BINANCE_API_SECRET sao obrigatorios.")
 
     def _restore_state(self):
         state = load_state()
@@ -207,6 +228,8 @@ class OrderManager:
         self._persist_state()
 
     def _live_buy(self, symbol: str, risk: RiskLevels):
+        if self.exchange is None:
+            raise RuntimeError("Exchange live nao inicializada.")
         try:
             order = self.exchange.create_market_buy_order(
                 symbol, risk.quantity,
@@ -229,6 +252,8 @@ class OrderManager:
             log.error(f"Erro ao comprar {symbol}: {e}")
 
     def _live_sell(self, symbol: str, reason: str):
+        if self.exchange is None:
+            raise RuntimeError("Exchange live nao inicializada.")
         pos = self.positions[symbol]
         try:
             order = self.exchange.create_market_sell_order(symbol, pos.quantity)
