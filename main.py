@@ -22,6 +22,10 @@ def cmd_scan():
     from backtesting.scanner import run
     run()
 
+def cmd_analisar():
+    from backtesting.analysis import run
+    run()
+
 def cmd_bot():
     from bot import run
     run()
@@ -74,6 +78,8 @@ COMMANDS = {
     "backtest":      cmd_backtest,
     "multibacktest": cmd_multibacktest,
     "scan":          cmd_scan,
+    "analisar":      cmd_analisar,
+    "analyze":       cmd_analisar,
     "bot":           cmd_bot,
     "status":        cmd_status,
 }

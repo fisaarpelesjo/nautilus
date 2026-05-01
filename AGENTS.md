@@ -4,7 +4,7 @@
 
 This is a Python crypto trading bot. `main.py` is the CLI entry point and `bot.py` contains the live/paper trading loop. Configuration lives in `config/settings.py` and is loaded from `.env`. Market data and persistence are in `data/`, strategy logic in `strategy/`, risk sizing in `risk/`, orders in `execution/`, backtests in `backtesting/`, and shared helpers in `utils/`.
 
-Runtime artifacts such as `data/signals.csv`, `data/trades.csv`, `data/state.json`, `data/ohlcv/`, and `logs/` are generated locally and ignored by Git. There is no test directory yet; add tests under `tests/`.
+Runtime artifacts such as `data/signals.csv`, `data/trades.csv`, `data/state.json`, `data/ohlcv/`, and `logs/` are local and ignored by Git. Add tests under `tests/`.
 
 For deeper architecture, strategy, and runtime behavior details, consult `CLAUDE.md`. For planned improvements, consult `ROADMAP.md`.
 
@@ -24,6 +24,7 @@ python main.py status         # show configured pairs, balance, and open positio
 python main.py backtest       # run a single-pair backtest using PAIRS[0]
 python main.py multibacktest  # run configured multi-pair backtests
 python main.py scan           # scan top Binance pairs by volume
+python main.py analisar       # summarize saved trades from data/trades.csv
 python main.py bot            # start the trading loop
 ```
 

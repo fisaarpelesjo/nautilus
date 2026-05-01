@@ -79,6 +79,9 @@ python main.py multibacktest
 # Backtest nos top 30 pares por volume na Binance
 python main.py scan
 
+# Analisar trades salvos em data/trades.csv
+python main.py analisar
+
 # Iniciar o bot multi-par
 python main.py bot
 
