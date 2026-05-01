@@ -52,6 +52,10 @@ BB_STD    = float(os.getenv("BB_STD", "2.0"))
 # Candles para carregar
 CANDLE_LIMIT = 1000
 
+# Backtest
+BACKTEST_FEE_RATE = float(os.getenv("BACKTEST_FEE_RATE", "0.001"))
+BACKTEST_SLIPPAGE_PCT = float(os.getenv("BACKTEST_SLIPPAGE_PCT", "0.0005"))
+
 
 def validate_config():
     errors = []
@@ -85,6 +89,8 @@ def validate_config():
         errors.append("Configuracao de Bollinger Bands invalida.")
     if CANDLE_LIMIT < 50:
         errors.append("CANDLE_LIMIT deve ser pelo menos 50.")
+    if BACKTEST_FEE_RATE < 0 or BACKTEST_SLIPPAGE_PCT < 0:
+        errors.append("BACKTEST_FEE_RATE e BACKTEST_SLIPPAGE_PCT nao podem ser negativos.")
 
     if TRADING_MODE == "live":
         if LIVE_TRADING_CONFIRMATION != LIVE_CONFIRMATION_TEXT:
