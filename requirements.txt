@@ -5,3 +5,4 @@ ta
 python-dotenv
 requests
 colorlog
+pytest
