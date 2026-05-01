@@ -13,7 +13,7 @@ from utils.display import (
     trade_result, waiting, error, buy_opened, shutdown
 )
 from utils.notifier import send_telegram
-from utils.logger import get_logger
+from utils.logger import get_logger, log_event
 
 log = get_logger("bot")
 POLL_INTERVAL = 60
@@ -135,6 +135,7 @@ def run():
 
                     except Exception as e:
                         log.error(f"{symbol}: {e}")
+                        log_event("pair_cycle_error", mode=TRADING_MODE, symbol=symbol, error=str(e))
                         pair_rows.append({
                             "symbol":   symbol,
                             "price":    0,
@@ -169,6 +170,7 @@ def run():
         except Exception as e:
             error(str(e))
             log.error(e)
+            log_event("bot_cycle_error", mode=TRADING_MODE, error=str(e))
 
         try:
             waiting(POLL_INTERVAL)

@@ -14,7 +14,7 @@ from config.settings import (
 from data.fetcher import get_exchange
 from data.trade_logger import log_trade, save_state, load_state
 from risk.manager import RiskLevels
-from utils.logger import get_logger
+from utils.logger import get_logger, log_event
 from utils.notifier import send_telegram
 
 log = get_logger("orders")
@@ -187,6 +187,17 @@ class OrderManager:
             highest_price = risk.entry_price,
         )
         self._persist_state()
+        log_event(
+            "paper_order_opened",
+            mode=TRADING_MODE,
+            symbol=symbol,
+            side="long",
+            entry_price=risk.entry_price,
+            quantity=risk.quantity,
+            stop_loss=risk.stop_loss,
+            take_profit=risk.take_profit,
+            balance_after=self.paper_balance_usdt,
+        )
         msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
         log.info(msg)
         send_telegram(msg)
@@ -219,6 +230,20 @@ class OrderManager:
             "exit_reason":   reason,
             "balance_after": round(self.paper_balance_usdt, 4),
         })
+        log_event(
+            "paper_order_closed",
+            mode=TRADING_MODE,
+            symbol=pos.symbol,
+            side=pos.side,
+            entry_price=pos.entry_price,
+            exit_price=exit_price,
+            quantity=pos.quantity,
+            pnl_usdt=round(pnl, 6),
+            pnl_pct=round(pnl_pct, 4),
+            exit_reason=reason,
+            balance_after=round(self.paper_balance_usdt, 4),
+            daily_pnl=round(self.daily_pnl, 6),
+        )
 
         msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
         log.info(msg)
@@ -244,11 +269,23 @@ class OrderManager:
                 order_id    = order["id"],
             )
             self._persist_state()
+            log_event(
+                "live_order_opened",
+                mode=TRADING_MODE,
+                symbol=symbol,
+                side="long",
+                entry_price=risk.entry_price,
+                quantity=risk.quantity,
+                stop_loss=risk.stop_loss,
+                take_profit=risk.take_profit,
+                order_id=order["id"],
+            )
             msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
             log.info(msg)
             send_telegram(msg)
         except Exception as e:
             log.error(f"Erro ao comprar {symbol}: {e}")
+            log_event("live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy", error=str(e))
 
     def _live_sell(self, symbol: str, reason: str):
         if self.exchange is None:
@@ -256,11 +293,21 @@ class OrderManager:
         pos = self.positions[symbol]
         try:
             order = self.exchange.create_market_sell_order(symbol, pos.quantity)
+            log_event(
+                "live_order_closed",
+                mode=TRADING_MODE,
+                symbol=symbol,
+                side=pos.side,
+                quantity=pos.quantity,
+                exit_reason=reason,
+                order_id=order["id"],
+            )
             msg = f"[LIVE] VENDA {symbol} | {reason} | ID={order['id']}"
             log.info(msg)
             send_telegram(msg)
         except Exception as e:
             log.error(f"Erro ao vender {symbol}: {e}")
+            log_event("live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell", error=str(e))
         finally:
             del self.positions[symbol]
             self._persist_state()
