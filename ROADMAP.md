@@ -10,6 +10,21 @@ Este roteiro registra melhorias identificadas ao comparar este bot com projetos 
 - [x] Lista permitida dinâmica: selecionar pares negociáveis automaticamente usando volume, diferença entre compra e venda, volatilidade, tendência e resultados recentes de teste histórico.
 - [x] Lista bloqueada de pares: suportar `BLACKLIST_PAIRS` e ignorar moedas estáveis, pares com baixa liquidez ou ativos problemáticos.
 
+## Validacao da Estrategia
+
+Checklist baseado em `STRATEGY_REVIEW.md`, com foco em provar se a estrategia atual tem vantagem real antes de operar live.
+
+- [ ] Criar benchmark formal contra buy-and-hold por par e timeframe.
+- [ ] Adicionar comparativo no relatório de backtest: retorno da estratégia, retorno buy-and-hold, diferença e vencedor.
+- [ ] Separar treino/teste no otimizador para reduzir overfitting.
+- [ ] Adicionar ranking de pares por profit factor, expectativa, drawdown, número de trades e consistência.
+- [ ] Testar preset menos restritivo com `VOLUME_MIN_RATIO=1.0`.
+- [ ] Testar preset menos restritivo com `RSI_OVERBOUGHT=70`.
+- [ ] Testar modo sem filtro Bollinger quando a tendência estiver forte.
+- [ ] Testar entrada por pullback em tendência, além de crossover.
+- [ ] Registrar resultados dos experimentos em `STRATEGY_REVIEW.md`.
+- [ ] Definir critérios automáticos de aprovação: retorno acima de buy-and-hold, profit factor acima de 1.2, expectativa positiva, drawdown controlado e número mínimo de trades.
+
 ## Prioridade Média
 
 - [ ] Painel local: adicionar `python main.py painel` para mostrar saldo, posições abertas, PnL, últimas operações, últimos sinais e status dos pares.
