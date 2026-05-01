@@ -17,6 +17,20 @@ Referencias consultadas:
 - Profitability of technical trading rules among cryptocurrencies, 2020: https://www.sciencedirect.com/science/article/pii/S1544612320300829
 - Bitcoin technical analysis study, SSRN: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4332884
 
+## Leitura Por Componente
+
+**EMA / medias moveis:** usadas para identificar tendencia, mas sao indicadores atrasados. Crossovers tendem a funcionar melhor em tendencia e pior em mercado lateral, onde podem gerar sinais falsos. O filtro de EMA50 ajuda a reduzir entradas contra tendencia, mas tambem pode atrasar entradas.
+
+**RSI:** mede momentum e sobrecompra/sobrevenda. Usar `RSI < 65` evita comprar muito esticado, mas pode bloquear entradas em tendencias fortes, quando o RSI permanece alto por varios candles.
+
+**Bollinger Bands:** ajudam a medir volatilidade e preco sobreestendido. O filtro que evita comprar acima da banda superior e conservador, mas pode impedir entrada em rompimentos fortes. Estudos indicam que Bollinger depende bastante do regime: lateralizacao, breakout, acumulacao ou queda.
+
+**ATR:** e uma parte forte da estrategia. Stop e alvo baseados em ATR se ajustam a volatilidade do ativo, o que e mais adequado para cripto do que usar apenas percentuais fixos. Os multiplicadores `1.5x` para stop e `3.0x` para alvo sao razoaveis, mas precisam ser testados por par e timeframe.
+
+**Volume:** filtra sinais fracos, mas `VOLUME_MIN_RATIO=1.2` pode deixar a estrategia exigente demais. Reduz entradas ruins, mas tambem pode reduzir demais o numero de trades.
+
+**Conjunto da estrategia:** a combinacao e mais robusta do que usar um indicador isolado, mas tambem pode ficar restritiva. A estrategia atual parece melhor em preservar capital e evitar mercados ruins do que em capturar altas fortes.
+
 ## Resultado Local
 
 Amostra local com candles `4h`, ultimos ~450 candles, em 30 pares salvos:
