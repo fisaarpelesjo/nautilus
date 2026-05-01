@@ -82,6 +82,9 @@ python main.py scan
 # Analisar trades salvos em data/trades.csv
 python main.py analisar
 
+# Otimizar parametros da estrategia no par principal
+python main.py otimizar
+
 # Iniciar o bot multi-par
 python main.py bot
 

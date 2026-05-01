@@ -10,7 +10,7 @@ For deeper architecture, strategy, and runtime behavior details, consult `CLAUDE
 
 ## Build, Test, and Development Commands
 
-Create an isolated environment before installing dependencies:
+Create an isolated environment:
 
 ```bash
 python -m venv .venv
@@ -25,6 +25,7 @@ python main.py backtest       # run a single-pair backtest using PAIRS[0]
 python main.py multibacktest  # run configured multi-pair backtests
 python main.py scan           # scan top Binance pairs by volume
 python main.py analisar       # summarize saved trades from data/trades.csv
+python main.py otimizar       # test strategy parameter combinations
 python main.py bot            # start the trading loop
 ```
 

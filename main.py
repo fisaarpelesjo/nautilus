@@ -26,6 +26,10 @@ def cmd_analisar():
     from backtesting.analysis import run
     run()
 
+def cmd_otimizar():
+    from backtesting.optimizer import run
+    run()
+
 def cmd_bot():
     from bot import run
     run()
@@ -80,6 +84,8 @@ COMMANDS = {
     "scan":          cmd_scan,
     "analisar":      cmd_analisar,
     "analyze":       cmd_analisar,
+    "otimizar":      cmd_otimizar,
+    "optimize":      cmd_otimizar,
     "bot":           cmd_bot,
     "status":        cmd_status,
 }

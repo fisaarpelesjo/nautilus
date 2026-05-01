@@ -5,6 +5,8 @@ from typing import List
 from config.settings import (
     STOP_LOSS_PCT,
     TAKE_PROFIT_PCT,
+    ATR_SL_MULTIPLIER,
+    ATR_TP_MULTIPLIER,
     MAX_ORDER_SIZE_USDT,
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
@@ -64,6 +66,10 @@ def simulate_backtest(
     start_index: int = 100,
     fee_rate: float = BACKTEST_FEE_RATE,
     slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
+    stop_loss_pct: float = STOP_LOSS_PCT,
+    take_profit_pct: float = TAKE_PROFIT_PCT,
+    atr_sl_multiplier: float = ATR_SL_MULTIPLIER,
+    atr_tp_multiplier: float = ATR_TP_MULTIPLIER,
 ) -> BacktestResult:
     capital = initial_capital
     trades: List[Trade] = []
@@ -76,6 +82,7 @@ def simulate_backtest(
     quantity = 0.0
     entry_cost = 0.0
     entry_fee = 0.0
+    entry_atr = 0.0
 
     for i in range(start_index, len(df)):
         window = df.iloc[:i]
@@ -90,12 +97,15 @@ def simulate_backtest(
             exit_reason = None
             exit_price = price * (1 - slippage_pct)
 
-            if current["low"] <= entry_price * (1 - STOP_LOSS_PCT):
+            stop_price = _stop_price(entry_price, entry_atr, stop_loss_pct, atr_sl_multiplier)
+            take_price = _take_profit_price(entry_price, entry_atr, take_profit_pct, atr_tp_multiplier)
+
+            if current["low"] <= stop_price:
                 exit_reason = "Stop Loss"
-                exit_price = entry_price * (1 - STOP_LOSS_PCT) * (1 - slippage_pct)
-            elif current["high"] >= entry_price * (1 + TAKE_PROFIT_PCT):
+                exit_price = stop_price * (1 - slippage_pct)
+            elif current["high"] >= take_price:
                 exit_reason = "Take Profit"
-                exit_price = entry_price * (1 + TAKE_PROFIT_PCT) * (1 - slippage_pct)
+                exit_price = take_price * (1 - slippage_pct)
 
             signal = strategy.generate_signal(window)
             if signal.signal == Signal.SELL and exit_reason is None:
@@ -120,6 +130,7 @@ def simulate_backtest(
                 quantity = order_size / entry_price
                 entry_fee = order_size * fee_rate
                 entry_cost = order_size + entry_fee
+                entry_atr = float(current.get("atr", 0) or 0)
                 capital -= entry_cost
                 entry_time = current.name
                 in_position = True
@@ -184,6 +195,18 @@ def _calculate_advanced_metrics(trades: List[Trade], period_start=None, period_e
         "exposure_pct": exposure_pct,
         "sharpe": sharpe,
     }
+
+
+def _stop_price(entry_price: float, atr: float, stop_loss_pct: float, atr_sl_multiplier: float) -> float:
+    if atr > 0:
+        return max(entry_price - atr_sl_multiplier * atr, entry_price * 0.5)
+    return entry_price * (1 - stop_loss_pct)
+
+
+def _take_profit_price(entry_price: float, atr: float, take_profit_pct: float, atr_tp_multiplier: float) -> float:
+    if atr > 0:
+        return entry_price + atr_tp_multiplier * atr
+    return entry_price * (1 + take_profit_pct)
 
 
 def _max_losing_streak(trades: List[Trade]) -> int:
