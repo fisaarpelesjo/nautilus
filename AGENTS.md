@@ -6,7 +6,7 @@ This is a Python crypto trading bot. `main.py` is the CLI entry point and `bot.p
 
 Runtime artifacts such as `data/signals.csv`, `data/trades.csv`, `data/state.json`, `data/ohlcv/`, and `logs/` are generated locally and ignored by Git. There is no test directory yet; add tests under `tests/`.
 
-For deeper architecture, strategy, and runtime behavior details, consult `CLAUDE.md`.
+For deeper architecture, strategy, and runtime behavior details, consult `CLAUDE.md`. For planned improvements, consult `ROADMAP.md`.
 
 ## Build, Test, and Development Commands
 
