@@ -56,3 +56,34 @@ def test_simulate_backtest_closes_open_position_at_period_end():
 
     assert result.total_trades == 1
     assert result.trades[0].exit_reason == "Fim do periodo"
+
+
+def test_simulate_backtest_calculates_advanced_metrics():
+    data = _df([
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 100.0, "high": 101.0, "low": 98.0, "close": 99.0, "volume": 1.0},
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 100.0, "high": 107.0, "low": 99.0, "close": 106.0, "volume": 1.0},
+    ])
+    strategy = SequenceStrategy([Signal.BUY, Signal.HOLD, Signal.BUY, Signal.HOLD])
+
+    result = simulate_backtest(
+        data,
+        strategy,
+        initial_capital=1000.0,
+        start_index=1,
+        fee_rate=0.0,
+        slippage_pct=0.0,
+    )
+
+    assert result.total_trades == 2
+    assert result.profit_factor == 4.0
+    assert result.expectancy == 2.25
+    assert result.average_win == 6.0
+    assert result.average_loss == -1.5
+    assert result.largest_win == 6.0
+    assert result.largest_loss == -1.5
+    assert result.max_losing_streak == 1
+    assert round(result.exposure_pct, 2) == 66.67
+    assert result.sharpe > 0

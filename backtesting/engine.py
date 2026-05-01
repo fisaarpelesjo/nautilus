@@ -1,5 +1,6 @@
 import pandas as pd
 from dataclasses import dataclass
+from math import sqrt
 from typing import List
 from config.settings import (
     STOP_LOSS_PCT,
@@ -36,6 +37,15 @@ class BacktestResult:
     win_rate: float
     total_trades: int
     max_drawdown_pct: float
+    profit_factor: float
+    expectancy: float
+    average_win: float
+    average_loss: float
+    largest_win: float
+    largest_loss: float
+    max_losing_streak: int
+    exposure_pct: float
+    sharpe: float
 
 def run_backtest(symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000) -> BacktestResult:
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
@@ -126,6 +136,11 @@ def simulate_backtest(
     wins = [t for t in trades if t.pnl > 0]
     total_return = (capital - initial_capital) / initial_capital * 100
     win_rate = len(wins) / len(trades) * 100 if trades else 0
+    metrics = _calculate_advanced_metrics(
+        trades,
+        period_start=df.index[start_index] if len(df) > start_index else None,
+        period_end=df.index[-1] if len(df) > 0 else None,
+    )
 
     result = BacktestResult(
         trades=trades,
@@ -135,9 +150,73 @@ def simulate_backtest(
         win_rate=win_rate,
         total_trades=len(trades),
         max_drawdown_pct=max_drawdown_pct,
+        **metrics,
     )
 
     return result
+
+
+def _calculate_advanced_metrics(trades: List[Trade], period_start=None, period_end=None) -> dict:
+    wins = [t.pnl for t in trades if t.pnl > 0]
+    losses = [t.pnl for t in trades if t.pnl < 0]
+    total_profit = sum(wins)
+    total_loss = abs(sum(losses))
+    trade_returns = [t.pnl_pct for t in trades]
+
+    profit_factor = total_profit / total_loss if total_loss else (float("inf") if total_profit > 0 else 0.0)
+    average_win = total_profit / len(wins) if wins else 0.0
+    average_loss = sum(losses) / len(losses) if losses else 0.0
+    expectancy = sum(t.pnl for t in trades) / len(trades) if trades else 0.0
+    largest_win = max(wins) if wins else 0.0
+    largest_loss = min(losses) if losses else 0.0
+    max_losing_streak = _max_losing_streak(trades)
+    exposure_pct = _exposure_pct(trades, period_start, period_end)
+    sharpe = _simplified_sharpe(trade_returns)
+
+    return {
+        "profit_factor": profit_factor,
+        "expectancy": expectancy,
+        "average_win": average_win,
+        "average_loss": average_loss,
+        "largest_win": largest_win,
+        "largest_loss": largest_loss,
+        "max_losing_streak": max_losing_streak,
+        "exposure_pct": exposure_pct,
+        "sharpe": sharpe,
+    }
+
+
+def _max_losing_streak(trades: List[Trade]) -> int:
+    current = 0
+    longest = 0
+    for trade in trades:
+        if trade.pnl < 0:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return longest
+
+
+def _exposure_pct(trades: List[Trade], period_start, period_end) -> float:
+    if not trades or period_start is None or period_end is None or period_end <= period_start:
+        return 0.0
+    total_seconds = (period_end - period_start).total_seconds()
+    exposed_seconds = sum(
+        max((trade.exit_time - trade.entry_time).total_seconds(), 0)
+        for trade in trades
+    )
+    return min(exposed_seconds / total_seconds * 100, 100.0) if total_seconds else 0.0
+
+
+def _simplified_sharpe(trade_returns: List[float]) -> float:
+    if len(trade_returns) < 2:
+        return 0.0
+    series = pd.Series(trade_returns)
+    std = series.std(ddof=1)
+    if std == 0:
+        return 0.0
+    return float(series.mean() / std * sqrt(len(trade_returns)))
 
 
 def _close_trade(
@@ -181,6 +260,13 @@ def _print_report(r: BacktestResult):
     log.info(f"Total de trades:   {r.total_trades}")
     log.info(f"Win rate:          {r.win_rate:.1f}%")
     log.info(f"Max drawdown:      {r.max_drawdown_pct:.2f}%")
+    log.info(f"Profit factor:     {_fmt_metric(r.profit_factor)}")
+    log.info(f"Expectativa:       ${r.expectancy:+.2f}/trade")
+    log.info(f"Media win/loss:    ${r.average_win:+.2f} / ${r.average_loss:+.2f}")
+    log.info(f"Maior win/loss:    ${r.largest_win:+.2f} / ${r.largest_loss:+.2f}")
+    log.info(f"Max perdas seg.:   {r.max_losing_streak}")
+    log.info(f"Exposicao:         {r.exposure_pct:.1f}%")
+    log.info(f"Sharpe simplif.:   {r.sharpe:.2f}")
     log.info("=" * 50)
 
     if r.trades:
@@ -191,3 +277,9 @@ def _print_report(r: BacktestResult):
                 f"Entrada=${t.entry_price:.2f} Saida=${t.exit_price:.2f} | "
                 f"PnL=${t.pnl:+.2f} ({t.pnl_pct:+.1f}%) | Taxas=${t.fees:.2f} | {t.exit_reason}"
             )
+
+
+def _fmt_metric(value: float) -> str:
+    if value == float("inf"):
+        return "inf"
+    return f"{value:.2f}"
