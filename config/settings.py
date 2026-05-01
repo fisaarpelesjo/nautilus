@@ -7,6 +7,7 @@ BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 
 TRADING_MODE = os.getenv("TRADING_MODE", "paper")  # "paper" ou "live"
+LIVE_CONFIRMATION_TEXT = "I_UNDERSTAND_LIVE_TRADING_RISK"
 LIVE_TRADING_CONFIRMATION = os.getenv("LIVE_TRADING_CONFIRMATION", "")
 TIMEFRAME    = os.getenv("TIMEFRAME", "4h")
 
@@ -50,3 +51,49 @@ BB_STD    = float(os.getenv("BB_STD", "2.0"))
 
 # Candles para carregar
 CANDLE_LIMIT = 1000
+
+
+def validate_config():
+    errors = []
+
+    if TRADING_MODE not in {"paper", "live"}:
+        errors.append("TRADING_MODE deve ser 'paper' ou 'live'.")
+    if not PAIRS:
+        errors.append("PAIRS deve conter ao menos um par.")
+    invalid_pairs = [pair for pair in PAIRS if "/" not in pair or not pair.endswith("/USDT")]
+    if invalid_pairs:
+        errors.append(f"PAIRS invalidos: {', '.join(invalid_pairs)}. Use o formato BASE/USDT.")
+    if not TIMEFRAME.strip():
+        errors.append("TIMEFRAME nao pode ficar vazio.")
+    if MAX_ORDER_SIZE_USDT <= 0:
+        errors.append("MAX_ORDER_SIZE_USDT deve ser maior que zero.")
+    if MAX_POSITIONS < 1:
+        errors.append("MAX_POSITIONS deve ser pelo menos 1.")
+    if STOP_LOSS_PCT <= 0 or TAKE_PROFIT_PCT <= 0:
+        errors.append("STOP_LOSS_PCT e TAKE_PROFIT_PCT devem ser maiores que zero.")
+    if ATR_SL_MULTIPLIER <= 0 or ATR_TP_MULTIPLIER <= 0:
+        errors.append("ATR_SL_MULTIPLIER e ATR_TP_MULTIPLIER devem ser maiores que zero.")
+    if VOLUME_MA_PERIOD < 1 or VOLUME_MIN_RATIO <= 0:
+        errors.append("Configuracao de volume invalida.")
+    if COOLDOWN_HOURS < 0:
+        errors.append("COOLDOWN_HOURS nao pode ser negativo.")
+    if not 0 < DAILY_DRAWDOWN_LIMIT <= 1:
+        errors.append("DAILY_DRAWDOWN_LIMIT deve estar entre 0 e 1.")
+    if not 0 <= DAILY_REPORT_HOUR <= 23:
+        errors.append("DAILY_REPORT_HOUR deve estar entre 0 e 23.")
+    if BB_PERIOD < 1 or BB_STD <= 0:
+        errors.append("Configuracao de Bollinger Bands invalida.")
+    if CANDLE_LIMIT < 50:
+        errors.append("CANDLE_LIMIT deve ser pelo menos 50.")
+
+    if TRADING_MODE == "live":
+        if LIVE_TRADING_CONFIRMATION != LIVE_CONFIRMATION_TEXT:
+            errors.append(f"LIVE_TRADING_CONFIRMATION deve ser {LIVE_CONFIRMATION_TEXT} para modo live.")
+        if not BINANCE_API_KEY or not BINANCE_API_SECRET:
+            errors.append("BINANCE_API_KEY e BINANCE_API_SECRET sao obrigatorios no modo live.")
+
+    if errors:
+        raise ValueError("Config invalida:\n- " + "\n- ".join(errors))
+
+
+validate_config()

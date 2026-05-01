@@ -5,6 +5,7 @@ import ccxt
 from config.settings import (
     BINANCE_API_KEY,
     BINANCE_API_SECRET,
+    LIVE_CONFIRMATION_TEXT,
     LIVE_TRADING_CONFIRMATION,
     TRADING_MODE,
     COOLDOWN_HOURS,
@@ -17,8 +18,6 @@ from utils.logger import get_logger
 from utils.notifier import send_telegram
 
 log = get_logger("orders")
-
-LIVE_CONFIRMATION_TEXT = "I_UNDERSTAND_LIVE_TRADING_RISK"
 
 @dataclass
 class Position:
