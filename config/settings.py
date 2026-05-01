@@ -15,6 +15,13 @@ _pairs_env = os.getenv("PAIRS", "ENSO/USDT,AAVE/USDT,ZEC/USDT,LDO/USDT,TON/USDT"
 PAIRS      = [p.strip() for p in _pairs_env.split(",") if p.strip()]
 SYMBOL     = PAIRS[0]  # compatibilidade com backtest single-pair
 
+DYNAMIC_PAIRS_ENABLED = os.getenv("DYNAMIC_PAIRS_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
+DYNAMIC_PAIRS_TOP_N = int(os.getenv("DYNAMIC_PAIRS_TOP_N", "5"))
+DYNAMIC_PAIRS_CANDIDATES = int(os.getenv("DYNAMIC_PAIRS_CANDIDATES", "20"))
+MIN_VOLUME_USDT = float(os.getenv("MIN_VOLUME_USDT", "10000000"))
+MAX_SPREAD_PCT = float(os.getenv("MAX_SPREAD_PCT", "0.003"))
+MIN_VOLATILITY_PCT = float(os.getenv("MIN_VOLATILITY_PCT", "1.0"))
+
 MAX_ORDER_SIZE_USDT = float(os.getenv("MAX_ORDER_SIZE_USDT", "100.0"))
 MAX_POSITIONS       = int(os.getenv("MAX_POSITIONS", "5"))
 STOP_LOSS_PCT = float(os.getenv("STOP_LOSS_PCT", "0.015"))
@@ -71,6 +78,10 @@ def validate_config():
         errors.append("TIMEFRAME nao pode ficar vazio.")
     if MAX_ORDER_SIZE_USDT <= 0:
         errors.append("MAX_ORDER_SIZE_USDT deve ser maior que zero.")
+    if DYNAMIC_PAIRS_TOP_N < 1 or DYNAMIC_PAIRS_CANDIDATES < 1:
+        errors.append("DYNAMIC_PAIRS_TOP_N e DYNAMIC_PAIRS_CANDIDATES devem ser maiores que zero.")
+    if MIN_VOLUME_USDT < 0 or MAX_SPREAD_PCT < 0 or MIN_VOLATILITY_PCT < 0:
+        errors.append("Filtros dinamicos de mercado nao podem ser negativos.")
     if MAX_POSITIONS < 1:
         errors.append("MAX_POSITIONS deve ser pelo menos 1.")
     if STOP_LOSS_PCT <= 0 or TAKE_PROFIT_PCT <= 0:

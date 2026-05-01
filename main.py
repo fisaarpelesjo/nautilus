@@ -30,6 +30,10 @@ def cmd_otimizar():
     from backtesting.optimizer import run
     run()
 
+def cmd_selecionar():
+    from market.commands import run
+    run()
+
 def cmd_bot():
     from bot import run
     run()
@@ -86,6 +90,7 @@ COMMANDS = {
     "analyze":       cmd_analisar,
     "otimizar":      cmd_otimizar,
     "optimize":      cmd_otimizar,
+    "selecionar":    cmd_selecionar,
     "bot":           cmd_bot,
     "status":        cmd_status,
 }

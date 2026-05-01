@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
 from typing import Dict
-from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME, ATR_SL_MULTIPLIER, DAILY_REPORT_HOUR
+from config.settings import PAIRS, TIMEFRAME, TRADING_MODE, MAX_POSITIONS, MTF_TIMEFRAME, ATR_SL_MULTIPLIER, DAILY_REPORT_HOUR, DYNAMIC_PAIRS_ENABLED
 from data.fetcher import fetch_ohlcv, fetch_balance
 from data.trade_logger import log_signal, save_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
@@ -14,6 +14,7 @@ from utils.display import (
 )
 from utils.notifier import send_telegram
 from utils.logger import get_logger, log_event
+from market.selector import select_dynamic_pairs, selected_symbols
 
 log = get_logger("bot")
 POLL_INTERVAL = 60
@@ -31,8 +32,9 @@ def run():
     manager           = OrderManager()
     last_report_date  = ""
     last_signals: Dict[str, str] = {}
+    active_pairs      = _load_active_pairs()
 
-    send_telegram(f"Bot iniciado | {len(PAIRS)} pares | Modo={TRADING_MODE}")
+    send_telegram(f"Bot iniciado | {len(active_pairs)} pares | Modo={TRADING_MODE}")
 
     while True:
         try:
@@ -41,7 +43,7 @@ def run():
             new_entries  = 0
 
             with spinner("atualizando pares..."):
-                for symbol in PAIRS:
+                for symbol in active_pairs:
                     try:
                         df            = fetch_ohlcv(symbol, TIMEFRAME)
                         signal        = strategy.generate_signal(df)
@@ -211,6 +213,16 @@ def _get_usdt_balance() -> float:
         return float(balance.get("USDT", 0))
     except Exception:
         return 0.0
+
+def _load_active_pairs():
+    if not DYNAMIC_PAIRS_ENABLED:
+        return PAIRS
+    try:
+        pairs = selected_symbols(select_dynamic_pairs())
+        return pairs or PAIRS
+    except Exception as e:
+        log.error(f"Selecao dinamica falhou: {e}")
+        return PAIRS
 
 if __name__ == "__main__":
     run()

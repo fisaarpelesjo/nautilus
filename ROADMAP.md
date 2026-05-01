@@ -7,7 +7,7 @@ Este roteiro registra melhorias identificadas ao comparar este bot com projetos 
 - [x] Métricas avançadas de teste histórico: adicionar fator de lucro, expectativa, média de ganho/perda, maior ganho/perda, maior sequência de perdas, Sharpe simplificado, exposição e retorno por par/período gráfico.
 - [x] Comando de análise: adicionar `python main.py analisar` para ler `data/trades.csv` e gerar um resumo local de desempenho após sessões em simulado ou real.
 - [x] Otimização de parâmetros: adicionar `python main.py otimizar` para testar faixas de EMA, RSI, ATR, volume e Bollinger Bands.
-- [ ] Lista permitida dinâmica: selecionar pares negociáveis automaticamente usando volume, diferença entre compra e venda, volatilidade, tendência e resultados recentes de teste histórico.
+- [x] Lista permitida dinâmica: selecionar pares negociáveis automaticamente usando volume, diferença entre compra e venda, volatilidade, tendência e resultados recentes de teste histórico.
 - [ ] Lista bloqueada de pares: suportar `BLACKLIST_PAIRS` e ignorar moedas estáveis, pares com baixa liquidez ou ativos problemáticos.
 
 ## Prioridade Média

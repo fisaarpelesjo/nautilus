@@ -44,6 +44,12 @@ TRADING_MODE=paper        # paper (simulado) ou live (real)
 LIVE_TRADING_CONFIRMATION= # obrigatório para live: I_UNDERSTAND_LIVE_TRADING_RISK
 PAIRS=BTC/USDT,ETH/USDT,SOL/USDT   # lista de pares; primeiro é usado no backtest simples
 TIMEFRAME=4h
+DYNAMIC_PAIRS_ENABLED=false # true para selecionar pares automaticamente ao iniciar o bot
+DYNAMIC_PAIRS_TOP_N=5
+DYNAMIC_PAIRS_CANDIDATES=20
+MIN_VOLUME_USDT=10000000
+MAX_SPREAD_PCT=0.003
+MIN_VOLATILITY_PCT=1.0
 
 MAX_ORDER_SIZE_USDT=100.0
 MAX_POSITIONS=5           # máximo de posições abertas simultaneamente
@@ -84,6 +90,9 @@ python main.py analisar
 
 # Otimizar parametros da estrategia no par principal
 python main.py otimizar
+
+# Selecionar pares dinamicamente por liquidez, spread, volatilidade, tendencia e backtest
+python main.py selecionar
 
 # Iniciar o bot multi-par
 python main.py bot

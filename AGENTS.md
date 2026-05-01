@@ -17,16 +17,17 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Common commands:
+Commands:
 
 ```bash
-python main.py status         # show configured pairs, balance, and open positions
-python main.py backtest       # run a single-pair backtest using PAIRS[0]
-python main.py multibacktest  # run configured multi-pair backtests
-python main.py scan           # scan top Binance pairs by volume
-python main.py analisar       # summarize saved trades from data/trades.csv
-python main.py otimizar       # test strategy parameter combinations
-python main.py bot            # start the trading loop
+python main.py status         # balance and open positions
+python main.py backtest       # single-pair backtest
+python main.py multibacktest  # multi-pair backtests
+python main.py scan           # scan liquid Binance pairs
+python main.py analisar       # summarize data/trades.csv
+python main.py otimizar       # test parameter combinations
+python main.py selecionar     # rank dynamic pair candidates
+python main.py bot            # start trading loop
 ```
 
 Default to `TRADING_MODE=paper` while developing.
