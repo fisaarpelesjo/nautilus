@@ -75,3 +75,42 @@ def test_generate_signal_returns_sell_on_bearish_cross(monkeypatch):
 
     assert signal.signal == Signal.SELL
     assert signal.price == 100.0
+
+
+def test_generate_signal_returns_buy_on_pullback_in_uptrend(monkeypatch):
+    strategy = _strategy_with_indicators(
+        monkeypatch,
+        [
+            {
+                "open": 105.0,
+                "high": 111.0,
+                "low": 104.0,
+                "close": 108.0,
+                "ema_fast": 107.0,
+                "ema_slow": 102.0,
+                "ema_trend": 95.0,
+                "rsi": 55.0,
+                "volume": 100.0,
+                "volume_ma": 100.0,
+                "bb_upper": 120.0,
+            },
+            {
+                "open": 105.0,
+                "high": 112.0,
+                "low": 102.5,
+                "close": 110.0,
+                "ema_fast": 108.0,
+                "ema_slow": 103.0,
+                "ema_trend": 96.0,
+                "rsi": 58.0,
+                "volume": 150.0,
+                "volume_ma": 100.0,
+                "bb_upper": 120.0,
+            },
+        ],
+    )
+
+    signal = strategy.generate_signal(pd.DataFrame())
+
+    assert signal.signal == Signal.BUY
+    assert "Pullback" in signal.reason

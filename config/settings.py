@@ -32,7 +32,7 @@ ATR_SL_MULTIPLIER = float(os.getenv("ATR_SL_MULTIPLIER", "1.5"))
 ATR_TP_MULTIPLIER = float(os.getenv("ATR_TP_MULTIPLIER", "3.0"))
 
 VOLUME_MA_PERIOD  = int(os.getenv("VOLUME_MA_PERIOD", "20"))
-VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.2"))
+VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.0"))
 
 MTF_TIMEFRAME = os.getenv("MTF_TIMEFRAME", "1d")
 
@@ -47,12 +47,15 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 # Estratégia EMA crossover
-EMA_FAST = 9
-EMA_SLOW = 21
-EMA_TREND = 50
-RSI_PERIOD = 14
-RSI_OVERSOLD = 35
-RSI_OVERBOUGHT = 65
+EMA_FAST = int(os.getenv("EMA_FAST", "9"))
+EMA_SLOW = int(os.getenv("EMA_SLOW", "21"))
+EMA_TREND = int(os.getenv("EMA_TREND", "50"))
+RSI_PERIOD = int(os.getenv("RSI_PERIOD", "14"))
+RSI_OVERSOLD = int(os.getenv("RSI_OVERSOLD", "35"))
+RSI_OVERBOUGHT = int(os.getenv("RSI_OVERBOUGHT", "70"))
+PULLBACK_ENTRY_ENABLED = os.getenv("PULLBACK_ENTRY_ENABLED", "true").lower() in {"1", "true", "yes", "sim"}
+PULLBACK_RSI_MIN = int(os.getenv("PULLBACK_RSI_MIN", "45"))
+PULLBACK_MAX_DISTANCE_PCT = float(os.getenv("PULLBACK_MAX_DISTANCE_PCT", "0.01"))
 
 # Bollinger Bands
 BB_PERIOD = int(os.getenv("BB_PERIOD", "20"))
@@ -95,6 +98,14 @@ def validate_config():
         errors.append("ATR_SL_MULTIPLIER e ATR_TP_MULTIPLIER devem ser maiores que zero.")
     if VOLUME_MA_PERIOD < 1 or VOLUME_MIN_RATIO <= 0:
         errors.append("Configuracao de volume invalida.")
+    if not (EMA_FAST > 0 and EMA_SLOW > 0 and EMA_TREND > 0 and EMA_FAST < EMA_SLOW):
+        errors.append("EMAs invalidas. Use valores positivos com EMA_FAST menor que EMA_SLOW.")
+    if RSI_PERIOD < 1 or not (0 <= RSI_OVERSOLD < RSI_OVERBOUGHT <= 100):
+        errors.append("Configuracao de RSI invalida.")
+    if not (0 <= PULLBACK_RSI_MIN < RSI_OVERBOUGHT <= 100):
+        errors.append("Configuracao de RSI para pullback invalida.")
+    if PULLBACK_MAX_DISTANCE_PCT < 0:
+        errors.append("PULLBACK_MAX_DISTANCE_PCT nao pode ser negativo.")
     if COOLDOWN_HOURS < 0:
         errors.append("COOLDOWN_HOURS nao pode ser negativo.")
     if not 0 < DAILY_DRAWDOWN_LIMIT <= 1:

@@ -58,8 +58,17 @@ STOP_LOSS_PCT=0.015       # fallback se ATR indisponível
 TAKE_PROFIT_PCT=0.06      # fallback se ATR indisponível
 ATR_SL_MULTIPLIER=1.5     # SL = entrada - 1.5 × ATR14
 ATR_TP_MULTIPLIER=3.0     # TP = entrada + 3.0 × ATR14
+EMA_FAST=9
+EMA_SLOW=21
+EMA_TREND=50
+RSI_PERIOD=14
+RSI_OVERSOLD=35
+RSI_OVERBOUGHT=70        # teto de RSI para entrada
 VOLUME_MA_PERIOD=20       # janela da média de volume
-VOLUME_MIN_RATIO=1.2      # volume mínimo para BUY = média × 1.2
+VOLUME_MIN_RATIO=1.0      # volume mínimo para BUY = média × ratio
+PULLBACK_ENTRY_ENABLED=true
+PULLBACK_RSI_MIN=45       # RSI minimo para pullback em tendencia
+PULLBACK_MAX_DISTANCE_PCT=0.01 # distancia max. da EMA lenta no pullback
 MTF_TIMEFRAME=1d          # timeframe de confirmação de tendência
 COOLDOWN_HOURS=4          # horas bloqueado após stop loss no par
 DAILY_DRAWDOWN_LIMIT=0.05 # para de abrir posições se perder 5% no dia
@@ -110,7 +119,7 @@ python main.py status
 
 | Sinal | Condição |
 |---|---|
-| **COMPRA** | EMA9 cruza acima EMA21 + preço > EMA50 + RSI < 65 + volume > 1.2× média(20) + preço > EMA50 no diário + preço ≤ Banda Superior BB(20,2) |
+| **COMPRA** | EMA9 cruza acima EMA21 ou pullback em tendencia EMA9 > EMA21 > EMA50 + RSI < 70 + volume >= média(20) + preço > EMA50 no diário + preço ≤ Banda Superior BB(20,2) |
 | **VENDA** | EMA9 cruza abaixo EMA21 + RSI > 35 |
 | **Stop Loss** | `entrada - 1.5 × ATR14` (inicial) |
 | **Trailing Stop** | sobe para `máximo - 1.5 × ATR14` a cada novo topo |

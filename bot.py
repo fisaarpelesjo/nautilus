@@ -290,6 +290,15 @@ def _hold_diagnosis(signal, indicators, previous, current_price: float, strategy
     params = strategy.params
     checks = []
     bullish_cross = previous["ema_fast"] < previous["ema_slow"] and indicators["ema_fast"] > indicators["ema_slow"]
+    trend_aligned = indicators["ema_fast"] > indicators["ema_slow"] > indicators["ema_trend"] and current_price > indicators["ema_trend"]
+    pullback_entry = (
+        params.pullback_entry_enabled
+        and trend_aligned
+        and params.pullback_rsi_min <= indicators["rsi"] < params.rsi_overbought
+        and indicators.get("low", current_price) <= indicators["ema_slow"] * (1 + params.pullback_max_distance_pct)
+        and current_price > indicators["ema_fast"]
+        and current_price > indicators.get("open", current_price)
+    )
     trend_ok = current_price > indicators["ema_trend"]
     rsi_ok = indicators["rsi"] < params.rsi_overbought
     volume_ma = float(indicators.get("volume_ma", 0) or 0)
@@ -297,8 +306,8 @@ def _hold_diagnosis(signal, indicators, previous, current_price: float, strategy
     volume_ok = volume_ratio >= params.volume_min_ratio
     bb_ok = current_price <= indicators["bb_upper"]
 
-    if not bullish_cross:
-        checks.append("sem cruzamento EMA")
+    if not bullish_cross and not pullback_entry:
+        checks.append("sem cruzamento/pullback")
     if not trend_ok:
         checks.append("abaixo EMA50")
     if not rsi_ok:
