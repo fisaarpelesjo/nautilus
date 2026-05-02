@@ -1,8 +1,12 @@
 ﻿# Profitability Of Technical Trading Rules Among Cry
 
-Source PDF: profitability-of-technical-trading-rules-among-cry.pdf
+> Conversao automatica a partir do PDF local, com limpeza leve de headings e espacamento para leitura no repositorio privado.
+
+**Source PDF:** profitability-of-technical-trading-rules-among-cry.pdf
 
 ---
+
+## Texto convertido
 
 Journal Pre-proof
 
@@ -34,7 +38,6 @@ disclaimers that apply to the journal pertain.
 
 © 2020 Published by Elsevier Inc.
 
-
 ---
 
 Highlights
@@ -46,18 +49,15 @@ Highlights
          not produces excess returns.
      We find that the cryptocurrency market for privacy coins is efficient.
 
-
 ---
 
-                                                          1
-
-              Profitability of technical trading rules among
+## 1 Profitability of technical trading rules among
                    cryptocurrencies with privacy function
 
                            Shaker Ahmed*, Klaus Grobys**ª, Niranjan Sapkota***
                          University of Vaasa, School of Accounting and Finance
 
-                                                     Abstract
+## Abstract
    This paper studies simple moving average trading strategies employing daily price data on
    the ten most-traded cryptocurrencies that exhibit the ‘privacy function’. Investigating the
    2016–2018 period, our results indicate a variable moving average strategy is successful
@@ -66,8 +66,8 @@ Highlights
    buy-and-hold benchmark strategy. However, when applying our technical trading rules to
    the entire set of ten privacy coins shows that, on an aggregate level, simple technical
    trading rules do not generate positive returns in excess of a buy-and-hold strategy.
-   JEL classification: G01, G21, G30, G32
-   Keywords: Technical analysis, cryptocurrency, Bitcoin, Financial Technology, FinTech
+**JEL Classification:** G01, G21, G30, G32
+**Keywords:** Technical analysis, cryptocurrency, Bitcoin, Financial Technology, FinTech
 
 * Address: University of Vaasa, School of Accounting and Finance, P.O. Box 700, FI-65101 Vaasa, Finland; E-mail:
 shaker.ahmed@uva.fi.
@@ -77,7 +77,6 @@ shaker.ahmed@uva.fi.
 mail: nsapkota@uva.fi.
 ª Address: University of Vaasa, Innovation and Entrepreneurship (InnoLab), P.O. Box 700, FI-65101 Vaasa,
 Finland; E-mail: kgrobys@uva.fi.
-
 
 ---
 
@@ -108,7 +107,6 @@ our study investigates the profitability of simple technical trading rules imple
 cryptocurrencies that exhibit the so-called ‘privacy function’. The privacy function allows users
 to maintain a certain degree of anonymity on either the user level, the transaction level, the
 
-
 ---
 
                                                           3
@@ -137,12 +135,9 @@ cryptocurrencies accounting for past information between 20 and 200 trading days
 hypothesize that if cryptocurrency markets were efficient, it would not be possible to generate
 profits using past price information.
 
-
 ---
 
-                                                          4
-
-         First our study contributes to the literature on technical trading rules in cryptocurrency
+## 4 First our study contributes to the literature on technical trading rules in cryptocurrency
 markets (Gerritsen et al., 2019; Corbet et al., 2019; Miller et al., 2019; Grobys et al., 2020).
 While earlier studies focused on non-privacy coin, our study takes a different perspective and
 focuses exclusively on privacy coins as a submarket of the overall cryptocurrency universe.
@@ -165,14 +160,12 @@ market for privacy coins, as a submarket of the entire cryptocurrency universe, 
 results confirm Grobys and Sapkota (2019) who concluded that the cryptocurrency markets are
 more efficient than earlier believed.
 
-
 ---
 
                                                           5
 
 2. Data and Methodology
-2.1 Data
-
+### 2.1 Data
          Our sample of privacy coins consists of the ten largest cryptocurrencies in terms of
 market capitalizations as of January 3, 20161. The sample comprises the following
 cryptocurrencies: Dash (DASH), Bytecoin (BCN), DigitalNote (XDN), Monero (XMR),
@@ -184,8 +177,7 @@ Table A.2 indicates that a simple buy-and-hold strategy of an equally weighted p
 privacy coins produces an average return of 45.63% p.a. over the sample period.2 Interestingly,
 the average return is higher than the average buy-and-hold payoff of 36.5% p.a. for a portfolio of
 eleven non-privacy coins covering the same period (Grobys et al., 2020).
-
-2.2 Trading Rule and Methodology
+### 2.2 Trading Rule and Methodology
           Following Grobys et al. (2020), we implement different trading strategies using the
 
 Variable Moving Average (VMA) oscillator technical trading rule. VMA uses a short-period and
@@ -196,11 +188,9 @@ to select our sample of privacy coins.
 Dogecoin, Peercoin, BitShares, Stellar Lumen, Nxt, MaidSafeCoin, and Namecoinexhibit an average return of
 36.5% p.a for the buy-and-hold strategy.
 
-
 ---
 
-                                                          6
-a long-period moving average to generate trading signals and compound the long and short
+## 6 a long-period moving average to generate trading signals and compound the long and short
 period moving average as follows:
 
         ∑
@@ -231,7 +221,6 @@ correlations among cryptocurrency returns, as pointed out in Borri (2019). Let�
 3 As argued in Grobys et al. (2020), we do not consider the payoffs from sell trading strategies because so far it is
 not possible to take a short position on cryptocurrencies or mimic the payoffs of the short position usign
 cryptocurrency related financial instruments.
-
 
 ---
 
@@ -274,7 +263,6 @@ implying that the test statistic has feasible asymptotical distributional proper
 
 null hypothesis distributed as     (Grobys et al., 2020).
 
-
 ---
 
                                                           8
@@ -308,7 +296,6 @@ around the world as of February 17, 2020.
 
 5
 
-
 ---
 
                                                           9
@@ -339,12 +326,9 @@ recommend when implementing technical trading rule among privacy coins.
          In our main analysis we use the log of daily prices to calculate the short and long-term
 moving average. By construction, the moving average calculated in that way corresponds to the
 
-
 ---
 
-                                                         10
-
-log of the geometric average. One could wonder if our results would change if we used the
+## 10 log of the geometric average. One could wonder if our results would change if we used the
 simple price series. Hence, as a robustness check, we re-estimated Table 1 using the simple price
 series and, as a consequence, the arithmetic average. The results are reported in Table A.3. Our
 results remain virtually the same and our conclusion remain unchanged.
@@ -369,7 +353,6 @@ three privacy cryptocurrencies with highest market capitalizations (Dash, Byteco
 whereas the sample denoted as 7 coins excludes the three privacy cryptocurrencies from the
 initial sample of ten coins that exhibit the lowest market capitalizations (Stealth, Prime-XI and
 Verge). Table 1 shows that the join tests for the three largest coins are statistically significant for
-
 
 ---
 
@@ -400,12 +383,9 @@ market frictions than (1, 200) trading strategy.
 
 4. Concluding Remarks
 
-
 ---
 
-                                                         12
-
-         This paper studies the profitability of variable technical trading rules implemented among
+## 12 This paper studies the profitability of variable technical trading rules implemented among
 a set of privacy coins using popular moving average strategy as applied to stock markets: (1, 50),
 (1, 150), (5, 150), (1, 200) and (2, 200) (Brock, Lakonishok and LeBaron, 1992). Our results
 indicate that VMA trading strategies are successful only for Dash (on the single cryptocurrency
@@ -424,13 +404,10 @@ carry the risks associated with such strategies (Lo, Mamaysky, and Wang, 2000). 
 are encouraged to discern the economic sources of return differentials among cryptocurrency
 submarkets.
 
-
 ---
 
                                                          13
-
-References
-
+## References
 Bariviera, A. F. (2017). The inefficiency of Bitcoin revisited: A dynamic approach. Economics
          Letters, 161, 1-4.
 
@@ -459,12 +436,9 @@ predictability
          of bitcoin. Economics Letters, 167, 26-28.
 Kristoufek, L. (2018). On Bitcoin markets (in) efficiency and its evolution. Physica A: Statistical
 
-
 ---
 
-                                                         14
-
-         Mechanics and its Applications, 503, 257-262.
+## 14 Mechanics and its Applications, 503, 257-262.
 Lo, A. W., Mamaysky, H., & Wang, J. (2000). Foundations of technical analysis: Computational
 
          algorithms, statistical inference, and empirical implementation. The Journal of
@@ -481,13 +455,9 @@ Tiwari, A. K., Jana, R. K., Das, D., & Roubaud, D. (2018). Informational efficie
          An extension. Economics Letters, 163, 106-109.
 Urquhart, A. (2016). The inefficiency of Bitcoin. Economics Letters, 148, 80-82.
 
-
 ---
 
-                                                                       15
-
-Table 1: Payoffs of MA trading strategies using the log of price data
-
+## 15 Table 1: Payoffs of MA trading strategies using the log of price data
                                  Tests on individual coin’s MA returns                                                   Joint Test
 
 Strategy       DASH  BCN XDN XMR                 CLOAK AEON            XST    PXI    NAV                  XVG    3 coins 7 coins 10 coins
@@ -530,13 +500,9 @@ Individual strategies are defined as (short-period, long-period), where the shor
 ** p < 0.05,
 * p < 0.10.
 
-
 ---
 
-                            16
-
-Appendix
-
+## 16 Appendix
 Figure A.1. Rank correlations of the selected privacy coins’ market capitalizations between
 the beginning of the sample and the end of each month
 
@@ -557,48 +523,19 @@ the beginning of the sample and the end of each month
 0.6
 
 0.55
-
-0.5           Sep 30, 2016  May 31, 2017  Jan 31, 2018  Sep 30, 2018
+### 0.5 Sep 30, 2016  May 31, 2017  Jan 31, 2018  Sep 30, 2018
 Jan 31, 2016
 
-
 ---
 
-                                          17
-
-Table A.1: Top-Ten privacy coins
-
+## 17 Table A.1: Top-Ten privacy coins
 No Privacy Coin                   Symbol      Capitalization ($)
-
-1 Dash                            DASH        19,794,713
-
-2 Bytecoin                        BCN         5,582,979
-
-3 Monero                          XMR         5,295,952
-
-4 DigitalNote                     XDN         447,057
-
-5 CloakCoin                       CLOAK       201,995
-
-6 Aeon                            AEON        137,088
-
-7 NavCoin                         NAV         121,805
-
-8 Verge                           XVG         109,968
-
-9 Stealth                         XST         8,352
-
-10 Prime-XI                       PXI         8,889
-
+## 1 Dash                            DASH        19,794,713## 2 Bytecoin                        BCN         5,582,979## 3 Monero                          XMR         5,295,952## 4 DigitalNote                     XDN         447,057## 5 CloakCoin                       CLOAK       201,995## 6 Aeon                            AEON        137,088## 7 NavCoin                         NAV         121,805## 8 Verge                           XVG         109,968## 9 Stealth                         XST         8,352## 10 Prime-XI                       PXI         8,889
 Note. This table reports the top ten privacy coins based on their market capitalization as of January 3, 2016.
 
-
 ---
 
-                                   18
-
-Table A.2: Descriptive statistics
-
+## 18 Table A.2: Descriptive statistics
 Currency Mean Median Max           Min Std. Dev. Skew  Kurt  Obs.
 
 DASH 0.0013 -0.0005 0.1901 -0.1056 0.0272 0.8476 8.7271 1095
@@ -626,13 +563,9 @@ Deviation, Skewness, Kurtosis and number of observations) using daily logarithmi
 Dash (DASH), Bytecoin (BCN), DigitalNote (XDN), Monero (XMR), CloakCoin (CLOAK), Aeon (AEON),
 Stealth (XST), Prime-XI (PXI), NavCoin (NAV), Verge (XVG), over the period 2016–2018.
 
-
 ---
 
-                                                                    19
-
-Table A.3: Payoffs of MA trading strategies using price data
-
+## 19 Table A.3: Payoffs of MA trading strategies using price data
                                       Tests on individual coin’s MA returns                                   Joint Test of MA returns
 
 Strategy DASH        BCN XDN          XMR CLOAK AEON XST                          PXI       NAV XVG           3 coins 7 coins 10 coins
@@ -667,13 +600,9 @@ until December 2018.
 ** p < 0.05,
 * p < 0.10.
 
-
 ---
 
-                                                                20
-
-Table A.4: Average return in annualized percentage rate
-
+## 20 Table A.4: Average return in annualized percentage rate
 Strategy        DASH   BCN    XDN       XMR CLOAK AEON              XST      PXI     NAV    XVG     3 Coins  7 Coins 10 coins
                 47.45  43.80  43.80     65.70 47.45 43.80           43.80   -32.85   65.70  87.60    52.32    51.10 45.63
 Buy and
@@ -719,13 +648,9 @@ coins excludes the three privacy cryptocurrencies that exhibited the lowest mark
 
 from January 2016 until December 2018.
 
-
 ---
 
-                                                           21
-
-Table A.5: Number of trading days under each moving average trading strategy
-
+## 21 Table A.5: Number of trading days under each moving average trading strategy
 Panel A: Number of VMA buy signals using the Log of price
 
 DASH                BCN     XDN                   XMR       CLOAK      AEON       XST        PXI      NAV       XVG
@@ -766,7 +691,5 @@ strategy. POS denotes the number of executed trading positions for each coin. Th
 
 period is from January 2016 until December 2018.
 
-
 ---
-
 

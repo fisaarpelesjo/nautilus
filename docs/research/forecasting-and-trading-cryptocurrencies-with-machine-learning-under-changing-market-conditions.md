@@ -1,8 +1,12 @@
 ﻿# Forecasting And Trading Cryptocurrencies With Machine Learning Under Changing Market Conditions
 
-Source PDF: forecasting-and-trading-cryptocurrencies-with-machine-learning-under-changing-market-conditions.pdf
+> Conversao automatica a partir do PDF local, com limpeza leve de headings e espacamento para leitura no repositorio privado.
+
+**Source PDF:** forecasting-and-trading-cryptocurrencies-with-machine-learning-under-changing-market-conditions.pdf
 
 ---
+
+## Texto convertido
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3  Financial Innovation
 https://doi.org/10.1186/s40854-020-00217-x
@@ -34,12 +38,9 @@ Portugal                        tor machines). The models are validated in a per
                                 support the claim that machine learning provides robust techniques for exploring the
                                 predictability of cryptocurrencies and for devising profitable trading strategies in these
                                 markets, even under adverse market conditions.
-
-                                Keywords:  Bitcoin, Ethereum, Litecoin, Machine learning, Forecasting, Trading
-
-                                JEL Classification:  G11, G15, G17
-
-                               Introduction
+**Keywords:** Bitcoin, Ethereum, Litecoin, Machine learning, Forecasting, Trading
+**JEL Classification:** G11, G15, G17
+## Introduction
                                Since its inception, coinciding with the international crisis of 2008 and the associ-
                                ated lack of confidence in the financial system, bitcoin has gained an important place
                                in the international financial landscape, attracting extensive media coverage, as well
@@ -56,7 +57,6 @@ Portugal                        tor machines). The models are validated in a per
                                rial. If material is not included in the article’s Creative Commons licence and your intended use is not permitted by statutory regulation or
                                exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To view a copy of this licence, visit http://
                                creati​ veco​mmons​.org/licens​ es/by/4.0/.
-
 
 ---
 
@@ -111,7 +111,6 @@ is called a satoshi, i.e. 1­ 0−8 of a bitcoin), resilient (the network has be
 robust to attacks), pseudonymous (the system does not disclose the identity of users but
 discloses the addresses of their wallets), and bitcoin supply is capped at 21 million units.
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                 Page 3 of 30
@@ -165,7 +164,6 @@ speculative asset, with the majority of the authors supporting this last view on
 grounds of its high volatility, extreme short-run returns, and bubble-like price behav-
 ior (see e.g., Yermack 2015; Dwyer 2015; Cheung et al. 2015; Cheah and Fry 2015). This
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                 Page 4 of 30
@@ -217,7 +215,6 @@ Open Market Committee on U.S. monetary policy.
 call it—measured by social media news, Google searches, Wikipedia views, Tweets, or
 comments in Facebook or specialized forums—was also investigated in the case of other
 cryptocurrencies. For instance, Kim et al. (2016) consider user comments and replies
-
 
 ---
 
@@ -271,7 +268,6 @@ example, Fang et al. (2020).
   In a nutshell, all these papers point out that independent of the period under analy-
 sis, data frequency, investment horizon, input set, type (classification or regression),
 
-
 ---
 
 Table 1  List of studies on machine learning applied to cryptocurrencies prices (organized by chronological and alphabetical order)                                                        Sebastião and Godinho ﻿Financ Innov (2021) 7:3
@@ -299,7 +295,7 @@ Jiang and Liang      Prices in USD of the  30-min  Ripple: Sept-2015 to      and
                                                      2015                    networks (CNN) with                                             information,           between CNN
                                                                              deep reinforcement                                              exchange rates         portfolio and Online
                                                    Jun-2015 to Aug-          learning                                                        and macroeco-          Newton Step and
-                                                     2016                                                                                    nomic variables        Passive Aggressive
+## 2016 nomic variables        Passive Aggressive
                                                                                                                                                                     Mean Reversion
 Jang and Lee (2018) Bitcoin price index Daily      Sep-2011 to Aug- Bayesian neural networks Regression                –                   OHLC prices, dif-        portfolios
                              in USD                                                                                                          ficulty, and hash
@@ -316,7 +312,6 @@ McNally et al. (2018) Bitcoin prices in USD Daily                               
                                                                            term memory (LSTM)
 
                                                                                                                                                                                            Page 6 of 30
-
 
 ---
 
@@ -338,7 +333,7 @@ Vo and Yost-Bremm     Bitcoin prices in    1-min  Jan-2012 to Oct-    Random for
 Alessandretti et al.    exchanges                 Nov-2015 to Apr-                                                                                             RF is the best model
   (2019)                                            2018                                                                                                         for a frequency of
                       Price indexes of                                                                                                                           15-min
-                        1681 cryptocur-
+## 1681 cryptocur-
                         rencies in USD                                Ensemble of regression    Regression        Long/transaction      Price, market          All strategies, produce
                                                                         trees built by XGboost                      costs of 0,1%,        capitalization,        a significant profit
                                                                         and long short term                         0,2%, 0,5% and        market share, rank,    (expressed in
@@ -365,7 +360,6 @@ Catania et al. (2019) Bitcoin, ethereum, Daily    Aug-2015 to Dec-    Linear uni
                                                                       those models
 
                                                                                                                                                                                           Page 7 of 30
-
 
 ---
 
@@ -410,7 +404,6 @@ Ji et al. (2019b)  Bitcoin returns      Daily   Nov.-2011 to Dec.-  Deep Neural 
 
                                                                                                                                                                                        Page 8 of 30
 
-
 ---
 
 Table 1  (continued)                                                                                                                                                                       Sebastião and Godinho ﻿Financ Innov (2021) 7:3
@@ -424,9 +417,7 @@ Lahmiri and Bekiros Bitcoin, digital cash Daily   Bitcoin: July-2010 to Long Sho
 (2019)              and ripple prices             Oct-2018             (LSTM) and General-                                                                       higher than of
                                                                                                                                                                  GRNN
                     in USD                        Digital Cash: Feb-   ized Regression Neural
-
-                                                  2010 to Oct-2018 Networks (GRNN)
-
+## 2010 to Oct-2018 Networks (GRNN)
                                                   Ripple: Jan-2015 to
 
                                                   Oct-2018
@@ -462,7 +453,6 @@ Smuts (2019)        Bitcoin and        1-h          2018                        
                                                                                                                                                                  in one-week period
 
                                                                                                                                                                                            Page 9 of 30
-
 
 ---
 
@@ -517,7 +507,6 @@ Sun et al. (2020)      dash, litecoin,                  2017               Avera
 
                                                                                                                                                                                           Page 10 of 30
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                               Page 11 of 30
@@ -569,14 +558,12 @@ the range volatility estimator of Parkinson (1980), σt , computed respectivel
 RRt  =  2 Ht  −  Lt  ,                          (1)
          Ht   +  Lt
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                 Page 12 of 30
 
 σt =  (ln (Ht /Lt ))2 ,                         (2)
-         4 ln (2)
-
+## 4 ln (2)
 where Ht and Lt are the highest and lowest prices recorded at day t. More precisely,
 the set includes the first lag of RRt and lags one to seven of σt (for other applications of
 the Parkinson estimator to cryptocurrencies see, for example, Sebastião et al. 2017 and
@@ -622,7 +609,6 @@ the prices show an explosive behavior, followed in the second half by a sudden a
 decay. In the test sample there is an initial month of an upward movement and then a
 markedly negative trend. Roughly speaking, at the end of the test sample, the prices are
 about double the prices in the beginning of the validation sample.
-
 
 ---
 
@@ -705,7 +691,6 @@ return in the first sub-sample (resulting in a zero median in the overall period
   As already documented in the literature, these cryptocurrencies are highly volatile.
 This is evident from the relatively high standard deviations and the range length. The
 
-
 ---
 
                                                                                                                                                       Sebastião and Godinho ﻿Financ Innov (2021) 7:3
@@ -720,13 +705,9 @@ Fig. 1  Data partition of the sample into training, validation and test sub-
 
                                                                                                                                                       Page 14 of 30
 
-
 ---
 
-25000              Bitcoin                    Sebastião and Godinho ﻿Financ Innov (2021) 7:3
-
-20000    Training            ValidaƟon  Test
-
+## 25000 Bitcoin                    Sebastião and Godinho ﻿Financ Innov (2021) 7:3## 20000 Training            ValidaƟon  Test
 15000
 
 10000
@@ -734,22 +715,14 @@ Fig. 1  Data partition of the sample into training, validation and test sub-
 5000
 
 0
-
- 1500              Ethereum
- 1000
-         Training            ValidaƟon  Test
+## 1500 Ethereum
+## 1000 Training            ValidaƟon  Test
    500
-      0            Litecoin
-
-400      Training            ValidaƟon  Test
+## 0 Litecoin## 400 Training            ValidaƟon  Test
 300
 200
 100
-
-   0
-
-                                              Page 15 of 30
-
+## 0 Page 15 of 30
 
 ---
 
@@ -775,8 +748,7 @@ Table 3  Summary statistics on the returns of bitcoin, ethereum and litecoin
                                                                 (test) 13-Apr-2018   15-Aug-2015
           (training) 15-Aug- (validation) 24-May-               to 03-Mar-2019 (325  to 03-Mar-2019 (1297
                                                                 obs.)                obs.)
-          2015 to 23-May-2017 2017 to 12-Apr-2018
-
+## 2015 to 23-May-2017 2017 to 12-Apr-2018
           (648 obs.)                            (324 obs.)
 
 Bitcoin
@@ -808,11 +780,8 @@ Min. (%)  − 31.55                                 38.93          − 0
 Max. (%)  30.28                                    0.5794        − 14.72                1.264
                                                    4.880                               12.34
 SD (%)    7.164                                    0.0297         26.87                 0.0131
-                                                                   4.872
-Skewness  0.2979                                                   0.2720
-                                                                   3.263
-Exc. kurtosis 3.697                                              − 0.0719
-
+### 4.872 Skewness  0.2979                                                   0.2720
+### 3.263 Exc. kurtosis 3.697                                              − 0.0719
 ρ(1)      0.0688*
 
 Litecoin
@@ -837,7 +806,6 @@ This table shows some descriptive statistics of the log-returns of bitcoin, ethe
 statistics are presented in percentage. The significance of the mean return is assessed using the t-statistic with Newey–West
 HAC standard error, with a Bartlett kernel bandwidth of 8. ρ(1) is the first order autocorrelation. Significance at the 10%, 5%
 and 1% levels are denoted by *, ** and ***, respectively
-
 
 ---
 
@@ -867,8 +835,7 @@ during the validation period, cryptocurrencies experience an explosive behavior�
 lowed by a visible crash—the mean returns are still positive. Third, the test period differs
 from the previous periods mainly by its negative mean return and negative first-order
 autocorrelation, which indicates that the negative price trend that started at the end of
-2017 prevailed in this last sub-sample.
-
+## 2017 prevailed in this last sub-sample.
 Methodology
 This study examines the predictability of the returns of major cryptocurrencies and the
 profitability of trading strategies supported by ML techniques. The framework consid-
@@ -891,7 +858,6 @@ decrease the next day). An RF uses several trees. In each tree node, a random su
 the independent variables and that of the observations in the training dataset are used to
 define the test that leads to choosing a branch. RF forecasts are then obtained by averag-
 ing the forecasts made by the different trees that compose it (in the case of a regression
-
 
 ---
 
@@ -929,9 +895,7 @@ lowing equation (Smola and Schölkopf 2004):
 min  1   w  �2   +  C    l                         +  ξi∗�
       �
                        � �ξi
-     2
-                         i=1
-
+## 2 i=1
     yi  −  �w,  xi�  −  b   ≤                  ε  +  ξi  ,  i ∈ �1; . . . ; l�  (4)
 
 
@@ -949,7 +913,6 @@ Cao 2001; Ben-Hur and Weston 2010). According to Tay and Cao (2001), Gaussian
 kernels tend to have good performance under general smoothness assumptions; thus,
 they are commonly used (e.g., Patel et al. 2015). It is also possible to use the original
 linear models, usually referred to as a “linear kernel.”
-
 
 ---
 
@@ -1023,7 +986,6 @@ ence on the results. Specifically, by always including the day dummies and the f
 the relative price range, we have tried all lag lengths for the cryptocurrencies vector and
 for the range volatility estimator from one to seven, with and without other market and
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                  Page 20 of 30
@@ -1077,7 +1039,6 @@ sis on the profitability of the trading strategies based on ML considering three
 ensembles. Basically, a long position in the market is created if at least four, five, or six
 individual models (out of the six models) agree on the positive trading signal for the next
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                              Page 21 of 30
@@ -1129,7 +1090,6 @@ Results
 Table 5 shows the sets of variables that maximize the average return of a trading strat-
 egy in the validation period—without any trading costs or liquidity constraints—devised
 upon the trading positions obtained from rolling-window, one-step forecasts. These sets
-
 
 ---
 
@@ -1237,7 +1197,6 @@ RF         LTC [− 1, − 2]                       RR[− 1]      No   
 
            ETH[− 1, − 2]
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                                                      Page 23 of 30
@@ -1309,7 +1268,6 @@ Square Error (RMSE) and the Theil’s ­U2. This last metric represents the rati
 model to the MSE of a naïve model which predicts that the next return is equal to the last known return. All values are
 multiplied by 100
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                 Page 24 of 30
@@ -1345,7 +1303,7 @@ rate is lower than 50% in five cases, with the RF regression model being the wor
 class. During the test period, the classification models produce, on average for the three
 cryptocurrencies, a success rate of 52.61%, which is slightly higher than the correspond-
 ing figure for the regression models (51.38%). In the test sample, the MAEs range from
-2.24 to 3.79%, and the RMSEs range from 3.36 to 5.28%. The RF for bitcoin and litecoin
+### 2.24 to 3.79%, and the RMSEs range from 3.36 to 5.28%. The RF for bitcoin and litecoin
 and the SVM for bitcoin are not superior to the naïve model, achieving a Theil’s ­U2 of
 107.9%, 103.7%, and 625.6%, respectively.
 
@@ -1364,7 +1322,6 @@ and for Ensemble 6, the number of days in the market is marginal, never higher t
 10%. The win rates are never lower than 50%, with the best results achieved by Ensem-
 bles 5 and 6 for ethereum, at 60.71% and 63.33%, respectively. The average profit per
 day in the market is negative only for Ensemble 4 for bitcoin; but in some other cases,
-
 
 ---
 
@@ -1431,7 +1388,6 @@ conditional upon the fact that the VaR at the 1% level has been exceeded. Finall
 the maximum observed loss from a peak to a trough of the accumulated value of the trading strategy, before a new peak is
 attained, relative to the value of that peak. All values are in percentage, except the nº of days in the market and the p-values.
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                 Page 26 of 30
@@ -1471,8 +1427,7 @@ ered. With a proportional round-trip trading cost of 0.5%, the number of strateg
 result in a negative annualized return increases from 1 to 5. However, most notably, the
 consideration of these trading costs highlights what is already visible from the other sta-
 tistics, namely, that the best strategies are Ensemble 5 applied to ethereum and litecoin.
-
-Conclusions
+## Conclusions
 This study examines the predictability of three major cryptocurrencies: bitcoin,
 ethereum, and litecoin, and the profitability of trading strategies devised upon ML,
 namely linear models, RF, and SVMs. The classification and regression methods use
@@ -1485,7 +1440,6 @@ result from a trading strategy that uses the sign of the return forecast (in the
 regression models) or the binary prediction of an increase or decrease in the price (in
 the case of classification models), obtained in a rolling-window framework, to devise a
 position in the market for the next day.
-
 
 ---
 
@@ -1539,7 +1493,6 @@ ever, one may argue that the fact that they are positive may support the belief 
 techniques have potential in the cryptocurrencies market, that is, when prices are falling
 down, and the probability of extreme negative events is high, the trading strategy still
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                                                 Page 28 of 30
@@ -1584,8 +1537,7 @@ Competing interests
 The authors declare that they have no competing interests.
 
 Received: 11 January 2020 Accepted: 27 November 2020
-
-References
+## References
 Aharon DY, Qadan M (2019) Bitcoin and the day-of-the-week effect. Finance Res Lett 31:415–424
 Alessandretti L, ElBahrawy A, Aiello LM, Baronchelli A (2019) Anticipating cryptocurrency prices using machine learning.
 
@@ -1617,7 +1569,6 @@ Caporale GM, Plastun A (2019) The day of the week effect in the cryptocurrency m
 Catania L, Grassi S, Ravazzolo F (2018) Predicting the volatility of cryptocurrency time-series. Mathematical and statistical
 
       methods for actuarial sciences and finance. Springer, Cham, pp 203–207
-
 
 ---
 
@@ -1727,7 +1678,6 @@ Marsh A (2018) “What is Bitcoin?”Topped Google’s 2018 what asked trending 
 
       com/news/articl​ es/2018-12-12/-what-is-bitco​itopp​ed-google​ -s-2018-what-asked​-trend​ing-list
 
-
 ---
 
 Sebastião and Godinho ﻿Financ Innov (2021) 7:3                                                                                 Page 30 of 30
@@ -1821,7 +1771,5 @@ Publisher’s Note
 
 Springer Nature remains neutral with regard to jurisdictional claims in published maps and institutional affiliations.
 
-
 ---
-
 

@@ -1,8 +1,12 @@
 ﻿# Technical Analysis In Cryptocurrency Markets
 
-Source PDF: technical-analysis-in-cryptocurrency-markets.pdf
+> Conversao automatica a partir do PDF local, com limpeza leve de headings e espacamento para leitura no repositorio privado.
+
+**Source PDF:** technical-analysis-in-cryptocurrency-markets.pdf
 
 ---
+
+## Texto convertido
 
 Technical Analysis in Cryptocurrency Markets: Do
       Transaction Costs and Bubbles Matter? ∗
@@ -13,8 +17,7 @@ Technical Analysis in Cryptocurrency Markets: Do
 
           This version: February 10, 2022
 
-                                                      Abstract
-
+## Abstract
     The study of technical analysis in cryptocurrencies has largely ignored the
 implications of often high transaction costs and bubble periods on trade rule
 performance. We study the daily and 1-minute returns of 69 technical trade rules
@@ -25,8 +28,7 @@ beat buy-and-hold, but not Bitcoin and Bitcoin Cash. Transaction costs decrease 
 likelihood for Ripple and Litecoin, but increase it for Bitcoin and Ethereum.
 
 JEL Classiﬁcation : G14, G20, G30, G32
-
-Keywords  : Technical analysis, cryptocurrency, transaction costs, asset bubbles
+**Keywords:** Technical analysis, cryptocurrency, transaction costs, asset bubbles
 
     ∗We thank Flavio Abanto for research assistance. We gratefully acknowledge the ﬁnancial support of the Research
 
@@ -39,11 +41,9 @@ Daniel Svogun Phone: +1-401-569-7184
     ‡School of Economics and Finance, Universidad del Pacíﬁco (Lima, Perú).
     §Center for International Policy Studies, Fordham University, New York, USA.
 
-
 ---
 
-1 Introduction
-
+## 1 Introduction
 Cryptocurrencies are a very risky new asset class, and investors spend time to understand their
 price trends in order to proﬁt as a reward for that risk. To make money, investors aim to create
 trend trading rules or strategies based on technical analysis to respond quickly to price changes,
@@ -92,7 +92,6 @@ Yahyaee et al. (2018), and to the references therein.
 
                                                               1
 
-
 ---
 
 2019; Bouri et al., 2019), their eﬀects on trading proﬁts have not been studied yet. By formally
@@ -126,12 +125,8 @@ not have any eﬀect on the odds ratio for Bitcoin. Surprisingly, neither transa
 have any inﬂuence on the chances of having excess returns for Bitcoin Cash.
 
 The rest of the paper is organized as follows. Section 2 describes the methodology we use, section
-3 presents the data and discusses the results, and section 4 concludes.
-
-2 Methodology
-
-2.1 Detecting Bubbles
-
+## 3 presents the data and discusses the results, and section 4 concludes.## 2 Methodology
+### 2.1 Detecting Bubbles
 Identifying bubble periods in each cryptocurrency price series is a key ingredient in the analysis
 of the performance of trading rules. Since cryptocurrencies lack intrinsic value (Cheah and Fry,
 2015; Cheung et al., 2015; Klein et al., 2018; Huang et al., 2019), the dating algorithm of Phillips
@@ -141,7 +136,6 @@ PSY propose a Generalized Supremum Augmented Dickey–Fuller (GSADF) test which 
     2We select these top-5 rules via a process described below.
 
                                                               2
-
 
 ---
 
@@ -166,9 +160,7 @@ used. For instance, the ﬁrst observation on which the backward GSADF statistic
 the critical value is the start date of a bubble. Likewise, the ﬁrst observation after that start date
 on which the GSADF statistic goes below the critical value is the end date of a bubble. Subsequent
 bubbles can be identiﬁed similarly.
-
-2.2 Technical Analysis Methodology
-
+### 2.2 Technical Analysis Methodology
 Corbet et al. (2019), Gerritsen et al. (2020), and Grobys et al. (2020) apply common technical
 trading rules to cryptocurrency markets, generally focusing on Bitcoin, the ﬁrst cryptocurrency
 in the market. Following the Neftci (1991) insight that the most fundamental kind of technical
@@ -199,7 +191,6 @@ n=1                                     n=1
 
                                              3
 
-
 ---
 
 The MA rule is fully deﬁned by its M AS, M AL and band lengths. The parameterizations of each
@@ -227,9 +218,7 @@ Gerritsen et al. (2020), and Grobys et al. (2020), with the exception of two BO 
 BOL = 1440. This BOL is not included because it would require close to 4 years of price data
 before trading in the daily time frequency, nearly the size of some of our full data sets. To maintain
 consistency, we do not test the BOL = 1440 rules in the 1-minute time frequency either.
-
-2.3 The role of bubble periods and transaction costs
-
+### 2.3 The role of bubble periods and transaction costs
 Having identiﬁed bubble periods by the PSY method and deﬁned each trade rule, we follow Bouri
 et al. (2019) to study the role of bubble periods in the excess return time series (the percentage
 trading period return of a particular trade strategy minus the percentage trading period return of
@@ -247,7 +236,6 @@ for their signiﬁcance. If bubble periods increase the likelihood that a tradin
 higher returns than the buy-and-hold rule, then β1 would be statistically signiﬁcant and positive.
 
                                 4
-
 
 ---
 
@@ -275,11 +263,8 @@ and non-bubble periods.
 
 We run all three logistic models with all rules studied in each cryptocurrency. A summary of all
 results, with more details for the ﬁve best performing trade rules is described below.
-
-3 Results
-
-3.1 Data and trading rules
-
+## 3 Results
+### 3.1 Data and trading rules
 Our dataset consists of 1-minute and daily cryptocurrency prices of Bitcoin (BTC), Ethereum
 (ETH), Ripple (XRP), Bitcoin Cash (BCH), and Litecoin (LTC) measured in U.S. dollars,
 for the period January 1, 2016 – November 10, 2021 (or the earliest available), sourced from
@@ -296,7 +281,6 @@ we calculate trading strategy proﬁts by their continuously compounded rate of 
 the price of cryptocurrency i at time t, and ri,t = lnPi,t − lnPi,t−1 be the logarithmic return.
 
             5
-
 
 ---
 
@@ -337,8 +321,7 @@ transaction costs sometimes does not decrease the number of trade rules producin
 the buy-and-hold strategy at all, and most frequently by only one. The number of trade rules
 outperforming the buy-and-hold rule, with and without transaction costs, did not change in 2020
 and 2021 for Bitcoin, Ethereum, and Bitcoin Cash. The single greatest decrease by number is from
-45 rules to 40 in 2016 in Litecoin.
-
+## 45 rules to 40 in 2016 in Litecoin.
 Taken together, the results shown in Tables 3 and 4 are quite revealing in several ways. First, in
 terms of returns with transaction costs, the superiority of the daily trade rules over the 1-minute
 trade rules could be explained by the fact that the 1-minute strategies have substantially more
@@ -349,7 +332,6 @@ characterized by a large decrease in prices, suggesting these trade rules can he
 such periods. Third, the number of daily trading rules including transaction costs that produce
 
                                                               6
-
 
 ---
 
@@ -375,7 +357,7 @@ It is conceivable that these excess returns are a reward for investors bearing e
 return to risk basis. To explore this argument, we report Sharpe ratios using daily data. Table 5
 reports the number of trade-rule Sharpe ratios greater than the buy-and-hold Sharpe ratio in each
 cryptocurrency, with and without transaction costs. For example, in Bitcoin without transactions,
-49 trade rules have a higher Sharpe ratio than buy-and-hold. The latter supports evidence in
+## 49 trade rules have a higher Sharpe ratio than buy-and-hold. The latter supports evidence in
 Gerritsen et al. (2020) that found relatively high Sharpe ratios among technical analysis trade rules
 in Bitcoin. We ﬁnd this is the case in several other important cryptocurrencies as well. These
 ranks remain relatively stable even with the inclusion of transaction costs. In Bitcoin and Bitcoin
@@ -384,11 +366,8 @@ in Ripple by 4 and in Litecoin by 10. All in all, there is a substantial number 
 than 50% of trade rules for Bitcoin, Ethereum, and Bitcoin Cash – that generate a superior Sharpe
 ratio. A natural implication is that technical trade rules with relatively better reward to risk ratios
 than buy-and-hold exist, with stronger evidence in three of the ﬁve cryptocurrencies studied.
-
-3.2 Trade rule returns and bubble periods
-
-3.2.1 The big picture: 69 trading strategies
-
+### 3.2 Trade rule returns and bubble periods
+#### 3.2.1 The big picture: 69 trading strategies
 Table A.1 in the appendix provides a general overview of the Equation (6) results, indicating
 positive and negative coeﬃcients, where the dependent variable is the logit of the odds ratios of
 excess return (beyond buy-and-hold). The independent variable is a dummy variable indicating the
@@ -402,7 +381,6 @@ cryptocurrencies.
 At the 1% level of statistical signiﬁcance, there are no coeﬃcients that are negative. The Ethereum
 
                                                               7
-
 
 ---
 
@@ -439,9 +417,7 @@ rule parameterizations, we describe a process below to limit more detailed repor
 rules. This process helps us determine whether the statistical signiﬁcance of bubbles and transaction
 costs coeﬃcients are indeed coming from the most proﬁtable trade rules, and shed some light on
 the salient direction of transaction cost coeﬃcients given the conﬂicting pooled results.
-
-3.2.2 The best strategies: top-5
-
+#### 3.2.2 The best strategies: top-5
 In this section, we select ﬁve high performing rules in each cryptocurrency to describe in further
 detail3. The selection criteria is as follows: ﬁrst, for each cryptocurrency, we order total return of
 each trading strategy from the highest to the lowest, both adjusted and unadjusted by transaction
@@ -454,7 +430,6 @@ signiﬁcance with bubbles in an often signiﬁcant portion of technical trade r
     3More detailed summaries of all rules are available upon request.
 
                                                               8
-
 
 ---
 
@@ -510,7 +485,6 @@ phenomenon to future research.
 
                                                               9
 
-
 ---
 
 The evidence presented in Table 9 implies that transaction costs play a role in both increasing and
@@ -528,9 +502,7 @@ transaction coeﬃcient is not statistically signiﬁcant for most of the regres
 value of zero in the few cases that it is statistically signiﬁcant. The coeﬃcient of the interaction
 between bubble periods and volume of transactions is not statistically diﬀerent from zero. These
 two results together imply that Equation (8) is not relevant.
-
-4 Closing remarks
-
+## 4 Closing remarks
 Earlier studies of technical analysis in cryptocurrencies did not include transaction costs. We
 have shown that they change proﬁtability dramatically in the 1-minute time frequency, but not
 substantially in the daily time frequency. We have shown also that bubbles can increase the
@@ -562,7 +534,6 @@ of the year, all trading rules performed better than the buy-and-hold strategy. 
 
                                                               10
 
-
 ---
 
 regulators ﬁnd that excessive technical trading in cryptocurrencies contributes to a loss of welfare,
@@ -570,9 +541,7 @@ our evidence suggests that transaction costs alone may not be suﬃcient to prev
 occurring. A supply-and-demand responsive Tobin-style tax may help prevent welfare-reducing
 technical trades further. Our results suggest that regulators ought to be particularly wary of excess
 return rules in bubble periods.
-
-References
-
+## References
 Ahmed, S., Grobys, K., and Sapkota, N. (2020). Proﬁtability of technical trading rules among
    cryptocurrencies with privacy function. Finance Research Letters, 35:101495.
 
@@ -618,7 +587,6 @@ Khuntia, S. and Pattanayak, J. (2018). Adaptive market hypothesis and evolving p
 
                                                               11
 
-
 ---
 
 Klein, T., Thu, H. P., and Walther, T. (2018). Bitcoin is not the new gold–a comparison of volatility,
@@ -648,7 +616,6 @@ Zhang, W., Wang, P., Li, X., and Shen, D. (2018). The ineﬃciency of cryptocurr
 
                                                               12
 
-
 ---
 
 (a) Bitcoin returns  (b) Ethereum returns
@@ -662,7 +629,6 @@ transaction costs (solid blue line), and buy-and-hold (dashed black line). Bubbl
 represented by shaded areas.
 
                                                               13
-
 
 ---
 
@@ -698,7 +664,6 @@ Notes: This table deﬁnes all trade rules used of the Moving Average (MA) rule 
 The short-hand for MA rules are as follows: MA(M AS, M AL, bandparam).
 
                        14
-
 
 ---
 
@@ -748,7 +713,6 @@ means that there is no data for a particular cryptocurrency.
 
                                15
 
-
 ---
 
 Table 4. Trading strategies greater than buy-and-hold, 1-day time frequency.
@@ -791,7 +755,6 @@ no data for a particular cryptocurrency.
              for transaction costs.
 
                                  16
-
 
 ---
 
@@ -840,7 +803,6 @@ Notes: This table shows the descriptive statistics of the top-5 trade rules and 
 for each cryptocurrency, using daily data. Index denotes the Trade Rule Index.
 
                              17
-
 
 ---
 
@@ -891,7 +853,6 @@ return (with transaction costs), and U denotes the Unadjusted trading return (wi
 
                                  18
 
-
 ---
 
 Table 8. Equation (6) - Logit Regression Results of
@@ -900,34 +861,33 @@ the top-5 trade rules.
      Trade Rule Index             Trade Rule  Bubble (φ)
 BTC
                                 MA(1,150,0)         33.606
-                         11   MA(1,150,.01)          33.33
+## 11 MA(1,150,.01)          33.33
                          12                         33.104
-                         33     MA(5,100,0)         32.809
-                         34   MA(5,100,.01)         33.792
-                         57
-ETH                             BO(1,60,.01)     3.926***
+## 33 MA(5,100,0)         32.809
+## 34 MA(5,100,.01)         33.792
+## 57 ETH                             BO(1,60,.01)     3.926***
                            6                     3.911***
-                         19    MA(1,20,.01)      3.514***
-                         20      MA(2,20,0)
+## 19 MA(1,20,.01)      3.514***
+## 20 MA(2,20,0)
                          40                         2.6***
-                         51    MA(2,20,.01)      4.583***
+## 51 MA(2,20,.01)      4.583***
 XRP                           MA(10,20,.01)
                            3                     2.251***
-                           4      BO(1,20,0)     2.305***
+## 4 BO(1,20,0)     2.305***
                            5                     3.756***
-                         17      MA(1,10,0)      2.036***
-                         18    MA(1,10,.01)      2.084***
+## 17 MA(1,10,0)      2.036***
+## 18 MA(1,10,.01)      2.084***
 LTC
-                           5     MA(1,20,0)      1.626***
-                           6     MA(2,10,0)      1.679***
-                         30    MA(2,10,.01)      1.456***
+## 5 MA(1,20,0)      1.626***
+## 6 MA(2,10,0)      1.679***
+## 30 MA(2,10,.01)      1.456***
                          41                      4.251***
-                         55      MA(1,20,0)
+## 55 MA(1,20,0)
 BCH                            MA(1,20,.01)         32.791
-                           4   MA(5,20,.01)
-                           5    MA(10,50,0)       2.36***
+## 4 MA(5,20,.01)
+## 5 MA(10,50,0)       2.36***
                            6                        32.206
-                         19       BO(1,50,0)        33.532
+## 19 BO(1,50,0)        33.532
                          49                         30.769
                                MA(1,10,.01)         31.348
                                  MA(1,20,0)
@@ -943,7 +903,6 @@ signiﬁcance at the 10%, 5%, and 1% levels, respectively.
 
                               19
 
-
 ---
 
 Table 9. Equation (7) - Logit Regression Results of the top-5 trade rules.
@@ -951,34 +910,34 @@ Table 9. Equation (7) - Logit Regression Results of the top-5 trade rules.
      Trade Rule Index             Trade Rule  Bubble (φ) .     TC (β1)     Bubble ×TC (β2)
  BTC
                                 MA(1,150,0)          32.379     0.052**                   -0.049
-                         11   MA(1,150,.01)            32.36    0.053**                   -0.049
+## 11 MA(1,150,.01)            32.36    0.053**                   -0.049
                          12                          33.169                               -0.028
-                         33     MA(5,100,0)          33.326        0.032                  -0.029
-                         34   MA(5,100,.01)          31.894        0.034                   0.009
+## 33 MA(5,100,0)          33.326        0.032                  -0.029
+## 34 MA(5,100,.01)          31.894        0.034                   0.009
                          57                                         -0.01
 ETH                             BO(1,60,.01)        1.685**                          23.942***
                            6                        3.36***     0.021**                    0.264
-                         19    MA(1,20,.01)       3.039***        0.017*                   0.187
-                         20      MA(2,20,0)       2.627***                                -0.029
+## 19 MA(1,20,.01)       3.039***        0.017*                   0.187
+## 20 MA(2,20,0)       2.627***                                -0.029
                          40                       5.122***      0.022**                   -0.082
-                         51    MA(2,20,.01)                    0.037***
+## 51 MA(2,20,.01)                    0.037***
 XRP                           MA(10,20,.01)         3.47***    0.036***               -116.406*
                            3                      3.526***                            -117.593*
-                           4      BO(1,20,0)      2.725***    -30.274**
+## 4 BO(1,20,0)      2.725***    -30.274**
                            5                      2.834***    -29.087**                 550.498
-                         17      MA(1,10,0)       2.886***    -24.038**                  -81.266
-                         18    MA(1,10,.01)                   -31.127**                  -83.693
+## 17 MA(1,10,0)       2.886***    -24.038**                  -81.266
+## 18 MA(1,10,.01)                   -31.127**                  -83.693
 LTC                                               1.842***
-                           5     MA(1,20,0)       1.839***       -28.7**                   0.933
-                           6     MA(2,10,0)       1.634***                                   1.28
-                         30    MA(2,10,.01)       4.315***    -2.898***                    0.991
+## 5 MA(1,20,0)       1.839***       -28.7**                   0.933
+## 6 MA(2,10,0)       1.634***                                   1.28
+## 30 MA(2,10,.01)       4.315***    -2.898***                    0.991
                          41                                   -3.002***                      0.46
-                         55      MA(1,20,0)          32.954   -2.772***                    1.547
+## 55 MA(1,20,0)          32.954   -2.772***                    1.547
 BCH                            MA(1,20,.01)
-                           4   MA(5,20,.01)      -9.795***        -1.216          3121.724***
-                           5    MA(10,50,0)          32.691    -1.577**                    0.011
+## 4 MA(5,20,.01)      -9.795***        -1.216          3121.724***
+## 5 MA(10,50,0)          32.691    -1.577**                    0.011
                            6                           34.98                               0.028
-                         19       BO(1,50,0)         32.725        0.268                   0.094
+## 19 BO(1,50,0)         32.725        0.268                   0.094
                          49                          32.319       -0.012                   0.256
                                MA(1,10,.01)                       -0.034
                                  MA(1,20,0)                       -0.109
@@ -992,7 +951,6 @@ cryptocurrency, using daily data. (*), (**), and (***) represent statistical sig
 5%, and 1% levels, respectively.
 
                                               20
-
 
 ---
 
@@ -1038,7 +996,6 @@ indicates whether φ is positive or negative. The column “Times” indicates t
 that φ is either positive or negative.
 
                              21
-
 
 ---
 
@@ -1094,7 +1051,5 @@ number of times that φ (β1 or β2) is either positive or negative.
 
                                      22
 
-
 ---
-
 

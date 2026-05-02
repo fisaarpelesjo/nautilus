@@ -1,8 +1,12 @@
 ﻿# Technical Trading And Cryptocurrencies
 
-Source PDF: technical trading-and-cryptocurrencies.pdf
+> Conversao automatica a partir do PDF local, com limpeza leve de headings e espacamento para leitura no repositorio privado.
+
+**Source PDF:** technical trading-and-cryptocurrencies.pdf
 
 ---
+
+## Texto convertido
 
 Annals of Operations Research (2021) 297:191–220
 https://doi.org/10.1007/s10479-019-03357-1
@@ -16,7 +20,7 @@ Robert Hudson1 · Andrew Urquhart2
 Published online: 30 August 2019
 © The Author(s) 2019
 
-Abstract
+## Abstract
 This paper carries out a comprehensive examination of technical trading rules in cryptocur-
 rency markets, using data from two Bitcoin markets and three other popular cryptocurrencies.
 We employ almost 15,000 technical trading rules from the main ﬁve classes of technical trad-
@@ -33,9 +37,7 @@ markets.
 
 Keywords Technical analysis · Cryptocurrencies · Bitcoin · Data-snooping · Market
 efﬁciency
-
-1 Introduction
-
+## 1 Introduction
 Cryptocurrencies are a new type of ﬁnancial instrument that have received a great amount of
 interest both from the media and investors in the recent past. The ﬁrst cryptocurrency created
 was Bitcoin, proposed by Nakamoto (2008), as a peer-to-peer electronic cash system which
@@ -51,17 +53,13 @@ B Andrew Urquhart
 
      Robert Hudson
      robert.hudson@hull.ac.uk
-
-1 Hull University Business School, University of Hull, Hull, UK
-2 ICMA Centre, Henley Business School, University of Reading, Reading, UK
-
+## 1 Hull University Business School, University of Hull, Hull, UK
+## 2 ICMA Centre, Henley Business School, University of Reading, Reading, UK
                                                                            123
-
 
 ---
 
-192  Annals of Operations Research (2021) 297:191–220
-
+## 192 Annals of Operations Research (2021) 297:191–220
 exchange is attractive due to its low transaction costs, its peer-to-peer, global and government-
 free design. However users may be concerned by the lack of conﬁdence in the system as well
 as the lack of acceptability of Bitcoin to make transactions. As discussed above, Bitcoin was
@@ -108,14 +106,12 @@ rency markets and to, some extent, in many asset markets.3 Since cryptocurrency 
 have tended to follow strong trends since their inception, we have some prior that technical
 trading rules may be beneﬁcial in cryptocurrency markets. In addition, the relative lack of
 information relevant for performing fundamental analysis on cryptocurrencies may elevate
-
-1 Financial Times (2018) https://www.ft.com/content/c8a47b42-11d4-11e8-8cb6-b9ccc4c4dbbb.
-2 For an up-to-date review of the literature on cryptocurrencies, see Corbet et al. (2019).
+## 1 Financial Times (2018) https://www.ft.com/content/c8a47b42-11d4-11e8-8cb6-b9ccc4c4dbbb.
+## 2 For an up-to-date review of the literature on cryptocurrencies, see Corbet et al. (2019).
 3 For instance, Brock et al. (1992), Sullivan et al. (1999), Shynkevich (2012), Neely et al. (2014), Shynkevich
 (2016) amongst others explained below.
 
 123
-
 
 ---
 
@@ -154,11 +150,9 @@ of performance metrics to assess the returns from technical trading, including a
 
                                                               123
 
-
 ---
 
-194  Annals of Operations Research (2021) 297:191–220
-
+## 194 Annals of Operations Research (2021) 297:191–220
 risk-adjusted measures as well as the breakeven costs. Since we examine a number of dif-
 ferent rules, we face the real possibility of data-snooping bias where the large number of
 hypotheses tested means that the likelihood of a rejecting the null hypothesis of each trading
@@ -208,11 +202,8 @@ while Sullivan et al. (1999) and White (2000) show that the ﬁndings of Brock e
 are not due to data-snooping. Many other papers have also reported signiﬁcant results for
 technical trading in equity markets, such as Shynkevich (2012), Han et al. (2013) and Neely
 et al. (2014). There is also evidence of signiﬁcant results from technical trading in commodity
-
-4 See Harvey and Liu (2014) for more details on the issue of multiple hypothesis testing.
-
+## 4 See Harvey and Liu (2014) for more details on the issue of multiple hypothesis testing.
 123
-
 
 ---
 
@@ -246,9 +237,7 @@ rules that we implement. Section 4 outlines the various performance metrics cons
 order to assess the performance of our rules while Sect. 5 sets out the data-snooping measures
 employed in this study. Section 6 reports the empirical results while Sect. 7 provides a
 summary and the conclusion.
-
-2 Data
-
+## 2 Data
 We employ daily Bitcoin prices from two providers for robustness purposes, namely Coin-
 Desk and Bitstamp. CoinDesk represents an average of Bitcoin prices across leading global
 exchanges that meet criteria speciﬁed by CoinDesk. These criteria include that the exchange
@@ -271,11 +260,9 @@ than Bitcoin, such as Ciaian et al. (2018).
 
                                                               123
 
-
 ---
 
-196                                  Annals of Operations Research (2021) 297:191–220
-
+## 196 Annals of Operations Research (2021) 297:191–220
 Table 1 Descriptive statistics of the returns of Bitstamp, CoinDesk, Ethereum, Ripple and Litecoin from the
 start of available data to the 31st December 2017
 
@@ -310,9 +297,7 @@ tocurrencies exhibit excess kurtosis indicating the leptokurtic nature of these 
 and Ripple are the most heavily positively skewed and have the largest excess kurtosis of all
 cryptocurrencies. Therefore Table 1 reﬂects the nature of cryptocurrency markets and how
 they are quite different to traditional ﬁnancial assets.
-
-3 Technical trading rules
-
+## 3 Technical trading rules
 Taylor and Allen (1992) note that technical analysis can be separated into two distinct cate-
 gories, namely the qualitative form and the quantitative form. The qualitative form is where
 charts are analyzed and attempts are made to identify patterns in the data while the quan-
@@ -327,7 +312,6 @@ an investor, similar to Bajgrowicz and Scaillet (2012).
 7 This is unlike the vast majority of traditional assets which generally have negative skewness.
 
 123
-
 
 ---
 
@@ -355,9 +339,7 @@ variants of each class of trading rule, and therefore obtain a very large number
 possible rules. “Appendix” presents more details of the different variants of each of the class
 of rules as well as the various parameterizations employed in this study. In total, we study
 14,919 technical trading rules.
-
-4 Performance metrics
-
+## 4 Performance metrics
 The return from the jth technical trading in each cryptocurrency market is deﬁned as;
 
 R j,t = S j,t−1rt                                                                      (2)
@@ -384,11 +366,9 @@ the beneﬁts of employing technical analysis on Bitcoin since we take no return
 
                                                               123
 
-
 ---
 
-198                    Annals of Operations Research (2021) 297:191–220
-
+## 198 Annals of Operations Research (2021) 297:191–220
    The ﬁrst performance metric we report is the daily mean return of the jth technical trading
 rule which is deﬁned as;
 
@@ -441,9 +421,7 @@ the jth technical trading rue is deﬁned as;
 
 where M D Dd, j is the maximum drawdown of the excess returns generated by the jth trading
 rule.
-
-5 Data-snooping
-
+## 5 Data-snooping
 Data snooping bias is a real issue whenever any trading strategy is implemented since exam-
 ining just the mean excess return across rules is not sufﬁcient. Searching among a range of
 competing trading rules implicitly involves increasing the number of hypotheses tested as
@@ -453,7 +431,6 @@ data_library.html.
 10 The Calmar ratio was developed by Young (1991) and stands for “California Managed Account Reports”.
 
 123
-
 
 ---
 
@@ -472,16 +449,12 @@ and after correcting for it, outperforming trading strategies are very rare.
 
    We adopt two broad approaches to deal with multiple hypothesis testing, namely family-
 wise error rate (FWER) and the false discovery rate (FDR).
-
-5.1 FWER
-
+### 5.1 FWER
 The strictest multiple hypothesis test is to try and avoid any false rejections. This translates
 to controlling the FWER, which is deﬁned as the probability of rejecting even one of the true
 null hypothesis and therefore the FWER measures the probability of even one false discovery.
 We implement two main FWER tests.
-
-5.1.1 Bonferroni method
-
+#### 5.1.1 Bonferroni method
 The Bonferroni method is a single-step procedure since all p-values are compared to a single
 critical value. This critical p-value is α/M, where α is the critical value chosen and M is
 number of rules examined. For a large number of rules, this adjustment leads to an extremely
@@ -489,18 +462,14 @@ small critical p-value which makes it very conservative and leads to a loss of p
 lack of power is due to the fact that is implicitly treats all test statistics as independent and
 therefore ignores cross-correlation that is bound to be present in the technical trading rules
 employed in this study.
-
-5.1.2 Holm method
-
+#### 5.1.2 Holm method
 The Holm method is a stepwise adjustment that that rejects the null hypothesis of no outper-
 forming rules if pi ≤ α/(M − i + 1) for i = 1, . . .. Compared to the Bonferroni method,
 the Holm method becomes less strict for large p-values. Thus the Holm method typically
 rejects more hypotheses and is more powerful than the Bonferroni method. However, it also
 does not take into account the dependence structure of the individual p-values and is very
 conservative.
-
-5.2 FDR
-
+### 5.2 FDR
 Rather than controlling for the number of false rejections, we can control for the proportion
 of false rejections of the False Discovery Proportion (FDP). FDR measures and controls the
 expected FDP among all discoveries where a multiple hypothesis testing method is said to
@@ -511,13 +480,10 @@ anything”.
 
                                                               123
 
-
 ---
 
-200                                                  Annals of Operations Research (2021) 297:191–220
-
-5.2.1 BH method
-
+## 200 Annals of Operations Research (2021) 297:191–220
+#### 5.2.1 BH method
 One of the earliest FDR controlling methods is by Benjamini and Hochberg (1995) and is a
 stepwise procedure that, assuming all individual p-values are ordered from smallest to largest
 and deﬁning:
@@ -527,9 +493,7 @@ and deﬁning:
 
 where we reject all hypothesis H1, H2, . . . , H j . This is a step-up method that starts with
 examining the least signiﬁcant hypothesis and moves up to more signiﬁcant test statistics.
-
-5.2.2 BY method
-
+#### 5.2.2 BY method
 Although Benjamini and Hochberg (1995) show that their method measures FDR if the p-
 
 values are mutually independent, Benjamini and Yekutieli (2001) show that a more general
@@ -555,11 +519,8 @@ stationary bootstrap method of Politis and Romano (1994) to resample the returns
 
 strategy, where the corresponding test statistic for each bootstrap series of returns is calculated
 by comparing the original p-value with the bootstrapped p-values.12
-
-6 Empirical results
-
-6.1 Initial results
-
+## 6 Empirical results
+### 6.1 Initial results
 Table 2 reports the summary of the performance of the technical trading rules across all
 cryptocurrencies. We present the average result for all parameterizations of each technical
 trading rule where we show that on average, all ﬁve classes of technical trading rules generate
@@ -577,7 +538,6 @@ for risk in Table 3 where we ﬁnd that the all of them are greater than zero in
 previous studies.
 
 123
-
 
 ---
 
@@ -600,7 +560,6 @@ previous studies.
                               1642.09
 
 123                                                                                                                                               201
-
 
 ---
 
@@ -632,7 +591,6 @@ previous studies.
      “Ave Return” denotes the average daily return of the trading rules while “Ann.Return” refers to the average annualized return from each trading signal. ***, ** and * indicate
      signiﬁcance at the 1%, 5% and 10% levels respectively
 
-
 ---
 
      Table 3 The risk adjusted performance of the technical trading rules over the full sample period for each cryptocurrency, where we report the Sharpe, Annualized Sharpe,  Annals of Operations Research (2021) 297:191–220
@@ -654,7 +612,6 @@ previous studies.
      Channel breakout rule
 
 123                                                                                                                                                                            203
-
 
 ---
 
@@ -680,7 +637,6 @@ previous studies.
      Support-resistance rule  0.0048  0.0919       0.0935       0.1601   3.0591         1.9094
      Oscillator rule          0.0083  0.1586       0.1624       0.2279   4.3532         6.0633
      Channel breakout rule                                                             15.9528
-
 
 ---
 
@@ -722,9 +678,7 @@ The annualized Sharpe and Sortino ratios are also quite large indicating the ris
 beneﬁts of technical trading in cryptocurrencies. Therefore if investors can choose the best
 performing rules, then there are return making opportunities in applying technical trading
 rules to cryptocurrency markets.
-
-6.2 Transaction costs
-
+### 6.2 Transaction costs
 Up to this point, the analysis has assumed zero transaction costs but in practice these may
 be signiﬁcant, even when trading cryptocurrencies. Indeed, a technical trading rule may
 predict cryptocurrency movements in the sense of generating signiﬁcant returns but still
@@ -739,7 +693,6 @@ it is an average of the leading global exchanges of Bitcoin, while the transacti
 sponding author upon request.
 
                                                               123
-
 
 ---
 
@@ -778,7 +731,6 @@ sponding author upon request.
 
                                                              70.54          0.04
 
-
 ---
 
      Table 4 continued        % + Buy Ret.  % Sig. Buy Ret.  % + Sell Ret.  % Sig. Sell Ret.  % + Ret.  % Sig. Ret.                                                                     Annals of Operations Research (2021) 297:191–220
@@ -809,7 +761,6 @@ sponding author upon request.
 
 123                                                                                                                                                                                     207
 
-
 ---
 
 123  Table 5 The performance of the best and worst technical trading rules for each technical trading rule class studied                               208
@@ -831,7 +782,6 @@ sponding author upon request.
                               − 1.71
 
                                                                                                                                                        Annals of Operations Research (2021) 297:191–220
-
 
 ---
 
@@ -863,11 +813,9 @@ sponding author upon request.
 
 123                                                                                                                                                         209
 
-
 ---
 
-210                                  Annals of Operations Research (2021) 297:191–220
-
+## 210 Annals of Operations Research (2021) 297:191–220
 Table 6 The number of new trades generated by the technical trading rules for each cryptocurrency, the
 breakeven transaction costs in basis points and the percentage of rules that have greater breakeven transaction
 costs than 50 basis points
@@ -904,9 +852,7 @@ Filter rule               76.66      147.56         49.52
 Support-resistance rule   69.12                      0.11
 Oscillator rule           93.53         9.89        36.74
 Channel breakout Rule                 50.05         47.35
-                                     144.03
-
-other cryptocurrencies may vary quite considerably over time. Therefore to avoid any bias
+### 144.03 other cryptocurrencies may vary quite considerably over time. Therefore to avoid any bias
 in our results, we report in Table 6 the average breakeven transaction costs in basis points,
 along with the number of trades required. The number of trades are fairly constant within
 each cryptocurrency, although the ﬁlter rule does generate the highest number of trades across
@@ -918,7 +864,6 @@ is around 50 basis points and therefore also in Table 6 we report the percentage
 trading rules that offer breakeven transaction costs greater than 50 basis points. Each class
 
 123
-
 
 ---
 
@@ -948,9 +893,7 @@ this family of technical trading rules are not very successful for all four cryp
 Nevertheless, a large proportion of technical trading rules do generate breakeven transaction
 costs greater than 50 basis points indicating that performance of technical trading rules in
 cryptocurrencies are not wiped out by appropriate transaction costs.
-
-6.3 Comparison to the buy-and-hold strategy
-
+### 6.3 Comparison to the buy-and-hold strategy
 As shown in Fig. 1, cryptocurrencies have followed an upward trend over time, especially in
 the most recent time period. Therefore a buy-and-hold strategy may have been quite successful
 over the same sample period. Therefore in Table 7 we report the annualized return, annual-
@@ -966,9 +909,7 @@ lengthy drawdowns associated with cryptocurrencies and offers investors smoother
 than those that could have been gained from the simple buy-and-hold strategy. Therefore we
 show that if investors want to limit their risk exposure to cryptocurrency volatility, they could
 employ technical trading rules to smooth their future returns.
-
-6.4 MHT adjustment
-
+### 6.4 MHT adjustment
 So far, we have shown that technical trading rules do offer predictive power to investors in
 ﬁve cryptocurrency markets. However as mentioned previously, there is an issue with data-
 mining where searching among a range of competing rules is likely to result in at least a
@@ -976,11 +917,9 @@ couple of rules generating signiﬁcant results. In this paper, we examine in to
 
                                                               123
 
-
 ---
 
-212                                 Annals of Operations Research (2021) 297:191–220
-
+## 212 Annals of Operations Research (2021) 297:191–220
 Table 8 The percentage of rules that remain signiﬁcant at the 5% level once various multiple hypothesis
 testing procedures are implemented
 
@@ -1012,9 +951,7 @@ statistically signiﬁcant after the Bonferroni and Hold adjustments for CoinDes
 that over a third of the rules generate signiﬁcant returns. Although this ia a sharp decline
 coompared to the number of signiﬁcant rules reported in Table 4, it clearly shows that technical
 rules are proﬁtable in the cryptocurrency markets.
-
-6.5 Out-of-sample performance
-
+### 6.5 Out-of-sample performance
 Another solution to address the data-snooping issue is to employ an out-of-sample analysis to
 examine if the best technical trading rules from the in-sample estimation performs well out of
 sample (Sullivan et al. 1999; Harvey et al. 2016). However one of the issues when examining
@@ -1032,7 +969,6 @@ drop in the value of cryptocurrencies, with the price hovering around $6500 in e
 2018. therefore we can offer a pure out-of-sample analysis to determine whether technical
 
 123
-
 
 ---
 
@@ -1079,9 +1015,7 @@ more efﬁcient. This is also reﬂected in the academic literature where Corbet
 show that the majority of academic papers on cryptocurrencies solely focus on Bitcoin. Also,
 the other cryptocurrencies we study are less liquid and therefore have attracted less attention
 from investors suggesting that they may offer more proﬁt-making opportunities than Bitcoin.
-
-7 Conclusion
-
+## 7 Conclusion
 Technical analysis has a long and rich history in the academic literature, with many papers
 reporting signiﬁcant proﬁtability in foreign exchange markets, stock markets, stocks and
 commodities. Although the reported proﬁtability of technical trading has declined over time,
@@ -1093,11 +1027,9 @@ across ﬁve of the most liquid and proﬁtable cryptocurrencies by employing a 
 
                                                               123
 
-
 ---
 
-214  Annals of Operations Research (2021) 297:191–220
-
+## 214 Annals of Operations Research (2021) 297:191–220
 technical trading rules. Furthermore, we also employ a number of multiple hypothesis tests
 to safeguard against data-snooping bias.
 
@@ -1152,7 +1084,6 @@ duction in any medium, provided you give appropriate credit to the original auth
 a link to the Creative Commons license, and indicate if changes were made.
 
 123
-
 
 ---
 
@@ -1215,11 +1146,9 @@ n ∈ {2, 5, 10, 15, 20, 25, 50, 100, 200}, #n = 9
 
                                                                    123
 
-
 ---
 
-216  Annals of Operations Research (2021) 297:191–220
-
+## 216 Annals of Operations Research (2021) 297:191–220
     x ∈ {0, 0.01, 0.05, 0.1, 0.5, 1, 5}, #x = 7
     d ∈ {1, 2, 3, 4, 5}, #d = 5
     k ∈ {3, 5}, #k = 2
@@ -1271,7 +1200,6 @@ n ∈ {2, 5, 10, 15, 20, 25, 50, 100, 200}, #n = 9
     rates and remains so for d days, go short for k days and then neutralize the position.
 
 123
-
 
 ---
 
@@ -1330,11 +1258,9 @@ R S It (h) = 100                                       Ut (h)      (10)
 
                                                                    123
 
-
 ---
 
-218  Annals of Operations Research (2021) 297:191–220
-
+## 218 Annals of Operations Research (2021) 297:191–220
      the lower and upper bonds where the upper bound at a particular period will be c% above
      the low of the previous j periods and the lower bound will be c% below the high of the
      previous j periods. We examine two channel breakout rules, namely:
@@ -1359,9 +1285,7 @@ R S It (h) = 100                                       Ut (h)      (10)
      Therefore the total C B rules studied is 4536.
      The total number of different technical trading considered are: 7980 + 963 + 630 + 810
      + 4536 = 14,919.
-
-References
-
+## References
 Allen, F., & Karjalainen, R. (1999). Using genetic algorithms to ﬁnd technical trading rules. Journal of
       Financial Economics, 51, 245–271.
 
@@ -1400,7 +1324,6 @@ Brière, M., Oosterlinck, K., & Szafarz, A. (2015). Virtual currency, tangible r
       with bitcoin. Journal of Asset Management, 16, 365–373.
 
 123
-
 
 ---
 
@@ -1496,11 +1419,9 @@ Nakamoto, S. (2008). Bitcoin: A peer-to-peer electronic cash system. https://Bit
 
                                                   123
 
-
 ---
 
-220  Annals of Operations Research (2021) 297:191–220
-
+## 220 Annals of Operations Research (2021) 297:191–220
 Narayan, P. K., Ahmed, H. A., & Narayan, S. (2015). Do momentum-based trading strategies work in the
       commodity futures markets? Journal of Futures Markets, 35, 868–891.
 
@@ -1578,7 +1499,5 @@ institutional afﬁliations.
 
 123
 
-
 ---
-
 

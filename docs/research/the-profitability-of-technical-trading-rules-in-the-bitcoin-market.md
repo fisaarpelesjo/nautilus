@@ -1,10 +1,14 @@
 ﻿# The Profitability Of Technical Trading Rules In The Bitcoin Market
 
-Source PDF: the-profitability-of-technical-trading-rules-in-the-bitcoin-market.pdf
+> Conversao automatica a partir do PDF local, com limpeza leve de headings e espacamento para leitura no repositorio privado.
+
+**Source PDF:** the-profitability-of-technical-trading-rules-in-the-bitcoin-market.pdf
 
 ---
 
-                                Finance Research Letters 34 (2020) 101263
+## Texto convertido
+
+Finance Research Letters 34 (2020) 101263
                                Contents lists available at ScienceDirect
 
                          Finance Research Letters
@@ -23,15 +27,14 @@ d Open University, School of Management Science & Technology, Heerlen, the Nethe
 e Montpellier Business School, Montpellier, France
 
 ARTICLE INFO         ABSTRACT
-
-Keywords:            We apply seven trend-following indicators to assess the profitability of technical trading rules in
+**Keywords:** We apply seven trend-following indicators to assess the profitability of technical trading rules in
 Technical analysis   the Bitcoin market. Using daily price data from July 2010 to January 2019, our main results show
 Trading rules        that specific technical analysis trading rules, mainly trading range breakout, contain significant
 Profitability        forecasting power for Bitcoin prices, allowing the outperformance of the buy-and-hold strategy
 Excess return        through the Sharpe ratio computed via the bootstrapping method. Results from various sub-
 Bitcoin              periods, representing normal and boom markets, generally confirm our main finding and show
                      that the added value of the trading range breakout rule delivers outperformance in strongly
-JEL classification:  trending markets.
+**JEL Classification:** trending markets.
 C22
 G10
 
@@ -65,7 +68,6 @@ https://doi.org/10.1016/j.frl.2019.08.011
 Received 18 April 2019; Received in revised form 31 July 2019; Accepted 12 August 2019
 Available online 13 August 2019
 1544-6123/ © 2019 Elsevier Inc. All rights reserved.
-
 
 ---
 
@@ -150,7 +152,6 @@ a consequence, has no position in Bitcoin but is invested in the risk-free asset
 
                                                                                                              2
 
-
 ---
 
 D.F. Gerritsen, et al.                 Finance Research Letters 34 (2020) 101263
@@ -199,13 +200,11 @@ difference in Sharpe ratio with the buy-and-hold benchmark is statistically sign
 trend indicators relative strength index and Bollinger bands both not only significantly underperform the buy-and-hold benchmark,
 but in some instances even yield negative Sharpe ratios. For on-balance volume, the Sharpe ratios lag those of the buy-and-hold
 benchmark, but the differences are not statistically significant.
-
-  2 We use the code available at http://www.iew.uzh.ch/chairs/wolf.html.
+## 2 We use the code available at http://www.iew.uzh.ch/chairs/wolf.html.
   3 Although we used the entire price history as of July 2010, the application of the trading rules starts from February 2011 only. This is because we
 relied on price data from prior 200 days to compute the first value of the MA-200.
 
                                                                                                              3
-
 
 ---
 
@@ -302,7 +301,6 @@ the sub-periods.4
 4 The rate of change significantly outperforms in the first two sub-periods, but loses its outperformance during the last two periods.
                                                                                                           4
 
-
 ---
 
 D.F. Gerritsen, et al.                                                                                     Finance Research Letters 34 (2020) 101263
@@ -332,9 +330,7 @@ Buy-and-hold 0.07
 SUP/RES50               0.11       5.45                   0.15 0.11     5.45                    0.13 0.08  2.62                       0.16
                                    7.52⁎⁎                 0.03 0.13     7.52⁎                   0.05 0.09  3.06⁎                      0.08
 SUP/RES150 0.13                    6.30⁎                  0.09 0.12     6.30⁎                   0.09 0.08                             0.15
-                                                                                                           2.55
-SUP/RES200 0.12
-
+### 2.55 SUP/RES200 0.12
 Buy-and-hold 0.06
 
 2015–2016
@@ -400,7 +396,6 @@ The trading rules can be summarized as: “Buy” if MAS(B)t,k crosses MAL(B)t,l
 “Sell” signal is issued if MAL(B)t,l crosses MAS(B)t,k from above and as long as MAS(B)t,k < MAL(B)t,l.
 
                                                                      5
-
 
 ---
 
@@ -469,8 +464,7 @@ A.5. On balance volume
 the stock closed up) and deducts V negative trading days (i.e., days during which the stock closed down):
 
       OBV (B)t = OBV (B)t 1 +          V if Bt > Bt 1
-                                       0 if Bt = Bt 1
-
+## 0 if Bt = Bt 1
                                         V if Bt < Bt 1
 
     Usually MA rules are applied to the OBV. Again, we refer to the short-term moving average as MAS and the long-term moving
@@ -479,7 +473,6 @@ the following trading signals: “Buy” if MAS(OBVi)t,k crosses MAL(OBVi)t,l up
 when MAS(OBVi)t,k crosses MAL(OBVi)t,l downwards and as long as MAS(OBVi)t,k < MAL(OBVi)t,l.
 
                                                                              6
-
 
 ---
 
@@ -491,8 +484,7 @@ A.6. Relative strength index
 period is usually 14 days. The up-closes and down-closes are defined such that:
 
 Ui,t Bt                 Bt 1 if Bt > Bt 1  and Di,t  Bt 1 Bt if Bt 1 > Bt
-                        0 otherwise                        0 otherwise
-
+## 0 otherwise                        0 otherwise
 The next step is to define the average level of the up- and down-closes:
 
 U¯ (B)t    =            1      t   U (B)t
@@ -575,7 +567,6 @@ MACD_HIST                   0.06
 
                                                                            7
 
-
 ---
 
 D.F. Gerritsen, et al.                                                                                 Finance Research Letters 34 (2020) 101263
@@ -641,10 +632,7 @@ Trading range breakout
 SUP/RES50               0.11   5.45                   0.15 0.11      5.45                   0.13 0.08   2.62                      0.16
 SUP/RES150              0.13   7.52⁎⁎                 0.03 0.13      7.52⁎                  0.05 0.09   3.06⁎                     0.08
 SUP/RES200              0.12   6.30⁎                  0.09 0.12      6.30⁎                  0.09 0.08                             0.15
-                                                                                                        2.55
-
-MACD
-
+### 2.55 MACD
 MACD                    0.08   2.26                   0.58 0.09      3.75                   0.11 0.07   0.90                      0.72
 
 MACD_SIGNAL 0.08               1.93                   0.61 0.09      3.10                   0.15 0.06   0.26                      0.92
@@ -681,7 +669,6 @@ the bootstrapping approach based on 1000 simulations to test whether the differe
 and-hold strategy are zero, the bootstrapped p-value is reported. ⁎ p < 0.10, ⁎⁎ p < 0.05, ⁎⁎⁎ p < 0.01.
 
                                                                   8
-
 
 ---
 
@@ -804,7 +791,6 @@ OBV_MA1-150 0.06                                                                
 
                                                                          9
 
-
 ---
 
 D.F. Gerritsen, et al.                                                                            Finance Research Letters 34 (2020) 101263
@@ -832,9 +818,7 @@ analysis rule (TA) and a buy-and-hold strategy (B&H). Following Ledoit and Wolf 
 
 simulations to test whether the differences in the Sharpe ratios of a technical analysis strategy and a buy-and-hold strategy are zero, the boot-
 strapped p-value is reported. ⁎ p < 0.10, ⁎⁎ p < 0.05, ⁎⁎⁎ p < 0.01.
-
-References
-
+## References
 Aysan, A.F., Demir, E., Gozgor, G., Lau, C.K.M., 2019. Effects of the geopolitical risks on Bitcoin returns and volatility. Res. Int. Business Finance 47, 511–518.
 Bessembinder, H., Chan, K., 1995. The profitability of technical trading rules in the Asian stock markets. Pacific-Basin Finance J. 3 (2–3), 257–284.
 Bollinger, J., 2001. Bollinger on Bollinger Bands. McGraw Hill.
@@ -861,8 +845,7 @@ Hayes, A.S., 2017. Cryptocurrency value formation: an empirical study leading to
 
      1308–1321.
 Hudson, R., Dempsey, M., Keasey, K., 1996. A note on the weak form efficiency of capital markets: the application of simple technical trading rules to UK stock prices-
-
-     1935 to 1994. J. Bank. Financ. 20 (6), 1121–1132.
+## 1935 to 1994. J. Bank. Financ. 20 (6), 1121–1132.
 Ji, Q., Bouri, E., Lau, C.K.M., Roubaud, D., 2019. Dynamic connectedness and integration in cryptocurrency markets. Int. Rev. Financial Anal. 63, 257–272.
 Kristoufek, L., 2015. What are the main drivers of the Bitcoin price? Evidence from wavelet coherence analysis. PLoS ONE 10 (4), e0123923.
 Ledoit, O., Wolf, M., 2008. Robust performance hypothesis testing with the Sharpe ratio. J. Empir. Finance 15 (5), 850–859.
@@ -875,7 +858,5 @@ Wong, W., Manzur, M., Chew, B., 2003. How rewarding is technical analysis? Evide
 
                                                                          10
 
-
 ---
-
 

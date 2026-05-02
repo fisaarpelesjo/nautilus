@@ -1,8 +1,12 @@
 ﻿# Copula Based Trading Of Cointegrated Cryptocurrency Pairs
 
-Source PDF: copula-based-trading-of-cointegrated-cryptocurrency-pairs.pdf
+> Conversao automatica a partir do PDF local, com limpeza leve de headings e espacamento para leitura no repositorio privado.
+
+**Source PDF:** copula-based-trading-of-cointegrated-cryptocurrency-pairs.pdf
 
 ---
+
+## Texto convertido
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40  Financial Innovation
 https://doi.org/10.1186/s40854-024-00702-7
@@ -28,8 +32,7 @@ University of Economics          of profitability and risk-adjusted returns.
 and Business Prague, Prague,
 Czech Republic                   Keywords:  Statistical arbitrage, Pairs trading, Cointegration, Copulas, Cryptocurrency
                                  market
-
-                                 Introduction
+## Introduction
                                  Pairs trading is a well-known algorithmic trading strategy that capitalizes on temporary
                                  abnormal relationships among two or multiple assets whose historical prices tend to
                                  shift together. When this relationship begins to exhibit abnormal behavior, it triggers the
@@ -57,7 +60,6 @@ Czech Republic                   Keywords:  Statistical arbitrage, Pairs tradi
                                  rial. If material is not included in the article’s Creative Commons licence and your intended use is not permitted by statutory regulation or
                                  exceeds the permitted use, you will need to obtain permission directly from the copyright holder. To view a copy of this licence, visit http://​
                                  creat​ivecom​ mons.​org/​licens​ es/​by/4.0​ /.
-
 
 ---
 
@@ -111,7 +113,6 @@ ear cointegrated coins, establishing trading rules using copula conditional prob
 and conducting thorough back-testing using historical cryptocurrency price data. Sec-
 tion “Key assumptions and limitations” presents the key assumptions and limitations
 of the proposed approach. Section “Empirical results ” discusses the empirical results
-
 
 ---
 
@@ -174,7 +175,6 @@ duced the first cointegration test, which is based on linear regression and the 
 test of residuals in the equilibrium. Typically, the augmented Dickey-Fuller (ADF) test is
 used for the unit-root test. Other improvements of the Engle-Granger (EG) cointegration
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                          Page 4 of 32
@@ -228,7 +228,6 @@ be weaker, it is more reliable in capturing arbitrage opportunities in the US st
 ket. They determined that the Student-t copula is more appropriate for modeling the
 dependence structure of pairs in the US stock market than other copulas.
 
-
 ---
 
 Tadi and Witzany F﻿ inancial Innovation (2025) 11:40                                         Page 5 of 32
@@ -280,9 +279,7 @@ and Wu (2013). They defined a new mispricing index by aggregating the surplus va
 the conditional probability in Eq. (4) from 0.5 across multiple periods to determine the
 extent to which assets are out of balance. These cumulative mispricing indices (CMI) are
 defined as
-
-1  For more details, see Sect. “Copula concept”.
-
+## 1 For more details, see Sect. “Copula concept”.
 
 ---
 
@@ -338,7 +335,6 @@ to address this issue on both the long and short sides.
 
 2  For more details, see Sects. “Implementation methodology” and “Key assumptions and limitations”.
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                            Page 7 of 32
@@ -389,7 +385,6 @@ BNBUSDT   Binance Coin                               1 × 10−3                
 ONTUSDT   Ontology                                   1 × 10−4                 50x
 IOTAUSDT  IOTA                                       1 × 10−4                 25x
 BATUSDT   Basic Attention Token                      1 × 10−4                 50x
-
 
 ---
 
@@ -462,7 +457,6 @@ where d denotes the transition’s delay, cj represents the j-th threshold, and 
 the error term. Kapetanios et al. (2003) proposed a test equation where the indicator
 function is replaced by an exponential smooth transition function in the form:
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                               Page 9 of 32
@@ -518,7 +512,6 @@ into the unit interval [0, 1], satisfying the following requirements:
   We can define several copula functions; however, the three requirements above should
 be satisfied by C(u, v) to have a well-defined joint distribution function (Cherubini et al.
 2011).
-
 
 ---
 
@@ -583,11 +576,8 @@ capturing different dependence structures in financial data.
 density function of any elliptical distribution fX is in the form
 
 fX      (x;  µ,  �)  =  kn|�|−  1  g                  x − µ)T �−1(x − µ              ,                                      (17)
-                                2
-
-where kn ∈ R is the normalizing constant and depends on the dimension n, x is an
+## 2 where kn ∈ R is the normalizing constant and depends on the dimension n, x is an
 n-dimensional random vector with mean vector µ ∈ Rn and a symmetric positive
-
 
 ---
 
@@ -650,7 +640,6 @@ function φ−1 . In this research, both one-parameter (such as the Gumbel, Cl
 
 and Joe copulas) and two-parameter Archimedean copulas (such as BB1, BB6, BB7, and
 
-
 ---
 
 Tadi and Witzany F﻿ inancial Innovation (2025) 11:40                                           Page 12 of 32
@@ -709,7 +698,6 @@ where β = β1, β2 T represent the marginal parameters and α represents the co
 parameters. The log-likelihood function for (X1, X2) , where Xi = (xi1, . . . , xin) , can be
 
 expressed as
-
 
 ---
 
@@ -776,7 +764,6 @@ mean-reverting behavior, potentially adversely affecting the overall profitabili
 strategy. This research proposes a new method that addresses the limitations inherent in
 both of the previously discussed methods, as outlined below.
 
-
 ---
 
 Tadi and Witzany F﻿ inancial Innovation (2025) 11:40                                                              Page 14 of 32
@@ -836,7 +823,6 @@ Number of discordant pairs =
 
                                                           n=1 m=n+1
 
-
 ---
 
 Tadi and Witzany F﻿ inancial Innovation (2025) 11:40                                          Page 15 of 32
@@ -868,7 +854,6 @@ step is to determine a fitting copula model for U1 and U2 . We select some pot
 ulas and estimate the corresponding parameters by the maximum likelihood method.
 
 Fig. 1  Confidence bands of Gumbel copula ( θ = 2 ) at α1 = 5% and α2 = 10%
-
 
 ---
 
@@ -912,7 +897,6 @@ specific limitations. The key factors shaping our approach include:
       formation period, we abstain from trading during its corresponding trading period.
 
 Fig. 2  The scheme of formation and trading Periods
-
 
 ---
 
@@ -973,7 +957,6 @@ Tadi and Witzany ﻿Financial Innovation (2025) 11:40                           
    market impact. As highlighted by Bağcı et al. (2004), minimizing potential trading
    losses due to price impacts requires the capital size to ideally be less than 1% of the
 
-
 ---
 
 Tadi and Witzany F﻿ inancial Innovation (2025) 11:40                                           Page 18 of 32
@@ -994,9 +977,7 @@ Frank              5.1                                3.8            8.9        
 Gumbel             0.0                                5.8            3.0         13.5
                                                                     10.9         25.0
 Joe                8.1                                5.8           15.8         14.4
-                                                                    20.8
-BB1                6.1                                3.8           19.8
-
+### 20.8 BB1                6.1                                3.8           19.8
 BB6                1.0                                1.9
 
 BB7                16.2                               13.5
@@ -1036,7 +1017,6 @@ trading weeks. The results indicate that copulas of extreme value, such as Tawn 
 and 2, and certain two-parameter Archimedean copulas, particularly BB7 and BB8, play
 a significant role in the process of selecting the appropriate model.
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                         Page 19 of 32
@@ -1047,7 +1027,6 @@ Tadi and Witzany ﻿Financial Innovation (2025) 11:40                           
 ing week. The results of our trading strategy’s profit and loss calculations with varying
 entry thresholds ( α1 ) are illustrated in Fig. 3. We assess the risk-adjusted performance
 of a strategy using the Sharpe ratio. Table 6 reports the annual returns, volatility, and
-
 
 ---
 
@@ -1120,9 +1099,7 @@ opportunities in less volatile or slower-moving market conditions.
   Transaction costs increase with higher α1 , which could indicate more frequent trad-
 ing. Despite the higher costs, the total net return remains strong, especially for finer
 (5-min) data. Although the 5-min strategy shows higher returns, its risk (measured by
-
-3  Transaction fees are taken into account in all calculations.
-
+## 3 Transaction fees are taken into account in all calculations.
 
 ---
 
@@ -1177,7 +1154,6 @@ costs, which drastically eroded profits and resulted in significant net losses (
 sively capitalize on market movements but at a cost inefficiency that undermines its
 viability. This is reflected in very negative annualized Sharpe ratios and substantial maxi-
 mum drawdowns, indicating high risk without proportional returns.
-
 
 ---
 
@@ -1249,7 +1225,6 @@ Annualized Standard Devia-     78.1%                            0.13
 tion
 Annualized Sharpe Ratio        −0.22
 
-
 ---
 
 Tadi and Witzany F﻿ inancial Innovation (2025) 11:40                                                                        Page 23 of 32
@@ -1302,12 +1277,10 @@ volatile cryptocurrency market.
 the start of the study, retaining them throughout the trading periods, and ultimately selling them at the end of the study
 period.
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                             Page 24 of 32
-
-Conclusion
+## Conclusion
 This study develops a novel pairs trading framework for twenty Binance USDT-mar-
 gined futures coins, combining copula-based and cointegration-based approaches. The
 methodology sets BTCUSDT as the reference asset and identifies other cryptocurrency
@@ -1340,7 +1313,6 @@ Appendix
 Elliptical Copulas: The density function of any elliptical distribution fX is shown in
 Eq. (17). In the case of bivariate Gaussian distribution g(x) := e−x/2 , kn := 1/(2π ) , and
 the probability density function of X = (X1, X2) is
-
 
 ---
 
@@ -1377,35 +1349,10 @@ Week  ADF unit-root test (5-min data)                 KSS unit-root test (5-min 
 13    –         –                      0.036          BNB-LTC   −2.04                   −2.12         LTC-EOS   0.018                   0.018          LTC-BNB   −1.97                    −2.32
                                        0.010          LTC-BCH   −2.81                   −2.96         ETH-LTC   0.085                   0.010          LTC-XRP   −2.50                    −3.91
 14    ADA-EOS   0.025                  0.079          BCH-ONT   −2.08                   −1.95         BNB-DASH  0.041                   0.043          XRP-DASH  −2.02                    −2.48
-
-15    LTC-EOS   0.027
-
-16    BNB-TRX   0.062
-
-17    TRX-BNB   0.043
-
-18    LTC-TRX   0.090
-
-19    ETH-TRX   0.065
-
-20    ETH-LINK  0.089
-
-21    TRX-LTC   0.019
-
+## 15 LTC-EOS   0.027## 16 BNB-TRX   0.062## 17 TRX-BNB   0.043## 18 LTC-TRX   0.090## 19 ETH-TRX   0.065## 20 ETH-LINK  0.089## 21 TRX-LTC   0.019
 22    –         –
-
-23    LINK-XMR  0.080
-
-24    ETH-BNB   0.057
-
-25    LTC-BCH   0.031
-
-26    LTC-BCH   0.010
-
-27    BNB-XRP   0.049
-
+## 23 LINK-XMR  0.080## 24 ETH-BNB   0.057## 25 LTC-BCH   0.031## 26 LTC-BCH   0.010## 27 BNB-XRP   0.049
                                                                                                                                                                                                         Page 25 of 32
-
 
 ---
 
@@ -1440,33 +1387,8 @@ Week  ADF unit-root test (5-min data)                 KSS unit-root test (5-min 
 39    DASH-ONT        0.086            0.010          ETH-LTC   −3.72                   −4.14         ETH-LTC   0.070                   0.010          ETH-LTC   −2.96                    −2.75
                                        0.010          ETH-ETC   −2.60                   −3.94         ETC-LTC   0.013                   0.020          ETH-ETC   −2.43                    −3.19
 40    LTC-BNB         0.093            0.010          LTC-EOS   −4.40                   −3.06         LTC-EOS   0.010                   0.050          LTC-EOS   −3.39                    −2.61
-
-41    ETC-BCH         0.061
-
-42    BCH-ETC         0.021
-
-43    ETC-EOS         0.010
-
-44    ETH-ETC         0.053
-
-45    ETC-EOS         0.010
-
-46    ETC-EOS         0.010
-
-47    ETC-EOS         0.055
-
-48    LTC-BNB         0.034
-
-49    ETH-LTC         0.020
-
-50    ETH-LTC         0.011
-
-51    ETH-ETC         0.079
-
-52    ETC-LTC         0.098
-
+## 41 ETC-BCH         0.061## 42 BCH-ETC         0.021## 43 ETC-EOS         0.010## 44 ETH-ETC         0.053## 45 ETC-EOS         0.010## 46 ETC-EOS         0.010## 47 ETC-EOS         0.055## 48 LTC-BNB         0.034## 49 ETH-LTC         0.020## 50 ETH-LTC         0.011## 51 ETH-ETC         0.079## 52 ETC-LTC         0.098
                                                                                                                                                                                                         Page 26 of 32
-
 
 ---
 
@@ -1504,34 +1426,10 @@ Week  ADF unit-root test (5-min Data)                 KSS unit-root test (5-min 
                                        0.010          ETH-BNB   −3.76                   −3.04         ETH-BNB   0.022                   0.010          ETH-BNB   −3.17                    −2.19
 66    ETH-BNB   0.010                  0.079          BNB-ADA   −2.82                   −2.34         ETH-BNB   0.021                   0.037          BNB-LTC   −2.93                    −3.50
                                                                                                       BNB-LTC
-67    ETH-BNB   0.013
-
-68    ETH-BNB   0.010
-
+## 67 ETH-BNB   0.013## 68 ETH-BNB   0.010
 69    –         –
-
-70    BNB-ETC   0.017
-
-71    BNB-LINK  0.092
-
-72    BNB-LINK  0.052
-
-73    ETC-XRP   0.063
-
-74    BNB-DASH  0.088
-
-75    ZEC-XTZ   0.037
-
-76    ETH-ZEC   0.010
-
-77    ETH-BNB   0.044
-
-78    ETH-BNB   0.026
-
-79    BNB-ADA   0.010
-
+## 70 BNB-ETC   0.017## 71 BNB-LINK  0.092## 72 BNB-LINK  0.052## 73 ETC-XRP   0.063## 74 BNB-DASH  0.088## 75 ZEC-XTZ   0.037## 76 ETH-ZEC   0.010## 77 ETH-BNB   0.044## 78 ETH-BNB   0.026## 79 BNB-ADA   0.010
                                                                                                                                                                                                         Page 27 of 32
-
 
 ---
 
@@ -1567,32 +1465,8 @@ Week  ADF unit-root test (5-min Data)                 KSS unit-root test (5-min 
                                        0.021          BNB-LINK   −3.53                  −2.43         ETH-BNB    0.010                  0.020          BNB-LINK   −2.48                   −3.27
 92    ETH-LTC         0.010            0.010          LINK-ADA   −2.79                  −2.50         BNB-LINK   0.061                  0.100          LINK-ONT   −3.85                   −2.31
                                                                                                       LINK-DASH                                                   −2.49
-93    LTC-BNB         0.034
-
-94    BCH-BAT         0.010
-
-95    ETH-BCH         0.043
-
-96    ETH-ADA         0.047
-
-97    ETH-ADA         0.046
-
-98    ADA-ETC         0.016
-
-99    ADA-TRX         0.085
-
-100   ETH-LTC         0.015
-
-101   ETH-LINK        0.073
-
-102   ETH-BNB         0.044
-
-103   BNB-LINK        0.028
-
-104   LINK-BCH        0.069
-
+## 93 LTC-BNB         0.034## 94 BCH-BAT         0.010## 95 ETH-BCH         0.043## 96 ETH-ADA         0.047## 97 ETH-ADA         0.046## 98 ADA-ETC         0.016## 99 ADA-TRX         0.085## 100 ETH-LTC         0.015## 101 ETH-LINK        0.073## 102 ETH-BNB         0.044## 103 BNB-LINK        0.028## 104 LINK-BCH        0.069
                                                                                                                                                                                                         Page 28 of 32
-
 
 ---
 
@@ -1645,8 +1519,7 @@ BB8    δ−1 1 − 1 − 1 − (1 − δ)θ −1 1 − 1 − δu1 θ 1 − 1 �
 where ρ is the correlation between random variables X1 and X2 and between σ1 > 0 and
 σ2 > 0 . If µ1 = µ2 = 0 and σ1 = σ2 = 1 , then the density and distribution functions of
 the standard bivariate Gaussian distribution are obtained by
-
-                                                      1             e−  x12  −2ρ x1 x2 +x22
+## 1 e−  x12  −2ρ x1 x2 +x22
                                                                               2(1−ρ 2 )
        φX1X2 (x1, x2; ρ) = 2π
                                                       1 − ρ2                                                                          (35)
@@ -1671,7 +1544,6 @@ of T = (T1, T2) is obtained by
        fT (t; ν, µ, �) =                                                                                                              (37)
                            Ŵ  ν   νπ |�|1/2
                               2
-
 
 ---
 
@@ -1744,14 +1616,12 @@ Declarations
 Competing interests
 The authors declare that they have no Conflict of interest.
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                                                                 Page 31 of 32
 
 Received: 9 August 2023 Accepted: 11 November 2024
-
-References
+## References
 Al-Yahyaee KH et al (2020) Why cryptocurrency markets are inefficient: the impact of liquidity and volatility. North Am J
 
       Econ Finance 52:101168
@@ -1834,7 +1704,6 @@ Pritchard BPA (2018) “Digital asset arbitrage”. PhD thesis. Fundação Getul
 
       administration
 
-
 ---
 
 Tadi and Witzany ﻿Financial Innovation (2025) 11:40                                                                        Page 32 of 32
@@ -1870,7 +1739,5 @@ Publisher’s Note
 
 Springer Nature remains neutral with regard to jurisdictional claims in published maps and institutional affiliations.
 
-
 ---
-
 
