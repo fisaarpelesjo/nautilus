@@ -10,7 +10,7 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 
 ```
 ├── main.py                    # Ponto de entrada: python main.py [backtest|multibacktest|scan|bot|status]
-├── bot.py                     # Loop principal do bot (poll a cada 60s)
+├── bot.py                     # Wrapper de compatibilidade para trading/runner.py
 ├── config/
 │   └── settings.py            # Todas as configs lidas do .env
 ├── data/
@@ -22,6 +22,7 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 │   ├── diagnostics.py         # Checks e diagnóstico de sinais
 │   └── ema_rsi.py             # Estratégia EMA9/21/50 + RSI14
 ├── trading/
+│   ├── runner.py              # Loop principal do bot (poll a cada 60s)
 │   ├── decision_logger.py     # Histórico analítico de decisões
 │   └── position_lifecycle.py  # Entrada, saída, trailing e MTF
 ├── risk/
@@ -106,7 +107,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 **Stop Loss / Trailing Stop / Take Profit** são gerenciados em `trading/position_lifecycle.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
 
-**Regras de gestão de ciclo (bot.py):**
+**Regras de gestão de ciclo (`trading/runner.py`):**
 - `MAX_ENTRIES_PER_CYCLE = 1` — máximo de 1 nova posição aberta por ciclo de 60s, evitando entradas correlacionadas simultâneas
 - Cooldown ativado após Stop Loss **e** após Sinal de Venda com prejuízo
 - `log_signal` só grava quando o sinal muda (HOLD→BUY, BUY→SELL, etc.), não em todo poll
@@ -149,7 +150,7 @@ O bot restaura o estado do `state.json` ao reiniciar — posição aberta e sald
 
 1. Criar `strategy/minha_estrategia.py` herdando `BaseStrategy`
 2. Implementar `calculate_indicators(df)` e `generate_signal(df) -> TradeSignal`
-3. Trocar a instância em `bot.py` e `backtesting/engine.py`
+3. Trocar a instância em `trading/runner.py` e `backtesting/engine.py`
 
 ---
 

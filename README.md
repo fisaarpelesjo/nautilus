@@ -151,7 +151,7 @@ O bot **restaura o estado automaticamente** ao reiniciar.
 
 ```
 ├── main.py                 # Ponto de entrada
-├── bot.py                  # Loop principal do bot
+├── bot.py                  # Wrapper de compatibilidade
 ├── config/settings.py      # Configurações via .env
 ├── data/
 │   ├── fetcher.py          # Busca candles com cache
@@ -162,6 +162,7 @@ O bot **restaura o estado automaticamente** ao reiniciar.
 │   ├── diagnostics.py      # Checks e diagnostico de sinais
 │   └── ema_rsi.py          # EMA9/21/50 + RSI14
 ├── trading/
+│   ├── runner.py           # Loop principal do bot
 │   ├── decision_logger.py  # Historico analitico de decisoes
 │   └── position_lifecycle.py # Entrada, saida, trailing e MTF
 ├── risk/manager.py         # Cálculo de SL/TP/posição

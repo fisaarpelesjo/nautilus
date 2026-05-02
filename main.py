@@ -35,7 +35,7 @@ def cmd_selecionar():
     run()
 
 def cmd_bot():
-    from bot import run
+    from trading.runner import run
     run()
 
 def cmd_status():

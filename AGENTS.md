@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a Python crypto trading bot. `main.py` is the CLI entry point and `bot.py` contains the live/paper trading loop orchestration. Configuration lives in `config/settings.py` and is loaded from `.env`. Market data and persistence are in `data/`, strategy logic and diagnostics in `strategy/`, trading lifecycle services in `trading/`, risk sizing in `risk/`, orders in `execution/`, backtests in `backtesting/`, and shared helpers in `utils/`.
+This is a Python crypto trading bot. `main.py` is the CLI entry point and `bot.py` is a compatibility wrapper for `trading/runner.py`, which contains the live/paper trading loop orchestration. Configuration lives in `config/settings.py` and is loaded from `.env`. Market data and persistence are in `data/`, strategy logic and diagnostics in `strategy/`, trading lifecycle services in `trading/`, risk sizing in `risk/`, orders in `execution/`, backtests in `backtesting/`, and shared helpers in `utils/`.
 
 Runtime artifacts such as `data/signals.csv`, `data/trades.csv`, `data/state.json`, `data/ohlcv/`, and `logs/` are local and ignored by Git. Add tests under `tests/`.
 
