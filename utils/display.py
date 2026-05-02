@@ -231,10 +231,15 @@ def pairs_table(rows: list, balance: float, pnl: float, trades: int, win_rate: f
         pos_s = f"[{C_BUY}]long[/]" if row.get("in_pos") else f"[{C_DIM}]-[/]"
         pnl_s = f"[{_pnl_color(pnl_pct)}]{pnl_pct:+.2f}%[/{_pnl_color(pnl_pct)}]" if pnl_pct is not None else f"[{C_DIM}]-[/]"
 
+        if signal == "HOLD" and row.get("ema_aligned"):
+            sig_cell = f"[{C_CYAN}]↑ hold[/{C_CYAN}]"
+        else:
+            sig_cell = _signal_markup(signal)
+
         table.add_row(
             f"  {row.get('symbol', '')}",
             f"[{C_PRICE}]{_fmt_price(price)}[/]" if price else f"[{C_DIM}]-[/]",
-            _signal_markup(signal),
+            sig_cell,
             f"[{_rsi_color(rsi)}]{rsi:.0f}[/{_rsi_color(rsi)}]" if rsi else f"[{C_DIM}]-[/]",
             f"[{trend_color}]{trend_gap:+.2f}%[/{trend_color}]",
             f"[{vol_color}]{volume_ratio:.2f}x[/{vol_color}]" if volume_ratio else f"[{C_DIM}]-[/]",
@@ -275,6 +280,7 @@ def _decision_table(rows: list):
         or row.get("in_pos")
         or "bloqueada" in row.get("decision", "")
         or "fechou" in row.get("decision", "")
+        or (row.get("ema_aligned") and row.get("signal") == "HOLD")
     ]
     if not actionable:
         console.print(_p(f"[{C_DIM}]decisoes: nenhum gatilho acionavel neste ciclo; pares seguem em monitoramento.[/{C_DIM}]"))

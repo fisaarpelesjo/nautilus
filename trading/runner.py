@@ -180,6 +180,7 @@ def _build_pair_row(symbol: str, signal, indicators, previous, current_price: fl
         "volume_ratio": checks["volume_ratio"],
         "trend_gap_pct": checks["trend_gap_pct"],
         "atr_pct": checks["atr_pct"],
+        "ema_aligned": float(indicators["ema_fast"]) > float(indicators["ema_slow"]),
         "in_pos": pos is not None,
         "pnl_pct": pnl_pct,
         "entry_opened": False,
