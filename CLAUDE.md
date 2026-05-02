@@ -19,7 +19,11 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 │   └── ohlcv/                 # Candles históricos acumulados (CSV por par/TF)
 ├── strategy/
 │   ├── base.py                # Interface BaseStrategy + dataclasses Signal/TradeSignal
+│   ├── diagnostics.py         # Checks e diagnóstico de sinais
 │   └── ema_rsi.py             # Estratégia EMA9/21/50 + RSI14
+├── trading/
+│   ├── decision_logger.py     # Histórico analítico de decisões
+│   └── position_lifecycle.py  # Entrada, saída, trailing e MTF
 ├── risk/
 │   └── manager.py             # Calcula SL, TP, tamanho de posição
 ├── execution/
@@ -100,7 +104,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | SELL | EMA9 cruza abaixo EMA21 **e** RSI > 35 |
 | HOLD | nenhuma das anteriores |
 
-**Stop Loss / Trailing Stop / Take Profit** são gerenciados no `bot.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
+**Stop Loss / Trailing Stop / Take Profit** são gerenciados em `trading/position_lifecycle.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
 
 **Regras de gestão de ciclo (bot.py):**
 - `MAX_ENTRIES_PER_CYCLE = 1` — máximo de 1 nova posição aberta por ciclo de 60s, evitando entradas correlacionadas simultâneas

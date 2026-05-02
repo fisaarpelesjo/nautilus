@@ -159,7 +159,11 @@ O bot **restaura o estado automaticamente** ao reiniciar.
 │   └── ohlcv/              # Candles históricos
 ├── strategy/
 │   ├── base.py             # Interface de estratégia
+│   ├── diagnostics.py      # Checks e diagnostico de sinais
 │   └── ema_rsi.py          # EMA9/21/50 + RSI14
+├── trading/
+│   ├── decision_logger.py  # Historico analitico de decisoes
+│   └── position_lifecycle.py # Entrada, saida, trailing e MTF
 ├── risk/manager.py         # Cálculo de SL/TP/posição
 ├── execution/
 │   └── order_manager.py    # Ordens paper e live
