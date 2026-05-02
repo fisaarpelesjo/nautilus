@@ -13,10 +13,11 @@ from config.settings import (
     TRADING_MODE,
 )
 from data.fetcher import fetch_balance, fetch_ohlcv
-from data.trade_logger import log_decision, log_signal, save_ohlcv
+from data.trade_logger import log_signal, save_ohlcv
 from execution.order_manager import OrderManager
 from market.selector import select_dynamic_pairs, selected_symbols
 from risk.manager import calculate_risk, should_stop_loss, should_take_profit
+from runtime.decision_logger import log_decision_snapshot, log_error_decision
 from strategy.base import Signal
 from strategy.diagnostics import hold_diagnosis, signal_checks
 from strategy.ema_rsi import EmaRsiStrategy
@@ -103,13 +104,13 @@ def run():
                             elif signal.signal == Signal.BUY:
                                 blocked_entries += 1
 
-                        _log_decision(cycle_id, symbol, signal, indicators, previous, current_price, row, strategy)
+                        log_decision_snapshot(cycle_id, symbol, signal, indicators, previous, current_price, row, strategy)
 
                     except Exception as exc:
                         log.error(f"{symbol}: {exc}")
                         log_event("pair_cycle_error", mode=TRADING_MODE, symbol=symbol, error=str(exc))
                         pair_rows.append(_error_row(symbol, exc))
-                        _log_error_decision(cycle_id, symbol, exc)
+                        log_error_decision(cycle_id, symbol, exc)
 
             for row in pair_rows:
                 row["in_pos"] = manager.has_position(row["symbol"])
@@ -188,69 +189,6 @@ def _build_pair_row(symbol: str, signal, indicators, previous, current_price: fl
         "mtf_ok": "",
         "decision": "posicao aberta: monitorando saidas" if pos else hold_diagnosis(signal, indicators, previous, current_price, strategy),
     }
-
-
-def _log_decision(cycle_id: int, symbol: str, signal, indicators, previous, current_price: float, row: dict, strategy: EmaRsiStrategy):
-    checks = signal_checks(indicators, previous, current_price, strategy)
-    log_decision({
-        "timestamp": datetime.now().isoformat(),
-        "cycle_id": cycle_id,
-        "symbol": symbol,
-        "timeframe": TIMEFRAME,
-        "price": _round_price(current_price),
-        "signal": signal.signal.value,
-        "decision": row.get("decision", ""),
-        "in_position": row.get("in_pos", False),
-        "entry_opened": row.get("entry_opened", False),
-        "blockers": row.get("blockers", ""),
-        "mtf_checked": row.get("mtf_checked", False),
-        "mtf_ok": row.get("mtf_ok", ""),
-        "position_pnl_pct": _round_metric(row.get("pnl_pct")),
-        "open": _round_price(float(indicators.get("open", current_price))),
-        "high": _round_price(float(indicators.get("high", current_price))),
-        "low": _round_price(float(indicators.get("low", current_price))),
-        "close": _round_price(float(indicators.get("close", current_price))),
-        "volume": _round_metric(indicators.get("volume")),
-        "ema_fast": _round_price(float(indicators["ema_fast"])),
-        "ema_slow": _round_price(float(indicators["ema_slow"])),
-        "ema_trend": _round_price(float(indicators["ema_trend"])),
-        "rsi": _round_metric(indicators.get("rsi")),
-        "macd": _round_metric(indicators.get("macd"), digits=6),
-        "atr": _round_price(float(indicators.get("atr", 0) or 0)),
-        "atr_pct": _round_metric(checks["atr_pct"]),
-        "volume_ma": _round_metric(indicators.get("volume_ma")),
-        "volume_ratio": _round_metric(checks["volume_ratio"]),
-        "bb_upper": _round_price(float(indicators.get("bb_upper", 0) or 0)),
-        "bb_middle": _round_price(float(indicators.get("bb_middle", 0) or 0)),
-        "bb_lower": _round_price(float(indicators.get("bb_lower", 0) or 0)),
-        "trend_gap_pct": _round_metric(checks["trend_gap_pct"]),
-        "bullish_cross": checks["bullish_cross"],
-        "bearish_cross": checks["bearish_cross"],
-        "trend_ok": checks["trend_ok"],
-        "rsi_ok": checks["rsi_ok"],
-        "volume_ok": checks["volume_ok"],
-        "bb_ok": checks["bb_ok"],
-        "pullback_entry": checks["pullback_entry"],
-        "reason": signal.reason,
-    })
-
-
-def _log_error_decision(cycle_id: int, symbol: str, exc: Exception):
-    log_decision({
-        "timestamp": datetime.now().isoformat(),
-        "cycle_id": cycle_id,
-        "symbol": symbol,
-        "timeframe": TIMEFRAME,
-        "signal": "ERR",
-        "decision": f"erro: {str(exc)[:120]}",
-        "reason": str(exc),
-    })
-
-
-def _round_metric(value, digits: int = 4):
-    if value is None or value == "":
-        return ""
-    return round(float(value), digits)
 
 
 def _handle_open_position(manager: OrderManager, symbol: str, pos, signal, current_price: float, row: dict, trade_events: list):
