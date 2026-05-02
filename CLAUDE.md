@@ -63,6 +63,24 @@ python main.py status           # preço atual e saldo
 
 Para qualquer mudança não trivial neste projeto, separe o trabalho em tópicos pequenos. Ao terminar cada tópico, rode os testes relevantes, faça commit com mensagem Conventional Commit concisa em português, envie para `origin/main` e só então continue para o próximo tópico. Não commite artefatos de runtime.
 
+## Padrão de commits
+
+Todo commit requer título e corpo:
+
+- **Título:** `tipo: descrição curta` (máx 72 chars) — ex: `feat: adicionar filtro de volatilidade`
+- **Corpo:** uma ou mais linhas explicando *o que mudou e por quê* — listar mudanças principais, decisões e contexto relevante para leitura futura
+
+Tipos: `feat:` nova funcionalidade, `fix:` correção, `docs:` documentação, `refactor:` reestruturação sem mudança de comportamento, `test:` testes, `chore:` tooling/config.
+
+Exemplo:
+```
+feat: adicionar regime detection via ADX
+
+Calcula ADX(14) em strategy/ema_rsi.py. ADX > 25 = trending (mantém
+crossover), ADX < 20 = sideways (suspende entradas). Regime registrado
+em data/decisions.csv para análise posterior.
+```
+
 ## Sincronização CLAUDE.md ↔ AGENTS.md
 
 `CLAUDE.md` (PT) e `AGENTS.md` (EN) devem ter sempre o mesmo conteúdo. Ao modificar qualquer seção em um arquivo, atualize o equivalente no outro no mesmo commit.

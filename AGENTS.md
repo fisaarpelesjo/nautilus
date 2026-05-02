@@ -191,7 +191,23 @@ Use `pytest`. Name files `tests/test_<module>.py` and functions `test_<behavior>
 
 ## Commit & Pull Request Guidelines
 
-Conventional Commits in Portuguese: `feat:` for new capabilities, `fix:` for corrections. Keep messages concise: `feat: adicionar filtro de volatilidade`, `fix: corrigir restauração de posição`. Pull requests should describe behavior changes, list validation commands, note config changes, and include screenshots or log excerpts when CLI/display output changes.
+Conventional Commits in Portuguese. Every commit requires both a subject line and a body:
+
+- **Subject:** `type: short description` (max 72 chars) — e.g. `feat: adicionar filtro de volatilidade`
+- **Body:** one or more lines explaining *what changed and why* — list the key changes, decisions, or context a future reader would need
+
+Types: `feat:` new capability, `fix:` bug fix or correction, `docs:` documentation, `refactor:` restructure without behavior change, `test:` tests, `chore:` tooling/config.
+
+Example:
+```
+feat: adicionar regime detection via ADX
+
+Calcula ADX(14) em strategy/ema_rsi.py. ADX > 25 = trending (mantém
+crossover), ADX < 20 = sideways (suspende entradas). Regime registrado
+em data/decisions.csv para análise posterior.
+```
+
+Pull requests should describe behavior changes, list validation commands, note config changes, and include screenshots or log excerpts when CLI/display output changes.
 
 ---
 
