@@ -44,9 +44,9 @@ No test framework is currently declared in `requirements.txt`. For new tests, us
 
 Commit history follows simple Conventional Commits in Portuguese: `feat:` for new bot capabilities and `fix:` for corrections or operational improvements. Keep messages concise, for example `feat: adicionar filtro de volatilidade` or `fix: corrigir restauração de posição`. Pull requests should describe behavior changes, list validation commands, note config changes, and include screenshots or log excerpts when CLI/display output changes.
 
-## Refactor Workflow
+## Incremental Workflow
 
-When improving architecture, split the work into small topical steps. After each completed topic, run the relevant tests, commit with a concise Conventional Commit message in Portuguese, push to `origin/main`, and only then continue to the next topic. Keep runtime artifacts out of commits.
+For any non-trivial change in this project, split the work into small topical steps. After each completed topic, run the relevant tests, commit with a concise Conventional Commit message in Portuguese, push to `origin/main`, and only then continue to the next topic. Keep runtime artifacts out of commits.
 
 ## Security & Configuration Tips
 
