@@ -3,20 +3,18 @@ from datetime import datetime
 from typing import Dict
 
 from config.settings import (
-    ATR_SL_MULTIPLIER,
     DAILY_REPORT_HOUR,
     DYNAMIC_PAIRS_ENABLED,
     MAX_POSITIONS,
-    MTF_TIMEFRAME,
     PAIRS,
     TIMEFRAME,
     TRADING_MODE,
 )
-from data.fetcher import fetch_balance, fetch_ohlcv
+from data.fetcher import fetch_ohlcv
 from data.trade_logger import log_signal, save_ohlcv
 from execution.order_manager import OrderManager
 from market.selector import select_dynamic_pairs, selected_symbols
-from risk.manager import calculate_risk, should_stop_loss, should_take_profit
+from runtime.position_lifecycle import handle_entry_candidate, handle_open_position
 from runtime.decision_logger import log_decision_snapshot, log_error_decision
 from strategy.base import Signal
 from strategy.diagnostics import hold_diagnosis, signal_checks
@@ -93,11 +91,11 @@ def run():
                         pair_rows.append(row)
 
                         if pos:
-                            _handle_open_position(manager, symbol, pos, signal, current_price, row, trade_events)
+                            handle_open_position(manager, symbol, pos, signal, current_price, row, trade_events)
                         else:
-                            opened = _handle_entry_candidate(
+                            opened = handle_entry_candidate(
                                 manager, symbol, signal, indicators, current_price, strategy,
-                                row, trade_events, new_entries
+                                row, trade_events, new_entries, MAX_ENTRIES_PER_CYCLE
                             )
                             if opened:
                                 new_entries += 1
@@ -191,93 +189,6 @@ def _build_pair_row(symbol: str, signal, indicators, previous, current_price: fl
     }
 
 
-def _handle_open_position(manager: OrderManager, symbol: str, pos, signal, current_price: float, row: dict, trade_events: list):
-    if current_price > pos.highest_price and pos.atr > 0:
-        new_trail = current_price - ATR_SL_MULTIPLIER * pos.atr
-        if new_trail > pos.stop_loss:
-            pos.highest_price = current_price
-            pos.stop_loss = new_trail
-            manager._persist_state()
-            row["decision"] = "trailing stop ajustado"
-
-    if should_stop_loss(current_price, pos.stop_loss):
-        pnl, pnl_pct_val = _position_pnl(pos, current_price)
-        manager.close_position(symbol, "Stop Loss", current_price)
-        manager.set_cooldown(symbol)
-        row["in_pos"] = False
-        row["decision"] = "fechou: stop loss"
-        trade_events.append(("result", f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
-    elif should_take_profit(current_price, pos.take_profit):
-        pnl, pnl_pct_val = _position_pnl(pos, current_price)
-        manager.close_position(symbol, "Take Profit", current_price)
-        row["in_pos"] = False
-        row["decision"] = "fechou: take profit"
-        trade_events.append(("result", f"take profit  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
-    elif signal.signal == Signal.SELL:
-        pnl, pnl_pct_val = _position_pnl(pos, current_price)
-        manager.close_position(symbol, "Sinal de venda", current_price)
-        if pnl < 0:
-            manager.set_cooldown(symbol)
-        row["in_pos"] = False
-        row["decision"] = "fechou: sinal de venda"
-        trade_events.append(("result", f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
-
-
-def _handle_entry_candidate(
-    manager: OrderManager,
-    symbol: str,
-    signal,
-    indicators,
-    current_price: float,
-    strategy: EmaRsiStrategy,
-    row: dict,
-    trade_events: list,
-    new_entries: int,
-) -> bool:
-    open_count = len(manager.positions)
-    slots_left = MAX_POSITIONS - open_count
-    blockers = []
-
-    if signal.signal != Signal.BUY:
-        return False
-    if slots_left <= 0:
-        blockers.append("sem slot")
-    if new_entries >= MAX_ENTRIES_PER_CYCLE:
-        blockers.append("limite ciclo")
-    if manager.is_daily_limit_hit():
-        blockers.append("drawdown diario")
-    if manager.is_in_cooldown(symbol):
-        blockers.append("cooldown")
-    if not blockers:
-        row["mtf_checked"] = True
-        row["mtf_ok"] = _mtf_confirmed(symbol, current_price, strategy)
-        if not row["mtf_ok"]:
-            blockers.append("MTF negado")
-
-    if blockers:
-        row["blockers"] = ", ".join(blockers)
-        row["decision"] = "compra bloqueada: " + ", ".join(blockers)
-        return False
-
-    available = manager.paper_balance_usdt / slots_left if TRADING_MODE == "paper" else _get_usdt_balance() / slots_left
-    atr = float(indicators.get("atr", 0) or 0)
-    risk = calculate_risk(current_price, available, atr)
-    manager.open_long(symbol, risk)
-    opened = manager.has_position(symbol)
-    row["entry_opened"] = opened
-    row["in_pos"] = opened
-    row["decision"] = "compra aberta" if opened else "compra falhou: ordem nao abriu"
-    if opened:
-        trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
-    return opened
-
-
-def _position_pnl(pos, current_price: float):
-    pnl = (current_price - pos.entry_price) * pos.quantity
-    pnl_pct = (current_price - pos.entry_price) / pos.entry_price * 100
-    return pnl, pnl_pct
-
-
 def _error_row(symbol: str, exc: Exception):
     return {
         "symbol": symbol,
@@ -310,26 +221,9 @@ def _send_daily_report(manager: OrderManager):
     log.info("Relatorio diario enviado")
 
 
-def _mtf_confirmed(symbol: str, price: float, strategy: EmaRsiStrategy) -> bool:
-    try:
-        df = fetch_ohlcv(symbol, MTF_TIMEFRAME)
-        ind = strategy.calculate_indicators(df).iloc[-1]
-        return price > ind["ema_trend"]
-    except Exception:
-        return True
-
-
 def _shutdown():
     shutdown()
     send_telegram("Bot encerrado.")
-
-
-def _get_usdt_balance() -> float:
-    try:
-        balance = fetch_balance()
-        return float(balance.get("USDT", 0))
-    except Exception:
-        return 0.0
 
 
 def _load_active_pairs():
