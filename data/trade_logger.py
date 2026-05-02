@@ -6,6 +6,7 @@ from pathlib import Path
 
 TRADES_FILE  = "data/trades.csv"
 SIGNALS_FILE = "data/signals.csv"
+DECISIONS_FILE = "data/decisions.csv"
 STATE_FILE   = "data/state.json"
 OHLCV_DIR    = "data/ohlcv"
 
@@ -16,6 +17,15 @@ TRADE_HEADERS  = ["opened_at", "closed_at", "symbol", "side", "entry_price",
                   "balance_after"]
 SIGNAL_HEADERS = ["timestamp", "symbol", "timeframe", "price", "signal",
                   "ema_fast", "ema_slow", "ema_trend", "rsi", "macd", "reason"]
+DECISION_HEADERS = [
+    "timestamp", "cycle_id", "symbol", "timeframe", "price", "signal",
+    "decision", "in_position", "entry_opened", "blockers", "mtf_checked",
+    "mtf_ok", "position_pnl_pct", "open", "high", "low", "close", "volume",
+    "ema_fast", "ema_slow", "ema_trend", "rsi", "macd", "atr", "atr_pct",
+    "volume_ma", "volume_ratio", "bb_upper", "bb_middle", "bb_lower",
+    "trend_gap_pct", "bullish_cross", "bearish_cross", "trend_ok", "rsi_ok",
+    "volume_ok", "bb_ok", "pullback_entry", "reason",
+]
 
 def _ensure_csv(path: str, headers: list):
     if not os.path.exists(path):
@@ -33,6 +43,12 @@ def log_signal(signal: dict):
     with open(SIGNALS_FILE, "a", newline="") as f:
         w = csv.DictWriter(f, fieldnames=SIGNAL_HEADERS)
         w.writerow({k: signal.get(k, "") for k in SIGNAL_HEADERS})
+
+def log_decision(decision: dict):
+    _ensure_csv(DECISIONS_FILE, DECISION_HEADERS)
+    with open(DECISIONS_FILE, "a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=DECISION_HEADERS)
+        w.writerow({k: decision.get(k, "") for k in DECISION_HEADERS})
 
 def save_state(state: dict):
     with open(STATE_FILE, "w") as f:

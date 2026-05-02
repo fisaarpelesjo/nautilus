@@ -13,7 +13,7 @@ from config.settings import (
     TRADING_MODE,
 )
 from data.fetcher import fetch_balance, fetch_ohlcv
-from data.trade_logger import log_signal, save_ohlcv
+from data.trade_logger import log_decision, log_signal, save_ohlcv
 from execution.order_manager import OrderManager
 from market.selector import select_dynamic_pairs, selected_symbols
 from risk.manager import calculate_risk, should_stop_loss, should_take_profit
@@ -102,10 +102,13 @@ def run():
                             elif signal.signal == Signal.BUY:
                                 blocked_entries += 1
 
+                        _log_decision(cycle_id, symbol, signal, indicators, previous, current_price, row, strategy)
+
                     except Exception as exc:
                         log.error(f"{symbol}: {exc}")
                         log_event("pair_cycle_error", mode=TRADING_MODE, symbol=symbol, error=str(exc))
                         pair_rows.append(_error_row(symbol, exc))
+                        _log_error_decision(cycle_id, symbol, exc)
 
             for row in pair_rows:
                 row["in_pos"] = manager.has_position(row["symbol"])
@@ -163,12 +166,8 @@ def _log_signal_change(symbol: str, signal, indicators, current_price: float, la
 
 
 def _build_pair_row(symbol: str, signal, indicators, previous, current_price: float, pos, strategy: EmaRsiStrategy):
+    checks = _signal_checks(indicators, previous, current_price, strategy)
     pnl_pct = (current_price - pos.entry_price) / pos.entry_price * 100 if pos else None
-    volume_ma = float(indicators.get("volume_ma", 0) or 0)
-    volume_ratio = float(indicators.get("volume", 0) or 0) / volume_ma if volume_ma else 0.0
-    ema_trend = float(indicators["ema_trend"])
-    trend_gap_pct = (current_price - ema_trend) / ema_trend * 100 if ema_trend else 0.0
-    atr_pct = float(indicators.get("atr", 0) or 0) / current_price * 100 if current_price else 0.0
     return {
         "symbol": symbol,
         "price": current_price,
@@ -177,13 +176,80 @@ def _build_pair_row(symbol: str, signal, indicators, previous, current_price: fl
         "ema_fast": indicators["ema_fast"],
         "ema_slow": indicators["ema_slow"],
         "ema_trend": indicators["ema_trend"],
-        "volume_ratio": volume_ratio,
-        "trend_gap_pct": trend_gap_pct,
-        "atr_pct": atr_pct,
+        "volume_ratio": checks["volume_ratio"],
+        "trend_gap_pct": checks["trend_gap_pct"],
+        "atr_pct": checks["atr_pct"],
         "in_pos": pos is not None,
         "pnl_pct": pnl_pct,
+        "entry_opened": False,
+        "blockers": "",
+        "mtf_checked": False,
+        "mtf_ok": "",
         "decision": "posicao aberta: monitorando saidas" if pos else _hold_diagnosis(signal, indicators, previous, current_price, strategy),
     }
+
+
+def _log_decision(cycle_id: int, symbol: str, signal, indicators, previous, current_price: float, row: dict, strategy: EmaRsiStrategy):
+    checks = _signal_checks(indicators, previous, current_price, strategy)
+    log_decision({
+        "timestamp": datetime.now().isoformat(),
+        "cycle_id": cycle_id,
+        "symbol": symbol,
+        "timeframe": TIMEFRAME,
+        "price": _round_price(current_price),
+        "signal": signal.signal.value,
+        "decision": row.get("decision", ""),
+        "in_position": row.get("in_pos", False),
+        "entry_opened": row.get("entry_opened", False),
+        "blockers": row.get("blockers", ""),
+        "mtf_checked": row.get("mtf_checked", False),
+        "mtf_ok": row.get("mtf_ok", ""),
+        "position_pnl_pct": _round_metric(row.get("pnl_pct")),
+        "open": _round_price(float(indicators.get("open", current_price))),
+        "high": _round_price(float(indicators.get("high", current_price))),
+        "low": _round_price(float(indicators.get("low", current_price))),
+        "close": _round_price(float(indicators.get("close", current_price))),
+        "volume": _round_metric(indicators.get("volume")),
+        "ema_fast": _round_price(float(indicators["ema_fast"])),
+        "ema_slow": _round_price(float(indicators["ema_slow"])),
+        "ema_trend": _round_price(float(indicators["ema_trend"])),
+        "rsi": _round_metric(indicators.get("rsi")),
+        "macd": _round_metric(indicators.get("macd"), digits=6),
+        "atr": _round_price(float(indicators.get("atr", 0) or 0)),
+        "atr_pct": _round_metric(checks["atr_pct"]),
+        "volume_ma": _round_metric(indicators.get("volume_ma")),
+        "volume_ratio": _round_metric(checks["volume_ratio"]),
+        "bb_upper": _round_price(float(indicators.get("bb_upper", 0) or 0)),
+        "bb_middle": _round_price(float(indicators.get("bb_middle", 0) or 0)),
+        "bb_lower": _round_price(float(indicators.get("bb_lower", 0) or 0)),
+        "trend_gap_pct": _round_metric(checks["trend_gap_pct"]),
+        "bullish_cross": checks["bullish_cross"],
+        "bearish_cross": checks["bearish_cross"],
+        "trend_ok": checks["trend_ok"],
+        "rsi_ok": checks["rsi_ok"],
+        "volume_ok": checks["volume_ok"],
+        "bb_ok": checks["bb_ok"],
+        "pullback_entry": checks["pullback_entry"],
+        "reason": signal.reason,
+    })
+
+
+def _log_error_decision(cycle_id: int, symbol: str, exc: Exception):
+    log_decision({
+        "timestamp": datetime.now().isoformat(),
+        "cycle_id": cycle_id,
+        "symbol": symbol,
+        "timeframe": TIMEFRAME,
+        "signal": "ERR",
+        "decision": f"erro: {str(exc)[:120]}",
+        "reason": str(exc),
+    })
+
+
+def _round_metric(value, digits: int = 4):
+    if value is None or value == "":
+        return ""
+    return round(float(value), digits)
 
 
 def _handle_open_position(manager: OrderManager, symbol: str, pos, signal, current_price: float, row: dict, trade_events: list):
@@ -199,11 +265,13 @@ def _handle_open_position(manager: OrderManager, symbol: str, pos, signal, curre
         pnl, pnl_pct_val = _position_pnl(pos, current_price)
         manager.close_position(symbol, "Stop Loss", current_price)
         manager.set_cooldown(symbol)
+        row["in_pos"] = False
         row["decision"] = "fechou: stop loss"
         trade_events.append(("result", f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
     elif should_take_profit(current_price, pos.take_profit):
         pnl, pnl_pct_val = _position_pnl(pos, current_price)
         manager.close_position(symbol, "Take Profit", current_price)
+        row["in_pos"] = False
         row["decision"] = "fechou: take profit"
         trade_events.append(("result", f"take profit  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
     elif signal.signal == Signal.SELL:
@@ -211,6 +279,7 @@ def _handle_open_position(manager: OrderManager, symbol: str, pos, signal, curre
         manager.close_position(symbol, "Sinal de venda", current_price)
         if pnl < 0:
             manager.set_cooldown(symbol)
+        row["in_pos"] = False
         row["decision"] = "fechou: sinal de venda"
         trade_events.append(("result", f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
@@ -240,10 +309,14 @@ def _handle_entry_candidate(
         blockers.append("drawdown diario")
     if manager.is_in_cooldown(symbol):
         blockers.append("cooldown")
-    if not blockers and not _mtf_confirmed(symbol, current_price, strategy):
-        blockers.append("MTF negado")
+    if not blockers:
+        row["mtf_checked"] = True
+        row["mtf_ok"] = _mtf_confirmed(symbol, current_price, strategy)
+        if not row["mtf_ok"]:
+            blockers.append("MTF negado")
 
     if blockers:
+        row["blockers"] = ", ".join(blockers)
         row["decision"] = "compra bloqueada: " + ", ".join(blockers)
         return False
 
@@ -251,9 +324,13 @@ def _handle_entry_candidate(
     atr = float(indicators.get("atr", 0) or 0)
     risk = calculate_risk(current_price, available, atr)
     manager.open_long(symbol, risk)
-    row["decision"] = "compra aberta"
-    trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
-    return True
+    opened = manager.has_position(symbol)
+    row["entry_opened"] = opened
+    row["in_pos"] = opened
+    row["decision"] = "compra aberta" if opened else "compra falhou: ordem nao abriu"
+    if opened:
+        trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
+    return opened
 
 
 def _position_pnl(pos, current_price: float):
@@ -287,9 +364,37 @@ def _hold_diagnosis(signal, indicators, previous, current_price: float, strategy
     if previous is None:
         return "aguardando: historico insuficiente"
 
-    params = strategy.params
+    checks_state = _signal_checks(indicators, previous, current_price, strategy)
     checks = []
-    bullish_cross = previous["ema_fast"] < previous["ema_slow"] and indicators["ema_fast"] > indicators["ema_slow"]
+
+    if not checks_state["bullish_cross"] and not checks_state["pullback_entry"]:
+        checks.append("sem cruzamento/pullback")
+    if not checks_state["trend_ok"]:
+        checks.append("abaixo EMA50")
+    if not checks_state["rsi_ok"]:
+        checks.append(f"RSI alto {indicators['rsi']:.0f}")
+    if not checks_state["volume_ok"]:
+        checks.append(f"volume {checks_state['volume_ratio']:.2f}x")
+    if not checks_state["bb_ok"]:
+        checks.append("acima Bollinger")
+
+    return "aguardando: " + ", ".join(checks[:3]) if checks else "aguardando confirmacao final"
+
+
+def _signal_checks(indicators, previous, current_price: float, strategy: EmaRsiStrategy) -> dict:
+    params = strategy.params
+    volume_ma = float(indicators.get("volume_ma", 0) or 0)
+    volume_ratio = float(indicators.get("volume", 0) or 0) / volume_ma if volume_ma else 0.0
+    ema_trend = float(indicators["ema_trend"])
+    trend_gap_pct = (current_price - ema_trend) / ema_trend * 100 if ema_trend else 0.0
+    atr_pct = float(indicators.get("atr", 0) or 0) / current_price * 100 if current_price else 0.0
+
+    bullish_cross = False
+    bearish_cross = False
+    if previous is not None:
+        bullish_cross = previous["ema_fast"] < previous["ema_slow"] and indicators["ema_fast"] > indicators["ema_slow"]
+        bearish_cross = previous["ema_fast"] > previous["ema_slow"] and indicators["ema_fast"] < indicators["ema_slow"]
+
     trend_aligned = indicators["ema_fast"] > indicators["ema_slow"] > indicators["ema_trend"] and current_price > indicators["ema_trend"]
     pullback_entry = (
         params.pullback_entry_enabled
@@ -299,25 +404,19 @@ def _hold_diagnosis(signal, indicators, previous, current_price: float, strategy
         and current_price > indicators["ema_fast"]
         and current_price > indicators.get("open", current_price)
     )
-    trend_ok = current_price > indicators["ema_trend"]
-    rsi_ok = indicators["rsi"] < params.rsi_overbought
-    volume_ma = float(indicators.get("volume_ma", 0) or 0)
-    volume_ratio = float(indicators.get("volume", 0) or 0) / volume_ma if volume_ma else 0.0
-    volume_ok = volume_ratio >= params.volume_min_ratio
-    bb_ok = current_price <= indicators["bb_upper"]
 
-    if not bullish_cross and not pullback_entry:
-        checks.append("sem cruzamento/pullback")
-    if not trend_ok:
-        checks.append("abaixo EMA50")
-    if not rsi_ok:
-        checks.append(f"RSI alto {indicators['rsi']:.0f}")
-    if not volume_ok:
-        checks.append(f"volume {volume_ratio:.2f}x")
-    if not bb_ok:
-        checks.append("acima Bollinger")
-
-    return "aguardando: " + ", ".join(checks[:3]) if checks else "aguardando confirmacao final"
+    return {
+        "bullish_cross": bullish_cross,
+        "bearish_cross": bearish_cross,
+        "trend_ok": current_price > indicators["ema_trend"],
+        "rsi_ok": indicators["rsi"] < params.rsi_overbought,
+        "volume_ok": volume_ratio >= params.volume_min_ratio,
+        "bb_ok": current_price <= indicators["bb_upper"],
+        "pullback_entry": pullback_entry,
+        "volume_ratio": volume_ratio,
+        "trend_gap_pct": trend_gap_pct,
+        "atr_pct": atr_pct,
+    }
 
 
 def _send_daily_report(manager: OrderManager):

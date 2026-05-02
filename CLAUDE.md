@@ -123,11 +123,13 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 | Arquivo | Formato | Conteúdo |
 |---|---|---|
-| `data/signals.csv` | CSV | Cada checagem: timestamp, preço, indicadores, sinal |
+| `data/decisions.csv` | CSV | Cada ciclo por par: sinal, decisão final, bloqueios, filtros e indicadores |
+| `data/signals.csv` | CSV | Mudanças de sinal: timestamp, preço, indicadores, sinal |
 | `data/trades.csv` | CSV | Cada trade fechado: entrada, saída, PnL, motivo |
 | `data/ohlcv/BTCUSDT_4h.csv` | CSV | Candles históricos acumulados |
 | `data/state.json` | JSON | Estado atual: saldo, posição aberta, contadores |
-| `logs/YYYY-MM-DD.log` | texto | Log completo do dia |
+| `logs/YYYY-MM-DD.log` | texto | Log textual completo do dia |
+| `logs/events-YYYY-MM-DD.jsonl` | JSONL | Eventos estruturados de ordens, erros e ciclo operacional |
 
 O bot restaura o estado do `state.json` ao reiniciar — posição aberta e saldo paper são preservados.
 

@@ -135,11 +135,13 @@ Tudo salvo automaticamente em disco enquanto o bot roda:
 
 | Arquivo | Conteúdo |
 |---|---|
-| `data/signals.csv` | Cada checagem: preço, EMA9/21/50, RSI, MACD, sinal |
+| `data/decisions.csv` | Cada ciclo por par: sinal, decisão final, bloqueios, filtros e indicadores |
+| `data/signals.csv` | Mudanças de sinal: preço, EMA9/21/50, RSI, MACD e motivo |
 | `data/trades.csv` | Cada trade: entrada, saída, PnL, motivo |
 | `data/ohlcv/BTCUSDT_4h.csv` | Candles históricos acumulados |
 | `data/state.json` | Estado atual (saldo, posição aberta) |
-| `logs/YYYY-MM-DD.log` | Log completo do dia |
+| `logs/YYYY-MM-DD.log` | Log textual completo do dia |
+| `logs/events-YYYY-MM-DD.jsonl` | Eventos estruturados de ordens, erros e ciclo operacional |
 
 O bot **restaura o estado automaticamente** ao reiniciar.
 
