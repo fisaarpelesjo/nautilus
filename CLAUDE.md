@@ -63,6 +63,10 @@ python main.py status           # preço atual e saldo
 
 Para qualquer mudança não trivial neste projeto, separe o trabalho em tópicos pequenos. Ao terminar cada tópico, rode os testes relevantes, faça commit com mensagem Conventional Commit concisa em português, envie para `origin/main` e só então continue para o próximo tópico. Não commite artefatos de runtime.
 
+## Sincronização CLAUDE.md ↔ AGENTS.md
+
+`CLAUDE.md` (PT) e `AGENTS.md` (EN) devem ter sempre o mesmo conteúdo. Ao modificar qualquer seção em um arquivo, atualize o equivalente no outro no mesmo commit.
+
 ---
 
 ## Configuração (.env)

@@ -70,6 +70,10 @@ Default to `TRADING_MODE=paper` while developing.
 
 For any non-trivial change in this project, split the work into small topical steps. After each completed topic, run the relevant tests, commit with a concise Conventional Commit message in Portuguese, push to `origin/main`, and only then continue to the next topic. Do not commit runtime artifacts.
 
+## CLAUDE.md ↔ AGENTS.md Sync
+
+`CLAUDE.md` (PT) and `AGENTS.md` (EN) must always have the same content. When modifying any section in one file, update the equivalent in the other in the same commit.
+
 ---
 
 ## Configuration (.env)
