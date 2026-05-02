@@ -17,3 +17,7 @@ data/decisions.csv
 data/trades.csv
 data/state.json
 data/ohlcv/
+
+# local research papers and full-text conversions
+/*.pdf
+/docs/research/
