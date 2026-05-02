@@ -209,6 +209,7 @@ def pairs_table(rows: list, balance: float, pnl: float, trades: int, win_rate: f
     table.add_column("  par", style="white", min_width=12)
     table.add_column("preco", justify="right", min_width=11)
     table.add_column("sinal", justify="center", min_width=7)
+    table.add_column("fit", justify="center", min_width=5)
     table.add_column("RSI", justify="right", min_width=5)
     table.add_column("trend", justify="right", min_width=8)
     table.add_column("vol", justify="right", min_width=7)
@@ -236,10 +237,21 @@ def pairs_table(rows: list, balance: float, pnl: float, trades: int, win_rate: f
         else:
             sig_cell = _signal_markup(signal)
 
+        score = row.get("buy_score", 0)
+        if score == 5:
+            fit_cell = f"[{C_OK}]{score}/5[/{C_OK}]"
+        elif score == 4:
+            fit_cell = f"[{C_CYAN}]{score}/5[/{C_CYAN}]"
+        elif score == 3:
+            fit_cell = f"[white]{score}/5[/white]"
+        else:
+            fit_cell = f"[{C_DIM}]{score}/5[/{C_DIM}]"
+
         table.add_row(
             f"  {row.get('symbol', '')}",
             f"[{C_PRICE}]{_fmt_price(price)}[/]" if price else f"[{C_DIM}]-[/]",
             sig_cell,
+            fit_cell,
             f"[{_rsi_color(rsi)}]{rsi:.0f}[/{_rsi_color(rsi)}]" if rsi else f"[{C_DIM}]-[/]",
             f"[{trend_color}]{trend_gap:+.2f}%[/{trend_color}]",
             f"[{vol_color}]{volume_ratio:.2f}x[/{vol_color}]" if volume_ratio else f"[{C_DIM}]-[/]",

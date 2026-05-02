@@ -181,6 +181,13 @@ def _build_pair_row(symbol: str, signal, indicators, previous, current_price: fl
         "trend_gap_pct": checks["trend_gap_pct"],
         "atr_pct": checks["atr_pct"],
         "ema_aligned": float(indicators["ema_fast"]) > float(indicators["ema_slow"]),
+        "buy_score": sum([
+            bool(checks["bullish_cross"] or checks["pullback_entry"]),
+            checks["trend_ok"],
+            checks["rsi_ok"],
+            checks["volume_ok"],
+            checks["bb_ok"],
+        ]),
         "in_pos": pos is not None,
         "pnl_pct": pnl_pct,
         "entry_opened": False,
