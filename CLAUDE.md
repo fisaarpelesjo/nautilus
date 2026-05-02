@@ -15,7 +15,13 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 │   └── settings.py            # Todas as configs lidas do .env
 ├── data/
 │   ├── fetcher.py             # Busca OHLCV da Binance com cache em memória
-│   ├── trade_logger.py        # Persiste trades, sinais, OHLCV e state em disco
+│   ├── paths.py               # Caminhos dos arquivos locais
+│   ├── trade_store.py         # Trades fechados
+│   ├── signal_store.py        # Mudanças de sinal
+│   ├── decision_store.py      # Decisões por ciclo/par
+│   ├── state_store.py         # Estado atual do bot
+│   ├── ohlcv_store.py         # Candles acumulados
+│   ├── trade_logger.py        # Compatibilidade com imports antigos
 │   └── ohlcv/                 # Candles históricos acumulados (CSV por par/TF)
 ├── strategy/
 │   ├── base.py                # Interface BaseStrategy + dataclasses Signal/TradeSignal

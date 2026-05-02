@@ -7,7 +7,7 @@ from typing import Dict, List
 from rich import box
 from rich.table import Table
 
-from data.trade_logger import TRADES_FILE
+from data.paths import TRADES_FILE
 from utils.display import C_DIM, C_LABEL, C_NEG, C_POS, C_PRICE, console, header
 
 

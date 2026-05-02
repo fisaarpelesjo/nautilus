@@ -11,7 +11,8 @@ from config.settings import (
     TRADING_MODE,
 )
 from data.fetcher import fetch_ohlcv
-from data.trade_logger import log_signal, save_ohlcv
+from data.ohlcv_store import save_ohlcv
+from data.signal_store import log_signal
 from execution.order_manager import OrderManager
 from market.selector import select_dynamic_pairs, selected_symbols
 from strategy.base import Signal

@@ -12,7 +12,8 @@ from config.settings import (
     DAILY_DRAWDOWN_LIMIT,
 )
 from data.fetcher import get_exchange
-from data.trade_logger import log_trade, save_state, load_state
+from data.state_store import load_state, save_state
+from data.trade_store import log_trade
 from risk.manager import RiskLevels
 from utils.logger import get_logger, log_event
 from utils.notifier import send_telegram

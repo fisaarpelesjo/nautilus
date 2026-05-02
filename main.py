@@ -40,7 +40,7 @@ def cmd_bot():
 
 def cmd_status():
     from data.fetcher import fetch_ticker
-    from data.trade_logger import load_state
+    from data.state_store import load_state
     from config.settings import PAIRS, TIMEFRAME
     from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price
 

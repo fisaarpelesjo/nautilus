@@ -155,7 +155,13 @@ O bot **restaura o estado automaticamente** ao reiniciar.
 ├── config/settings.py      # Configurações via .env
 ├── data/
 │   ├── fetcher.py          # Busca candles com cache
-│   ├── trade_logger.py     # Persistência em disco
+│   ├── paths.py            # Caminhos dos arquivos locais
+│   ├── trade_store.py      # Trades fechados
+│   ├── signal_store.py     # Mudancas de sinal
+│   ├── decision_store.py   # Decisoes por ciclo/par
+│   ├── state_store.py      # Estado atual do bot
+│   ├── ohlcv_store.py      # Candles acumulados
+│   ├── trade_logger.py     # Compatibilidade com imports antigos
 │   └── ohlcv/              # Candles históricos
 ├── strategy/
 │   ├── base.py             # Interface de estratégia

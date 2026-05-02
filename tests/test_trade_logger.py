@@ -1,31 +1,31 @@
-from data import trade_logger
+from data import decision_store, state_store
 
 
 def test_save_and_load_state_round_trip(tmp_path, monkeypatch):
     state_file = tmp_path / "state.json"
-    monkeypatch.setattr(trade_logger, "STATE_FILE", str(state_file))
+    monkeypatch.setattr(state_store, "STATE_FILE", str(state_file))
 
     state = {
         "paper_balance_usdt": 1234.5,
         "positions": {"BTC/USDT": {"entry_price": 100.0}},
     }
 
-    trade_logger.save_state(state)
+    state_store.save_state(state)
 
-    assert trade_logger.load_state() == state
+    assert state_store.load_state() == state
 
 
 def test_load_state_returns_empty_dict_when_missing(tmp_path, monkeypatch):
-    monkeypatch.setattr(trade_logger, "STATE_FILE", str(tmp_path / "missing.json"))
+    monkeypatch.setattr(state_store, "STATE_FILE", str(tmp_path / "missing.json"))
 
-    assert trade_logger.load_state() == {}
+    assert state_store.load_state() == {}
 
 
 def test_log_decision_writes_analysis_row(tmp_path, monkeypatch):
     decisions_file = tmp_path / "decisions.csv"
-    monkeypatch.setattr(trade_logger, "DECISIONS_FILE", str(decisions_file))
+    monkeypatch.setattr(decision_store, "DECISIONS_FILE", str(decisions_file))
 
-    trade_logger.log_decision({
+    decision_store.log_decision({
         "timestamp": "2026-01-01T00:00:00",
         "cycle_id": 1,
         "symbol": "BTC/USDT",

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from config.settings import TIMEFRAME
-from data.trade_logger import log_decision
+from data.decision_store import log_decision
 from strategy.diagnostics import signal_checks
 
 
