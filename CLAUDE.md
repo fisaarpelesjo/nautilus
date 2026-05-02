@@ -59,6 +59,12 @@ python main.py status           # preço atual e saldo
 
 ---
 
+## Fluxo Incremental
+
+Para qualquer mudança não trivial neste projeto, separe o trabalho em tópicos pequenos. Ao terminar cada tópico, rode os testes relevantes, faça commit com mensagem Conventional Commit concisa em português, envie para `origin/main` e só então continue para o próximo tópico. Não commite artefatos de runtime.
+
+---
+
 ## Configuração (.env)
 
 Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.env.example` tem o template sem valores reais.
