@@ -177,28 +177,24 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     timeframe = timeframe or TIMEFRAME
     default   = symbol or PAIRS[0]
 
-    # IDs simples evitam bugs com pattern-matching no Dash 4.x
-    btn_ids = [f"pbtn-{i}" for i in range(len(PAIRS))]
+    btn_ids   = [f"pbtn-{i}" for i in range(len(PAIRS))]
+    _btn_style = {"color": _TEXT, "padding": "6px 12px", "cursor": "pointer",
+                  "borderRadius": "4px", "fontSize": "12px",
+                  "backgroundColor": "#1e2235", "border": "1px solid #2a2d3e"}
 
-    _style_active   = {"color": _TEXT, "padding": "6px 12px", "cursor": "pointer",
-                       "borderRadius": "4px", "fontSize": "12px",
-                       "backgroundColor": _UP, "border": f"1px solid {_UP}"}
-    _style_inactive = {"color": _TEXT, "padding": "6px 12px", "cursor": "pointer",
-                       "borderRadius": "4px", "fontSize": "12px",
-                       "backgroundColor": "#1e2235", "border": "1px solid #2a2d3e"}
-
-    app = Dash(__name__, title="itgr chart")
+    app = Dash(__name__, title=default)
     app.layout = html.Div(
         style={"backgroundColor": _BG, "padding": "12px", "fontFamily": "monospace"},
         children=[
             html.Div(
                 style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginBottom": "10px"},
                 children=[
-                    html.Button(p, id=btn_ids[i], n_clicks=0, style=_style_inactive)
+                    html.Button(p, id=btn_ids[i], n_clicks=0, style=_btn_style)
                     for i, p in enumerate(PAIRS)
                 ],
             ),
             dcc.Store(id="selected-pair", data=default),
+            dcc.Store(id="_title-sink"),
             dcc.Graph(id="chart", figure=_build_figure(default, timeframe),
                       config={"scrollZoom": True, "displaylogo": False}),
         ],
@@ -211,16 +207,14 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     )
     def _select(*args):
         from dash import ctx
-        idx = btn_ids.index(ctx.triggered_id)
-        return PAIRS[idx]
+        return PAIRS[btn_ids.index(ctx.triggered_id)]
 
-    @app.callback(
-        [Output(bid, "style") for bid in btn_ids],
+    # atualiza título da aba via JS
+    app.clientside_callback(
+        "function(sym) { document.title = sym + ' | itgr'; return null; }",
+        Output("_title-sink", "data"),
         Input("selected-pair", "data"),
     )
-    def _highlight(sym):
-        return [_style_active if PAIRS[i] == sym else _style_inactive
-                for i in range(len(PAIRS))]
 
     @app.callback(
         Output("chart", "figure"),
