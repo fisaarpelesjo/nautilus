@@ -397,37 +397,46 @@ def _close_trade(
     )
 
 def _print_report(r: BacktestResult):
-    log.info("=" * 50)
-    log.info("RESULTADO DO BACKTEST")
-    log.info("=" * 50)
-    log.info(f"Capital inicial:   ${r.initial_capital:.2f}")
-    log.info(f"Capital final:     ${r.final_capital:.2f}")
-    log.info(f"Retorno total:     {r.total_return_pct:+.2f}%")
-    log.info(f"Total de trades:   {r.total_trades}")
-    log.info(f"Win rate:          {r.win_rate:.1f}%")
-    log.info(f"Max drawdown:      {r.max_drawdown_pct:.2f}%")
-    log.info(f"Profit factor:     {_fmt_metric(r.profit_factor)}")
-    log.info(f"Expectativa:       ${r.expectancy:+.2f}/trade")
-    log.info(f"Media win/loss:    ${r.average_win:+.2f} / ${r.average_loss:+.2f}")
-    log.info(f"Maior win/loss:    ${r.largest_win:+.2f} / ${r.largest_loss:+.2f}")
-    log.info(f"Max perdas seg.:   {r.max_losing_streak}")
-    log.info(f"Exposicao:         {r.exposure_pct:.1f}%")
-    log.info(f"Sharpe simplif.:   {r.sharpe:.2f}")
-    log.info(f"Expectativa %:     {r.expectancy_pct:+.2f}%/trade")
-    log.info(f"Payoff ratio:      {_fmt_metric(r.payoff_ratio)}")
-    log.info(f"Buy & hold:        {r.buy_hold_return_pct:+.2f}%")
-    log.info(f"Edge vs B&H:       {r.edge_return_pct:+.2f}%")
-    log.info(f"Edge score:        {r.edge_score:+.2f}")
-    log.info("=" * 50)
+    lines = [
+        "=" * 50,
+        "RESULTADO DO BACKTEST",
+        "=" * 50,
+        f"Capital inicial:   ${r.initial_capital:.2f}",
+        f"Capital final:     ${r.final_capital:.2f}",
+        f"Retorno total:     {r.total_return_pct:+.2f}%",
+        f"Total de trades:   {r.total_trades}",
+        f"Win rate:          {r.win_rate:.1f}%",
+        f"Max drawdown:      {r.max_drawdown_pct:.2f}%",
+        f"Profit factor:     {_fmt_metric(r.profit_factor)}",
+        f"Expectativa:       ${r.expectancy:+.2f}/trade",
+        f"Media win/loss:    ${r.average_win:+.2f} / ${r.average_loss:+.2f}",
+        f"Maior win/loss:    ${r.largest_win:+.2f} / ${r.largest_loss:+.2f}",
+        f"Max perdas seg.:   {r.max_losing_streak}",
+        f"Exposicao:         {r.exposure_pct:.1f}%",
+        f"Sharpe simplif.:   {r.sharpe:.2f}",
+        f"Expectativa %:     {r.expectancy_pct:+.2f}%/trade",
+        f"Payoff ratio:      {_fmt_metric(r.payoff_ratio)}",
+        f"Buy & hold:        {r.buy_hold_return_pct:+.2f}%",
+        f"Edge vs B&H:       {r.edge_return_pct:+.2f}%",
+        f"Edge score:        {r.edge_score:+.2f}",
+        "=" * 50,
+    ]
+
+    for line in lines:
+        print(line)
+        log.info(line)
 
     if r.trades:
+        print("\nUltimos 5 trades:")
         log.info("\nUltimos 5 trades:")
         for t in r.trades[-5:]:
-            log.info(
+            line = (
                 f"  {t.entry_time.strftime('%Y-%m-%d %H:%M')} -> {t.exit_time.strftime('%Y-%m-%d %H:%M')} | "
                 f"Entrada=${t.entry_price:.2f} Saida=${t.exit_price:.2f} | "
                 f"PnL=${t.pnl:+.2f} ({t.pnl_pct:+.1f}%) | Taxas=${t.fees:.2f} | {t.exit_reason}"
             )
+            print(line)
+            log.info(line)
 
 
 def _fmt_metric(value: float) -> str:

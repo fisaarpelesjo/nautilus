@@ -1,6 +1,6 @@
 import pandas as pd
 
-from backtesting.engine import simulate_backtest
+from backtesting.engine import _print_report, simulate_backtest
 from strategy.base import Signal, TradeSignal
 
 
@@ -105,3 +105,21 @@ def test_simulate_backtest_calculates_buy_hold_and_edge_metrics():
     assert result.buy_hold_return_pct == 20.0
     assert result.edge_return_pct == -20.0
     assert result.edge_score < 0
+
+
+def test_print_report_writes_edge_metrics_to_stdout(capsys):
+    data = _df([
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 120.0, "high": 121.0, "low": 119.0, "close": 120.0, "volume": 1.0},
+    ])
+    result = simulate_backtest(data, SequenceStrategy([Signal.HOLD, Signal.HOLD]), start_index=1)
+
+    _print_report(result)
+
+    output = capsys.readouterr().out
+    assert "RESULTADO DO BACKTEST" in output
+    assert "Expectativa %" in output
+    assert "Buy & hold" in output
+    assert "Edge vs B&H" in output
+    assert "Edge score" in output
