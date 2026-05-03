@@ -21,6 +21,7 @@ DYNAMIC_PAIRS_ENABLED = os.getenv("DYNAMIC_PAIRS_ENABLED", "false").lower() in {
 DYNAMIC_PAIRS_TOP_N = int(os.getenv("DYNAMIC_PAIRS_TOP_N", "5"))
 DYNAMIC_PAIRS_CANDIDATES = int(os.getenv("DYNAMIC_PAIRS_CANDIDATES", "20"))
 MIN_VOLUME_USDT = float(os.getenv("MIN_VOLUME_USDT", "10000000"))
+MIN_PRICE_USDT = float(os.getenv("MIN_PRICE_USDT", "0.001"))
 MAX_SPREAD_PCT = float(os.getenv("MAX_SPREAD_PCT", "0.003"))
 MIN_VOLATILITY_PCT = float(os.getenv("MIN_VOLATILITY_PCT", "1.0"))
 
@@ -90,6 +91,8 @@ def validate_config():
         errors.append("DYNAMIC_PAIRS_TOP_N e DYNAMIC_PAIRS_CANDIDATES devem ser maiores que zero.")
     if MIN_VOLUME_USDT < 0 or MAX_SPREAD_PCT < 0 or MIN_VOLATILITY_PCT < 0:
         errors.append("Filtros dinamicos de mercado nao podem ser negativos.")
+    if MIN_PRICE_USDT < 0:
+        errors.append("MIN_PRICE_USDT nao pode ser negativo.")
     if MAX_POSITIONS < 1:
         errors.append("MAX_POSITIONS deve ser pelo menos 1.")
     if STOP_LOSS_PCT <= 0 or TAKE_PROFIT_PCT <= 0:

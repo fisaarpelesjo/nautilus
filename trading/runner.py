@@ -6,6 +6,7 @@ from config.settings import (
     DAILY_REPORT_HOUR,
     DYNAMIC_PAIRS_ENABLED,
     MAX_POSITIONS,
+    MIN_PRICE_USDT,
     PAIRS,
     TIMEFRAME,
     TRADING_MODE,
@@ -79,6 +80,9 @@ def run():
                     try:
                         df = fetch_ohlcv(symbol, TIMEFRAME)
                         signal = strategy.generate_signal(df)
+                        if signal.price < MIN_PRICE_USDT:
+                            pair_rows.append(_skipped_row(symbol, signal.price, "preco abaixo do minimo"))
+                            continue
                         prepared = strategy.calculate_indicators(df)
                         indicators = prepared.iloc[-1]
                         previous = prepared.iloc[-2] if len(prepared) >= 2 else None
@@ -195,6 +199,19 @@ def _build_pair_row(symbol: str, signal, indicators, previous, current_price: fl
         "mtf_checked": False,
         "mtf_ok": "",
         "decision": "posicao aberta: monitorando saidas" if pos else hold_diagnosis(signal, indicators, previous, current_price, strategy),
+    }
+
+
+def _skipped_row(symbol: str, price: float, reason: str):
+    return {
+        "symbol": symbol, "price": price, "signal": "HOLD",
+        "rsi": 0, "ema_fast": 0, "ema_slow": 0, "ema_trend": 0,
+        "volume_ratio": 0, "trend_gap_pct": 0, "atr_pct": 0,
+        "ema_aligned": False, "buy_score": 0,
+        "in_pos": False, "pnl_pct": None,
+        "entry_opened": False, "blockers": reason,
+        "mtf_checked": False, "mtf_ok": "",
+        "decision": f"ignorado: {reason}",
     }
 
 
