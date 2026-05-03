@@ -11,8 +11,24 @@ from data.fetcher import fetch_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
 
 
+def _select_pair() -> str:
+    from config.settings import PAIRS
+    print("\n  pares disponíveis:")
+    for i, p in enumerate(PAIRS, 1):
+        print(f"  {i:2}. {p}")
+    print()
+    try:
+        choice = input("  selecione [1-{}]: ".format(len(PAIRS))).strip()
+        idx = int(choice) - 1
+        if 0 <= idx < len(PAIRS):
+            return PAIRS[idx]
+    except (ValueError, KeyboardInterrupt):
+        pass
+    return PAIRS[0]
+
+
 def run(symbol: str = None, timeframe: str = None, limit: int = 100):
-    symbol = symbol or "BTC/USDT"
+    symbol = symbol or _select_pair()
     timeframe = timeframe or TIMEFRAME
 
     df = fetch_ohlcv(symbol, timeframe, limit=limit)
