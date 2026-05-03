@@ -1,6 +1,7 @@
 import pandas as pd
 
 from backtesting.engine import _print_report, simulate_backtest
+from utils.display import _fmt_price
 from strategy.base import Signal, TradeSignal
 
 
@@ -107,7 +108,7 @@ def test_simulate_backtest_calculates_buy_hold_and_edge_metrics():
     assert result.edge_score < 0
 
 
-def test_print_report_writes_edge_metrics_to_stdout(capsys):
+def test_print_report_records_edge_metrics(caplog):
     data = _df([
         {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
         {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
@@ -117,9 +118,13 @@ def test_print_report_writes_edge_metrics_to_stdout(capsys):
 
     _print_report(result)
 
-    output = capsys.readouterr().out
+    output = caplog.text
     assert "RESULTADO DO BACKTEST" in output
     assert "Expectativa %" in output
     assert "Buy & hold" in output
     assert "Edge vs B&H" in output
     assert "Edge score" in output
+
+
+def test_price_formatter_keeps_small_crypto_prices_visible():
+    assert _fmt_price(0.00234567) == "$0.00234567"

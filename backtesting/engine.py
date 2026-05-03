@@ -14,6 +14,7 @@ from config.settings import (
 from strategy.base import Signal, TradeSignal
 from strategy.ema_rsi import EmaRsiStrategy
 from data.fetcher import fetch_ohlcv
+from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, C_PRICE, console, _fmt_price
 from utils.logger import get_logger
 
 log = get_logger("backtest")
@@ -397,46 +398,71 @@ def _close_trade(
     )
 
 def _print_report(r: BacktestResult):
-    lines = [
-        "=" * 50,
-        "RESULTADO DO BACKTEST",
-        "=" * 50,
-        f"Capital inicial:   ${r.initial_capital:.2f}",
-        f"Capital final:     ${r.final_capital:.2f}",
-        f"Retorno total:     {r.total_return_pct:+.2f}%",
-        f"Total de trades:   {r.total_trades}",
-        f"Win rate:          {r.win_rate:.1f}%",
-        f"Max drawdown:      {r.max_drawdown_pct:.2f}%",
-        f"Profit factor:     {_fmt_metric(r.profit_factor)}",
-        f"Expectativa:       ${r.expectancy:+.2f}/trade",
-        f"Media win/loss:    ${r.average_win:+.2f} / ${r.average_loss:+.2f}",
-        f"Maior win/loss:    ${r.largest_win:+.2f} / ${r.largest_loss:+.2f}",
-        f"Max perdas seg.:   {r.max_losing_streak}",
-        f"Exposicao:         {r.exposure_pct:.1f}%",
-        f"Sharpe simplif.:   {r.sharpe:.2f}",
-        f"Expectativa %:     {r.expectancy_pct:+.2f}%/trade",
-        f"Payoff ratio:      {_fmt_metric(r.payoff_ratio)}",
-        f"Buy & hold:        {r.buy_hold_return_pct:+.2f}%",
-        f"Edge vs B&H:       {r.edge_return_pct:+.2f}%",
-        f"Edge score:        {r.edge_score:+.2f}",
-        "=" * 50,
+    metric_rows = [
+        ("Capital inicial", f"${r.initial_capital:.2f}", C_PRICE, f"Capital inicial:   ${r.initial_capital:.2f}"),
+        ("Capital final", f"${r.final_capital:.2f}", _money_color(r.final_capital - r.initial_capital), f"Capital final:     ${r.final_capital:.2f}"),
+        ("Retorno total", f"{r.total_return_pct:+.2f}%", _value_color(r.total_return_pct), f"Retorno total:     {r.total_return_pct:+.2f}%"),
+        ("Total de trades", str(r.total_trades), C_CYAN, f"Total de trades:   {r.total_trades}"),
+        ("Win rate", f"{r.win_rate:.1f}%", C_POS if r.win_rate >= 50 else C_NEG, f"Win rate:          {r.win_rate:.1f}%"),
+        ("Max drawdown", f"{r.max_drawdown_pct:.2f}%", C_NEG if r.max_drawdown_pct > 10 else C_CYAN, f"Max drawdown:      {r.max_drawdown_pct:.2f}%"),
+        ("Profit factor", _fmt_metric(r.profit_factor), C_POS if r.profit_factor > 1 else C_NEG, f"Profit factor:     {_fmt_metric(r.profit_factor)}"),
+        ("Expectativa", f"${r.expectancy:+.2f}/trade", _value_color(r.expectancy), f"Expectativa:       ${r.expectancy:+.2f}/trade"),
+        ("Media win/loss", f"${r.average_win:+.2f} / ${r.average_loss:+.2f}", C_CYAN, f"Media win/loss:    ${r.average_win:+.2f} / ${r.average_loss:+.2f}"),
+        ("Maior win/loss", f"${r.largest_win:+.2f} / ${r.largest_loss:+.2f}", C_CYAN, f"Maior win/loss:    ${r.largest_win:+.2f} / ${r.largest_loss:+.2f}"),
+        ("Max perdas seg.", str(r.max_losing_streak), C_NEG if r.max_losing_streak >= 3 else C_CYAN, f"Max perdas seg.:   {r.max_losing_streak}"),
+        ("Exposicao", f"{r.exposure_pct:.1f}%", C_CYAN, f"Exposicao:         {r.exposure_pct:.1f}%"),
+        ("Sharpe simplif.", f"{r.sharpe:.2f}", _value_color(r.sharpe), f"Sharpe simplif.:   {r.sharpe:.2f}"),
+        ("Expectativa %", f"{r.expectancy_pct:+.2f}%/trade", _value_color(r.expectancy_pct), f"Expectativa %:     {r.expectancy_pct:+.2f}%/trade"),
+        ("Payoff ratio", _fmt_metric(r.payoff_ratio), C_POS if r.payoff_ratio > 1 else C_NEG, f"Payoff ratio:      {_fmt_metric(r.payoff_ratio)}"),
+        ("Buy & hold", f"{r.buy_hold_return_pct:+.2f}%", _value_color(r.buy_hold_return_pct), f"Buy & hold:        {r.buy_hold_return_pct:+.2f}%"),
+        ("Edge vs B&H", f"{r.edge_return_pct:+.2f}%", _value_color(r.edge_return_pct), f"Edge vs B&H:       {r.edge_return_pct:+.2f}%"),
+        ("Edge score", f"{r.edge_score:+.2f}", _value_color(r.edge_score), f"Edge score:        {r.edge_score:+.2f}"),
     ]
 
-    for line in lines:
-        print(line)
-        log.info(line)
+    _emit_report("=" * 50)
+    _emit_report(f"[bold {C_CYAN}]RESULTADO DO BACKTEST[/]", "RESULTADO DO BACKTEST")
+    _emit_report("=" * 50)
+    for label, value, color, plain in metric_rows:
+        _emit_report(f"[{C_LABEL}]{label:<16}[/] [{color}]{value}[/]", plain)
+    _emit_report("=" * 50)
 
     if r.trades:
-        print("\nUltimos 5 trades:")
+        console.print()
+        console.print(f"[bold {C_CYAN}]Ultimos 5 trades:[/]")
         log.info("\nUltimos 5 trades:")
         for t in r.trades[-5:]:
-            line = (
+            pnl_color = C_POS if t.pnl >= 0 else C_NEG
+            markup = (
+                f"[{C_DIM}]  {t.entry_time.strftime('%Y-%m-%d %H:%M')} -> {t.exit_time.strftime('%Y-%m-%d %H:%M')}[/] | "
+                f"[{C_LABEL}]Entrada[/]=[{C_PRICE}]{_fmt_price(t.entry_price)}[/] "
+                f"[{C_LABEL}]Saida[/]=[{C_PRICE}]{_fmt_price(t.exit_price)}[/] | "
+                f"[{C_LABEL}]PnL[/]=[{pnl_color}]${t.pnl:+.2f} ({t.pnl_pct:+.1f}%)[/] | "
+                f"[{C_LABEL}]Taxas[/]=[white]${t.fees:.2f}[/] | [{C_CYAN}]{t.exit_reason}[/]"
+            )
+            plain = (
                 f"  {t.entry_time.strftime('%Y-%m-%d %H:%M')} -> {t.exit_time.strftime('%Y-%m-%d %H:%M')} | "
-                f"Entrada=${t.entry_price:.2f} Saida=${t.exit_price:.2f} | "
+                f"Entrada={_fmt_price(t.entry_price)} Saida={_fmt_price(t.exit_price)} | "
                 f"PnL=${t.pnl:+.2f} ({t.pnl_pct:+.1f}%) | Taxas=${t.fees:.2f} | {t.exit_reason}"
             )
-            print(line)
-            log.info(line)
+            console.print(markup)
+            log.info(plain)
+
+
+def _emit_report(markup: str, plain: str = None):
+    console.print(markup)
+    log.info(plain if plain is not None else markup)
+
+
+def _value_color(value: float) -> str:
+    if value > 0:
+        return C_POS
+    if value < 0:
+        return C_NEG
+    return C_DIM
+
+
+def _money_color(value: float) -> str:
+    return _value_color(value)
 
 
 def _fmt_metric(value: float) -> str:
