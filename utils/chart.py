@@ -177,6 +177,16 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     timeframe = timeframe or TIMEFRAME
     default   = symbol or PAIRS[0]
 
+    # IDs simples evitam bugs com pattern-matching no Dash 4.x
+    btn_ids = [f"pbtn-{i}" for i in range(len(PAIRS))]
+
+    _style_active   = {"color": _TEXT, "padding": "6px 12px", "cursor": "pointer",
+                       "borderRadius": "4px", "fontSize": "12px",
+                       "backgroundColor": _UP, "border": f"1px solid {_UP}"}
+    _style_inactive = {"color": _TEXT, "padding": "6px 12px", "cursor": "pointer",
+                       "borderRadius": "4px", "fontSize": "12px",
+                       "backgroundColor": "#1e2235", "border": "1px solid #2a2d3e"}
+
     app = Dash(__name__, title="itgr chart")
     app.layout = html.Div(
         style={"backgroundColor": _BG, "padding": "12px", "fontFamily": "monospace"},
@@ -184,21 +194,8 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
             html.Div(
                 style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginBottom": "10px"},
                 children=[
-                    html.Button(
-                        p,
-                        id={"type": "pair-btn", "index": p},
-                        n_clicks=0,
-                        style={
-                            "backgroundColor": "#1e2235" if p != default else _UP,
-                            "color": _TEXT,
-                            "border": f"1px solid {'#26a69a' if p == default else '#2a2d3e'}",
-                            "padding": "6px 12px",
-                            "cursor": "pointer",
-                            "borderRadius": "4px",
-                            "fontSize": "12px",
-                        },
-                    )
-                    for p in PAIRS
+                    html.Button(p, id=btn_ids[i], n_clicks=0, style=_style_inactive)
+                    for i, p in enumerate(PAIRS)
                 ],
             ),
             dcc.Store(id="selected-pair", data=default),
@@ -209,29 +206,21 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
 
     @app.callback(
         Output("selected-pair", "data"),
-        [Input({"type": "pair-btn", "index": p}, "n_clicks") for p in PAIRS],
+        [Input(bid, "n_clicks") for bid in btn_ids],
         prevent_initial_call=True,
     )
     def _select(*args):
         from dash import ctx
-        return ctx.triggered_id["index"]
-
-    _btn_base = {
-        "color": _TEXT, "padding": "6px 12px",
-        "cursor": "pointer", "borderRadius": "4px", "fontSize": "12px",
-    }
+        idx = btn_ids.index(ctx.triggered_id)
+        return PAIRS[idx]
 
     @app.callback(
-        [Output({"type": "pair-btn", "index": p}, "style") for p in PAIRS],
+        [Output(bid, "style") for bid in btn_ids],
         Input("selected-pair", "data"),
     )
     def _highlight(sym):
-        return [
-            {**_btn_base, "backgroundColor": _UP,      "border": f"1px solid {_UP}"}
-            if p == sym else
-            {**_btn_base, "backgroundColor": "#1e2235", "border": "1px solid #2a2d3e"}
-            for p in PAIRS
-        ]
+        return [_style_active if PAIRS[i] == sym else _style_inactive
+                for i in range(len(PAIRS))]
 
     @app.callback(
         Output("chart", "figure"),
