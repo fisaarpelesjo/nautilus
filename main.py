@@ -4,6 +4,7 @@ Ponto de entrada principal.
 
 Uso:
   python main.py backtest      -- run single-pair backtest
+  python main.py edge          -- run profitability edge report
   python main.py multibacktest -- run backtest on fixed pair list
   python main.py scan          -- backtest top 30 pairs by volume
   python main.py optimize      -- grid search best parameters
@@ -17,6 +18,10 @@ import sys
 from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
 
 def cmd_backtest():
+    from backtesting.engine import run_backtest
+    run_backtest(SYMBOL, TIMEFRAME)
+
+def cmd_edge():
     from backtesting.engine import run_backtest
     run_backtest(SYMBOL, TIMEFRAME)
 
@@ -99,6 +104,7 @@ def cmd_status():
 
 COMMANDS = {
     "backtest":      cmd_backtest,
+    "edge":          cmd_edge,
     "multibacktest": cmd_multibacktest,
     "scan":          cmd_scan,
     "analyze":       cmd_analisar,

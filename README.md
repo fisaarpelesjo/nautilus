@@ -16,6 +16,7 @@ Bot de trading algorítmico para cripto em Python. Conecta na Binance via API, c
 - Cooldown automático após stop loss
 - Limite de drawdown diário (suspende novas entradas)
 - Backtest com métricas completas (Sharpe, profit factor, win rate, drawdown)
+- Relatório de vantagem contra buy-and-hold (`python main.py edge`)
 - Otimização de parâmetros (`python main.py optimize`)
 - Gráfico interativo no browser com Dash/Plotly (`python main.py chart`)
 - Seleção dinâmica de pares por liquidez, spread, volatilidade e backtest
@@ -295,6 +296,7 @@ cp .env.example .env
 | `python main.py bot` | Inicia o bot multi-par |
 | `python main.py status` | Preço atual, saldo e posições abertas |
 | `python main.py backtest` | Backtest no par principal (`PAIRS[0]`) |
+| `python main.py edge` | Relatório de vantagem estatística contra buy-and-hold |
 | `python main.py multibacktest` | Backtest em lista fixa de pares |
 | `python main.py scan` | Backtest nos top 30 pares por volume na Binance |
 | `python main.py analyze` | Analisa `data/trades.csv` e gera relatório de desempenho |

@@ -1,5 +1,5 @@
 from backtesting.engine import BacktestResult
-from backtesting.optimizer import _iter_param_sets, _score_result
+from backtesting.optimizer import _iter_param_sets, _score
 
 
 def _result(total_return, drawdown, trades=3, win_rate=50, profit_factor=1.5, losing_streak=1):
@@ -20,6 +20,11 @@ def _result(total_return, drawdown, trades=3, win_rate=50, profit_factor=1.5, lo
         max_losing_streak=losing_streak,
         exposure_pct=0.0,
         sharpe=0.0,
+        expectancy_pct=0.0,
+        payoff_ratio=0.0,
+        buy_hold_return_pct=0.0,
+        edge_return_pct=total_return,
+        edge_score=0.0,
     )
 
 
@@ -42,11 +47,11 @@ def test_iter_param_sets_skips_invalid_ema_combinations():
 
 
 def test_score_penalizes_low_trade_count():
-    assert _score_result(_result(total_return=50, drawdown=0, trades=1), min_trades=2) == -9999.0
+    assert _score(_result(total_return=50, drawdown=0, trades=1), min_trades=2) == -9999.0
 
 
 def test_score_prefers_better_return_with_lower_drawdown():
-    strong = _score_result(_result(total_return=10, drawdown=2), min_trades=2)
-    weak = _score_result(_result(total_return=4, drawdown=8), min_trades=2)
+    strong = _score(_result(total_return=10, drawdown=2), min_trades=2)
+    weak = _score(_result(total_return=4, drawdown=8), min_trades=2)
 
     assert strong > weak

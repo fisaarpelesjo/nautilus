@@ -9,7 +9,7 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 ## Estrutura do projeto
 
 ```
-├── main.py                    # Ponto de entrada: python main.py [backtest|multibacktest|scan|bot|status]
+├── main.py                    # Ponto de entrada: python main.py [backtest|edge|multibacktest|scan|bot|status]
 ├── bot.py                     # Wrapper de compatibilidade para trading/runner.py
 ├── config/
 │   └── settings.py            # Todas as configs lidas do .env
@@ -52,6 +52,7 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 
 ```bash
 python main.py backtest         # backtest no par principal (PAIRS[0])
+python main.py edge             # relatório de vantagem contra buy-and-hold
 python main.py multibacktest    # backtest em lista fixa de pares
 python main.py scan             # backtest nos top 30 pares por volume na Binance
 python main.py optimize         # grid search dos melhores parâmetros

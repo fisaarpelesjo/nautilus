@@ -48,6 +48,11 @@ class BacktestResult:
     max_losing_streak: int
     exposure_pct: float
     sharpe: float
+    expectancy_pct: float
+    payoff_ratio: float
+    buy_hold_return_pct: float
+    edge_return_pct: float
+    edge_score: float
 
 def run_backtest(symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000) -> BacktestResult:
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
@@ -191,8 +196,12 @@ def simulate_backtest(
     wins = [t for t in trades if t.pnl > 0]
     total_return = (capital - initial_capital) / initial_capital * 100
     win_rate = len(wins) / len(trades) * 100 if trades else 0
+    buy_hold_return = _buy_hold_return_pct(df, initial_capital, start_index, fee_rate, slippage_pct)
+    edge_return = total_return - buy_hold_return
     metrics = _calculate_advanced_metrics(
         trades,
+        total_return_pct=total_return,
+        buy_hold_return_pct=buy_hold_return,
         period_start=df.index[start_index] if len(df) > start_index else None,
         period_end=df.index[-1] if len(df) > 0 else None,
     )
@@ -205,15 +214,25 @@ def simulate_backtest(
         win_rate=win_rate,
         total_trades=len(trades),
         max_drawdown_pct=max_drawdown_pct,
+        buy_hold_return_pct=buy_hold_return,
+        edge_return_pct=edge_return,
         **metrics,
     )
 
     return result
 
 
-def _calculate_advanced_metrics(trades: List[Trade], period_start=None, period_end=None) -> dict:
+def _calculate_advanced_metrics(
+    trades: List[Trade],
+    total_return_pct: float = 0.0,
+    buy_hold_return_pct: float = 0.0,
+    period_start=None,
+    period_end=None,
+) -> dict:
     wins = [t.pnl for t in trades if t.pnl > 0]
     losses = [t.pnl for t in trades if t.pnl < 0]
+    win_returns = [t.pnl_pct for t in trades if t.pnl > 0]
+    loss_returns = [t.pnl_pct for t in trades if t.pnl < 0]
     total_profit = sum(wins)
     total_loss = abs(sum(losses))
     trade_returns = [t.pnl_pct for t in trades]
@@ -227,6 +246,19 @@ def _calculate_advanced_metrics(trades: List[Trade], period_start=None, period_e
     max_losing_streak = _max_losing_streak(trades)
     exposure_pct = _exposure_pct(trades, period_start, period_end)
     sharpe = _simplified_sharpe(trade_returns)
+    expectancy_pct = sum(trade_returns) / len(trade_returns) if trade_returns else 0.0
+    avg_win_pct = sum(win_returns) / len(win_returns) if win_returns else 0.0
+    avg_loss_pct = sum(loss_returns) / len(loss_returns) if loss_returns else 0.0
+    payoff_ratio = avg_win_pct / abs(avg_loss_pct) if avg_loss_pct else (float("inf") if avg_win_pct > 0 else 0.0)
+    edge_return = total_return_pct - buy_hold_return_pct
+    edge_score = _edge_score(
+        total_return_pct=total_return_pct,
+        buy_hold_return_pct=buy_hold_return_pct,
+        profit_factor=profit_factor,
+        expectancy_pct=expectancy_pct,
+        max_losing_streak=max_losing_streak,
+        trade_count=len(trades),
+    )
 
     return {
         "profit_factor": profit_factor,
@@ -238,7 +270,54 @@ def _calculate_advanced_metrics(trades: List[Trade], period_start=None, period_e
         "max_losing_streak": max_losing_streak,
         "exposure_pct": exposure_pct,
         "sharpe": sharpe,
+        "expectancy_pct": expectancy_pct,
+        "payoff_ratio": payoff_ratio,
+        "edge_score": edge_score,
     }
+
+
+def _buy_hold_return_pct(
+    df: pd.DataFrame,
+    initial_capital: float,
+    start_index: int,
+    fee_rate: float,
+    slippage_pct: float,
+) -> float:
+    if initial_capital <= 0 or len(df) <= start_index:
+        return 0.0
+
+    entry_price = float(df.iloc[start_index]["close"]) * (1 + slippage_pct)
+    exit_price = float(df.iloc[-1]["close"]) * (1 - slippage_pct)
+    if entry_price <= 0 or exit_price <= 0:
+        return 0.0
+
+    order_size = initial_capital / (1 + fee_rate)
+    entry_fee = order_size * fee_rate
+    quantity = order_size / entry_price
+    gross_exit = quantity * exit_price
+    exit_fee = gross_exit * fee_rate
+    final_capital = gross_exit - exit_fee
+    invested = order_size + entry_fee
+    return (final_capital - invested) / invested * 100
+
+
+def _edge_score(
+    total_return_pct: float,
+    buy_hold_return_pct: float,
+    profit_factor: float,
+    expectancy_pct: float,
+    max_losing_streak: int,
+    trade_count: int,
+) -> float:
+    pf = profit_factor if profit_factor != float("inf") else 3.0
+    sample_penalty = max(0, 10 - trade_count) * 2
+    return (
+        (total_return_pct - buy_hold_return_pct)
+        + (pf - 1.0) * 10
+        + expectancy_pct * 5
+        - max_losing_streak
+        - sample_penalty
+    )
 
 
 def _stop_price(entry_price: float, atr: float, stop_loss_pct: float, atr_sl_multiplier: float) -> float:
@@ -334,6 +413,11 @@ def _print_report(r: BacktestResult):
     log.info(f"Max perdas seg.:   {r.max_losing_streak}")
     log.info(f"Exposicao:         {r.exposure_pct:.1f}%")
     log.info(f"Sharpe simplif.:   {r.sharpe:.2f}")
+    log.info(f"Expectativa %:     {r.expectancy_pct:+.2f}%/trade")
+    log.info(f"Payoff ratio:      {_fmt_metric(r.payoff_ratio)}")
+    log.info(f"Buy & hold:        {r.buy_hold_return_pct:+.2f}%")
+    log.info(f"Edge vs B&H:       {r.edge_return_pct:+.2f}%")
+    log.info(f"Edge score:        {r.edge_score:+.2f}")
     log.info("=" * 50)
 
     if r.trades:

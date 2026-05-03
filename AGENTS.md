@@ -9,7 +9,7 @@ Algorithmic trading bot for crypto written in Python. Connects to Binance via `c
 ## Project Structure
 
 ```
-├── main.py                    # CLI entry point: python main.py [backtest|multibacktest|scan|bot|status]
+├── main.py                    # CLI entry point: python main.py [backtest|edge|multibacktest|scan|bot|status]
 ├── bot.py                     # Compatibility wrapper for trading/runner.py
 ├── config/
 │   └── settings.py            # All configs loaded from .env
@@ -54,6 +54,7 @@ Runtime artifacts (`data/signals.csv`, `data/trades.csv`, `data/state.json`, `da
 
 ```bash
 python main.py backtest         # backtest on main pair (PAIRS[0])
+python main.py edge             # profitability edge report vs buy-and-hold
 python main.py multibacktest    # backtest on fixed pair list
 python main.py scan             # backtest on top 30 Binance pairs by volume
 python main.py optimize         # grid search best EMA/RSI/ATR/volume/BB parameters

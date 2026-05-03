@@ -87,3 +87,21 @@ def test_simulate_backtest_calculates_advanced_metrics():
     assert result.max_losing_streak == 1
     assert round(result.exposure_pct, 2) == 66.67
     assert result.sharpe > 0
+    assert result.expectancy_pct > 0
+    assert result.payoff_ratio == 4.0
+
+
+def test_simulate_backtest_calculates_buy_hold_and_edge_metrics():
+    data = _df([
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
+        {"open": 120.0, "high": 121.0, "low": 119.0, "close": 120.0, "volume": 1.0},
+    ])
+    strategy = SequenceStrategy([Signal.HOLD, Signal.HOLD])
+
+    result = simulate_backtest(data, strategy, start_index=1, fee_rate=0.0, slippage_pct=0.0)
+
+    assert result.total_return_pct == 0.0
+    assert result.buy_hold_return_pct == 20.0
+    assert result.edge_return_pct == -20.0
+    assert result.edge_score < 0

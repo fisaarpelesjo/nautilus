@@ -16,7 +16,7 @@ O projeto ja possui uma base importante: backtest com taxas e slippage, metricas
 
 Objetivo: evitar otimizar no escuro. Antes de mexer muito na estrategia, o bot precisa responder se ele supera uma referencia simples como comprar e segurar o mesmo ativo.
 
-1. [ ] **Benchmark buy-and-hold no backtest**
+1. [x] **Benchmark buy-and-hold no backtest**
    - Implementar retorno buy-and-hold por par e timeframe usando o mesmo periodo do backtest.
    - Exibir retorno da estrategia, retorno buy-and-hold, diferenca e vencedor.
    - Por que melhora: lucro isolado nao basta. Se a estrategia rende +5% enquanto buy-and-hold rende +25%, ela destruiu oportunidade apesar de parecer positiva.
