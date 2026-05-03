@@ -63,9 +63,10 @@ def _fmt_num(value: float) -> str:
 
 
 def _rsi_color(rsi):
-    if rsi > 65:
+    from config.settings import RSI_OVERBOUGHT, RSI_OVERSOLD
+    if rsi > RSI_OVERBOUGHT:
         return C_RSI_HOT
-    if rsi < 35:
+    if rsi < RSI_OVERSOLD:
         return C_RSI_COLD
     return C_RSI_OK
 
