@@ -54,9 +54,6 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         "Low":   df["low"].tolist(),
         "Close": df["close"].tolist(),
     }
-    ema_fast  = df["ema_fast"].tolist()
-    ema_slow  = df["ema_slow"].tolist()
-    ema_trend = df["ema_trend"].tolist()
     volumes   = df["volume"].tolist()
     vol_ma    = df["volume_ma"].tolist()
     rsi       = df["rsi"].tolist()
@@ -84,9 +81,6 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}"
     )
     plt.candlestick(xs, ohlc, colors=["red", "green"])
-    plt.plot(xs, ema_fast,  color="green+", label=f"EMA{EMA_FAST}")
-    plt.plot(xs, ema_slow,  color="yellow", label=f"EMA{EMA_SLOW}")
-    plt.plot(xs, ema_trend, color="red",    label=f"EMA{EMA_TREND}")
     if buy_xs:
         plt.scatter(buy_xs,  buy_prices,  color="bright green", marker="^", label="BUY")
     if sell_xs:
