@@ -15,7 +15,7 @@ def get_logger(name: str) -> logging.Logger:
     logger.setLevel(logging.DEBUG)
 
     # sem output no terminal — tudo vai pro arquivo
-    file_handler = logging.FileHandler(f"{LOG_DIR}/{datetime.now().strftime('%Y-%m-%d')}.log")
+    file_handler = logging.FileHandler(f"{LOG_DIR}/{datetime.now().strftime('%Y-%m-%d')}.log", encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
