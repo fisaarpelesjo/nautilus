@@ -1,6 +1,7 @@
 ccxt
 mplfinance
 plotly
+dash
 pandas
 numpy
 ta

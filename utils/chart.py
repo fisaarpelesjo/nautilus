@@ -2,47 +2,30 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from dash import Dash, dcc, html, Input, Output, callback
+import webbrowser, threading
 
-from config.settings import TIMEFRAME, EMA_FAST, EMA_SLOW, EMA_TREND, RSI_OVERBOUGHT, RSI_OVERSOLD
+from config.settings import TIMEFRAME, EMA_FAST, EMA_SLOW, EMA_TREND, RSI_OVERBOUGHT, RSI_OVERSOLD, PAIRS
 from data.fetcher import fetch_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
 from backtesting.engine import precompute_signals
 from strategy.base import Signal
 
-_BG     = "#131722"
-_GRID   = "#1c2030"
-_TEXT   = "#d1d4dc"
-_UP     = "#26a69a"
-_DOWN   = "#ef5350"
-_EMA1   = "#00e676"
-_EMA2   = "#ffeb3b"
-_EMA3   = "#ff5252"
-_BB     = "#4fc3f7"
-_RSI    = "#ce93d8"
+_BG   = "#131722"
+_GRID = "#1c2030"
+_TEXT = "#d1d4dc"
+_UP   = "#26a69a"
+_DOWN = "#ef5350"
+_EMA1 = "#00e676"
+_EMA2 = "#ffeb3b"
+_EMA3 = "#ff5252"
+_BB   = "#4fc3f7"
+_RSI  = "#ce93d8"
 
 
-def _select_pair() -> str:
-    from config.settings import PAIRS
-    print("\n  pares disponíveis:")
-    for i, p in enumerate(PAIRS, 1):
-        print(f"  {i:2}. {p}")
-    print()
-    try:
-        choice = input("  selecione [1-{}]: ".format(len(PAIRS))).strip()
-        idx = int(choice) - 1
-        if 0 <= idx < len(PAIRS):
-            return PAIRS[idx]
-    except (ValueError, KeyboardInterrupt):
-        pass
-    return PAIRS[0]
-
-
-def run(symbol: str = None, timeframe: str = None, limit: int = 100):
-    symbol    = symbol    or _select_pair()
-    timeframe = timeframe or TIMEFRAME
-
+def _build_figure(symbol: str, timeframe: str) -> go.Figure:
     from datetime import datetime, timedelta
-    df = fetch_ohlcv(symbol, timeframe, limit=limit)
+    df = fetch_ohlcv(symbol, timeframe, limit=200)
     strategy = EmaRsiStrategy()
     df = strategy.calculate_indicators(df)
     cutoff = datetime.utcnow() - timedelta(days=7)
@@ -52,8 +35,7 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     cur_price = df["close"].iloc[-1]
     cur_rsi   = df["rsi"].iloc[-1]
 
-    # sinais BUY/SELL
-    signals = precompute_signals(df, strategy)
+    signals  = precompute_signals(df, strategy)
     buy_idx  = [i for i, s in enumerate(signals) if s == Signal.BUY]
     sell_idx = [i for i, s in enumerate(signals) if s == Signal.SELL]
 
@@ -64,7 +46,6 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         row_heights=[0.75, 0.25],
     )
 
-    # --- candlestick ---
     fig.add_trace(go.Candlestick(
         x=dates,
         open=df["open"], high=df["high"],
@@ -74,17 +55,16 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         name="candle", showlegend=False,
     ), row=1, col=1)
 
-    # --- Bollinger Bands ---
     fig.add_trace(go.Scatter(
         x=dates, y=df["bb_upper"],
         line=dict(color=_BB, width=0.8, dash="dot"),
-        name="BB superior", showlegend=False, opacity=0.6,
+        name="BB sup", showlegend=False, opacity=0.6,
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=dates, y=df["bb_lower"],
         line=dict(color=_BB, width=0.8, dash="dot"),
         fill="tonexty", fillcolor="rgba(79,195,247,0.05)",
-        name="BB inferior", showlegend=False, opacity=0.6,
+        name="BB inf", showlegend=False, opacity=0.6,
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=dates, y=df["bb_middle"],
@@ -92,19 +72,17 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         name="BB mid", showlegend=False, opacity=0.3,
     ), row=1, col=1)
 
-    # --- EMAs ---
-    for col, name, label in [
+    for col_name, color, label in [
         ("ema_fast",  _EMA1, f"EMA{EMA_FAST}"),
         ("ema_slow",  _EMA2, f"EMA{EMA_SLOW}"),
         ("ema_trend", _EMA3, f"EMA{EMA_TREND}"),
     ]:
         fig.add_trace(go.Scatter(
-            x=dates, y=df[col],
-            line=dict(color=name, width=1.3),
+            x=dates, y=df[col_name],
+            line=dict(color=color, width=1.3),
             name=label,
         ), row=1, col=1)
 
-    # --- BUY markers ---
     if buy_idx:
         fig.add_trace(go.Scatter(
             x=dates[buy_idx],
@@ -113,8 +91,6 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
             marker=dict(symbol="triangle-up", size=12, color=_UP),
             name="BUY",
         ), row=1, col=1)
-
-    # --- SELL markers ---
     if sell_idx:
         fig.add_trace(go.Scatter(
             x=dates[sell_idx],
@@ -124,14 +100,14 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
             name="SELL",
         ), row=1, col=1)
 
-    # --- linha de preço atual ---
     fig.add_hline(
         y=cur_price, line_dash="dash",
         line_color="rgba(209,212,220,0.5)", line_width=0.8,
         row=1, col=1,
     )
 
-    # --- posição aberta ---
+    # posição aberta
+    title_suffix = ""
     try:
         from data.state_store import load_state
         state = load_state() or {}
@@ -142,12 +118,11 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
             tp    = pos["take_profit"]
             hi    = pos.get("highest_price", entry)
             pnl_pct = (cur_price - entry) / entry * 100
-
             for y, color, dash, label in [
-                (entry, "#ffeb3b", "solid",  f"Entrada {entry}"),
-                (sl,    _DOWN,     "dot",    f"SL {sl:.4f}"),
-                (tp,    _UP,       "dot",    f"TP {tp:.4f}"),
-                (hi,    "#aaaaaa", "dashdot",f"Máx {hi:.4f}"),
+                (entry, "#ffeb3b", "solid",   f"Entrada {entry}"),
+                (sl,    _DOWN,    "dot",      f"SL {sl:.4f}"),
+                (tp,    _UP,      "dot",      f"TP {tp:.4f}"),
+                (hi,    "#aaa",   "dashdot",  f"Máx {hi:.4f}"),
             ]:
                 fig.add_hline(
                     y=y, line_dash=dash, line_color=color, line_width=1.0,
@@ -156,32 +131,24 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
                     annotation_font=dict(color=color, size=9),
                     row=1, col=1,
                 )
-
-            # atualiza título com PnL
-            pnl_color = _UP if pnl_pct >= 0 else _DOWN
-            fig.update_layout(title_text=(
-                f"{symbol}  {timeframe}  |  {cur_price}  RSI {cur_rsi:.0f}  "
-                f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}  "
-                f"<span style='color:{pnl_color}'>PnL {pnl_pct:+.2f}%</span>"
-            ))
+            c = _UP if pnl_pct >= 0 else _DOWN
+            title_suffix = f"  <span style='color:{c}'>PnL {pnl_pct:+.2f}%</span>"
     except Exception:
         pass
 
-    # --- RSI ---
     fig.add_trace(go.Scatter(
         x=dates, y=df["rsi"],
         line=dict(color=_RSI, width=1.4),
         name="RSI",
     ), row=2, col=1)
-    for level, color in [(RSI_OVERBOUGHT, _DOWN), (RSI_OVERSOLD, _UP), (50, "#555555")]:
+    for level, color in [(RSI_OVERBOUGHT, _DOWN), (RSI_OVERSOLD, _UP), (50, "#555")]:
         fig.add_hline(y=level, line_dash="dash", line_color=color,
                       line_width=0.8, row=2, col=1)
 
-    # --- layout ---
     fig.update_layout(
         title=dict(
             text=f"{symbol}  {timeframe}  |  {cur_price}  RSI {cur_rsi:.0f}  "
-                 f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}",
+                 f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}{title_suffix}",
             font=dict(color=_TEXT, size=13),
         ),
         paper_bgcolor=_BG,
@@ -195,16 +162,67 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         ),
         margin=dict(l=10, r=60, t=60, b=10),
         height=750,
+        uirevision=symbol,
     )
     for row in [1, 2]:
-        fig.update_xaxes(
-            gridcolor=_GRID, showgrid=True,
-            zeroline=False, row=row, col=1,
-        )
-        fig.update_yaxes(
-            gridcolor=_GRID, showgrid=True,
-            zeroline=False, side="right", row=row, col=1,
-        )
+        fig.update_xaxes(gridcolor=_GRID, showgrid=True, zeroline=False, row=row, col=1)
+        fig.update_yaxes(gridcolor=_GRID, showgrid=True, zeroline=False,
+                         side="right", row=row, col=1)
     fig.update_yaxes(range=[0, 100], row=2, col=1)
 
-    fig.show()
+    return fig
+
+
+def run(symbol: str = None, timeframe: str = None, limit: int = 100):
+    timeframe = timeframe or TIMEFRAME
+    default   = symbol or PAIRS[0]
+
+    app = Dash(__name__, title="itgr chart")
+    app.layout = html.Div(
+        style={"backgroundColor": _BG, "padding": "12px", "fontFamily": "monospace"},
+        children=[
+            html.Div(
+                style={"display": "flex", "gap": "8px", "flexWrap": "wrap", "marginBottom": "10px"},
+                children=[
+                    html.Button(
+                        p,
+                        id={"type": "pair-btn", "index": p},
+                        n_clicks=0,
+                        style={
+                            "backgroundColor": "#1e2235" if p != default else _UP,
+                            "color": _TEXT,
+                            "border": f"1px solid {'#26a69a' if p == default else '#2a2d3e'}",
+                            "padding": "6px 12px",
+                            "cursor": "pointer",
+                            "borderRadius": "4px",
+                            "fontSize": "12px",
+                        },
+                    )
+                    for p in PAIRS
+                ],
+            ),
+            dcc.Store(id="selected-pair", data=default),
+            dcc.Graph(id="chart", figure=_build_figure(default, timeframe),
+                      config={"scrollZoom": True, "displaylogo": False}),
+        ],
+    )
+
+    @app.callback(
+        Output("selected-pair", "data"),
+        [Input({"type": "pair-btn", "index": p}, "n_clicks") for p in PAIRS],
+        prevent_initial_call=True,
+    )
+    def _select(*args):
+        from dash import ctx
+        return ctx.triggered_id["index"]
+
+    @app.callback(
+        Output("chart", "figure"),
+        Input("selected-pair", "data"),
+    )
+    def _update(sym):
+        return _build_figure(sym, timeframe)
+
+    port = 8051
+    threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+    app.run(port=port, debug=False)
