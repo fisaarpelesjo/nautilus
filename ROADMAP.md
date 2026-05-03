@@ -36,6 +36,48 @@ Objetivo: evitar otimizar no escuro. Antes de mexer muito na estrategia, o bot p
    - Incluir parametros usados, periodo testado, custos, slippage, metricas e ranking.
    - Por que melhora: cria historico auditavel. Sem relatorios versionados por execucao local, fica dificil comparar experimentos e evitar repetir testes.
 
+## Fase 1.1 - Evoluir o relatorio de edge
+
+Objetivo: transformar o `python main.py edge` de um painel de metricas em uma decisao operacional clara. O comando ja mostra retorno, expectativa, payoff, buy-and-hold, edge vs benchmark e score inicial; agora precisa explicar a qualidade desses numeros e onde eles devem ser usados.
+
+1. [ ] **Classificacao automatica do edge**
+   - Mostrar status final como `APROVADO`, `REPROVADO` ou `INCONCLUSIVO`.
+   - Usar criterios como minimo de trades, profit factor > 1.2, expectativa positiva, edge vs buy-and-hold positivo e drawdown aceitavel.
+   - Por que melhora: evita interpretar numeros manualmente toda vez e reduz risco de operar uma estrategia que parece boa em uma metrica isolada.
+
+2. [ ] **Motivos da classificacao**
+   - Exibir lista curta com os principais motivos do status.
+   - Exemplo: `Reprovado: perdeu para buy-and-hold por -70.76%`, `Amostra baixa: 7 trades`, `Ponto positivo: drawdown baixo`.
+   - Por que melhora: explica a decisao e mostra exatamente qual gargalo precisa ser atacado.
+
+3. [ ] **Alerta de amostra insuficiente**
+   - Destacar quando o numero de trades for baixo demais para conclusao confiavel.
+   - Comecar com minimo configuravel, por exemplo 30 trades.
+   - Por que melhora: 5 ou 10 trades podem gerar profit factor alto por acaso. O relatorio precisa impedir conclusoes fortes com pouca evidencia.
+
+4. [ ] **Diagnostico defensivo vs agressivo**
+   - Classificar casos em que a estrategia tem baixo drawdown e expectativa positiva, mas perde muito para buy-and-hold.
+   - Exemplo: `Perfil defensivo: preservou capital, mas capturou pouco da alta`.
+   - Por que melhora: diferencia uma estrategia ruim de uma estrategia conservadora que talvez sirva para mercados laterais ou de queda, mas nao para bull market.
+
+5. [ ] **Edge por par e timeframe**
+   - Levar as metricas de edge para `multibacktest`, `scan` e selecao dinamica.
+   - Mostrar quais pares/timeframes passam, falham ou ficam inconclusivos.
+   - Por que melhora: um unico par pode enganar. A chance de lucro real depende de consistencia em varios ativos e janelas.
+
+6. [ ] **Edge anualizado e retorno por exposicao**
+   - Calcular retorno anualizado da estrategia, buy-and-hold anualizado e retorno por tempo exposto.
+   - Por que melhora: uma estrategia exposta apenas 7% do tempo precisa ser julgada tambem pela eficiencia do capital, nao so pelo retorno bruto.
+
+7. [ ] **Out-of-sample no relatorio de edge**
+   - Mostrar edge separado entre periodo de treino e periodo de teste quando o backtest vier do otimizador ou de validacao walk-forward.
+   - Por que melhora: edge em dados usados para escolher parametros pode ser overfitting. O dado fora da amostra e o que mais importa.
+
+8. [ ] **Refinar o `edge_score`**
+   - Transformar o score atual em escala interpretavel, por exemplo 0-100 ou faixas `Forte`, `Medio`, `Fraco`, `Reprovado`.
+   - Documentar pesos e penalidades: benchmark, profit factor, expectativa, drawdown, amostra e exposicao.
+   - Por que melhora: o score atual e util como primeira heuristica, mas ainda nao e facil de comparar entre pares, timeframes e versoes da estrategia.
+
 ## Fase 2 - Reduzir overfitting
 
 Objetivo: separar o que funcionou por vantagem real do que funcionou por ajuste excessivo ao passado.
