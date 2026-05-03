@@ -38,6 +38,7 @@ VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.0"))
 MTF_TIMEFRAME = os.getenv("MTF_TIMEFRAME", "1d")
 
 COOLDOWN_HOURS = int(os.getenv("COOLDOWN_HOURS", "4"))
+ENTRY_COOLDOWN_CYCLES = int(os.getenv("ENTRY_COOLDOWN_CYCLES", "3"))
 
 DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do saldo inicial
 
@@ -111,6 +112,8 @@ def validate_config():
         errors.append("PULLBACK_MAX_DISTANCE_PCT nao pode ser negativo.")
     if COOLDOWN_HOURS < 0:
         errors.append("COOLDOWN_HOURS nao pode ser negativo.")
+    if ENTRY_COOLDOWN_CYCLES < 0:
+        errors.append("ENTRY_COOLDOWN_CYCLES nao pode ser negativo.")
     if not 0 < DAILY_DRAWDOWN_LIMIT <= 1:
         errors.append("DAILY_DRAWDOWN_LIMIT deve estar entre 0 e 1.")
     if not 0 <= DAILY_REPORT_HOUR <= 23:

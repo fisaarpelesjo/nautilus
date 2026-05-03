@@ -5,6 +5,7 @@ from typing import Dict
 from config.settings import (
     DAILY_REPORT_HOUR,
     DYNAMIC_PAIRS_ENABLED,
+    ENTRY_COOLDOWN_CYCLES,
     MAX_POSITIONS,
     MIN_PRICE_USDT,
     PAIRS,
@@ -60,6 +61,7 @@ def run():
     last_signals: Dict[str, str] = {}
     active_pairs = _load_active_pairs()
     cycle_id = 0
+    entry_cooldown = 0
 
     bot_boot(active_pairs, MAX_POSITIONS, POLL_INTERVAL, DYNAMIC_PAIRS_ENABLED)
     send_telegram(f"Bot iniciado | {len(active_pairs)} pares | Modo={TRADING_MODE}")
@@ -67,10 +69,13 @@ def run():
     while True:
         try:
             cycle_id += 1
+            if entry_cooldown > 0:
+                entry_cooldown -= 1
             pair_rows = []
             trade_events = []
             new_entries = 0
             blocked_entries = 0
+            max_entries_this_cycle = 0 if entry_cooldown > 0 else MAX_ENTRIES_PER_CYCLE
 
             cycle_start(cycle_id, active_pairs, len(manager.positions), manager.paper_balance_usdt, manager.daily_pnl)
             phase("coleta e avaliacao", "candles -> indicadores -> sinais -> risco")
@@ -100,10 +105,11 @@ def run():
                         else:
                             opened = handle_entry_candidate(
                                 manager, symbol, signal, indicators, current_price, strategy,
-                                row, trade_events, new_entries, MAX_ENTRIES_PER_CYCLE
+                                row, trade_events, new_entries, max_entries_this_cycle
                             )
                             if opened:
                                 new_entries += 1
+                                entry_cooldown = ENTRY_COOLDOWN_CYCLES
                             elif signal.signal == Signal.BUY:
                                 blocked_entries += 1
 
