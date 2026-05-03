@@ -131,6 +131,42 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         row=1, col=1,
     )
 
+    # --- posição aberta ---
+    try:
+        from data.state_store import load_state
+        state = load_state() or {}
+        pos = state.get("positions", {}).get(symbol)
+        if pos:
+            entry = pos["entry_price"]
+            sl    = pos["stop_loss"]
+            tp    = pos["take_profit"]
+            hi    = pos.get("highest_price", entry)
+            pnl_pct = (cur_price - entry) / entry * 100
+
+            for y, color, dash, label in [
+                (entry, "#ffeb3b", "solid",  f"Entrada {entry}"),
+                (sl,    _DOWN,     "dot",    f"SL {sl:.4f}"),
+                (tp,    _UP,       "dot",    f"TP {tp:.4f}"),
+                (hi,    "#aaaaaa", "dashdot",f"Máx {hi:.4f}"),
+            ]:
+                fig.add_hline(
+                    y=y, line_dash=dash, line_color=color, line_width=1.0,
+                    annotation_text=label,
+                    annotation_position="right",
+                    annotation_font=dict(color=color, size=9),
+                    row=1, col=1,
+                )
+
+            # atualiza título com PnL
+            pnl_color = _UP if pnl_pct >= 0 else _DOWN
+            fig.update_layout(title_text=(
+                f"{symbol}  {timeframe}  |  {cur_price}  RSI {cur_rsi:.0f}  "
+                f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}  "
+                f"<span style='color:{pnl_color}'>PnL {pnl_pct:+.2f}%</span>"
+            ))
+    except Exception:
+        pass
+
     # --- RSI ---
     fig.add_trace(go.Scatter(
         x=dates, y=df["rsi"],
