@@ -195,6 +195,7 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
             ),
             dcc.Store(id="selected-pair", data=default),
             dcc.Store(id="_title-sink"),
+            dcc.Interval(id="refresh", interval=30_000, n_intervals=0),
             dcc.Graph(id="chart", figure=_build_figure(default, timeframe),
                       config={"scrollZoom": True, "displaylogo": False}),
         ],
@@ -219,8 +220,9 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     @app.callback(
         Output("chart", "figure"),
         Input("selected-pair", "data"),
+        Input("refresh", "n_intervals"),
     )
-    def _update(sym):
+    def _update(sym, _):
         return _build_figure(sym, timeframe)
 
     port = 8051
