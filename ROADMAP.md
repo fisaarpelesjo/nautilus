@@ -161,15 +161,29 @@ Objetivo: aproximar o paper mode da realidade operacional antes de qualquer live
    - Comparar performance paper contra backtest do mesmo intervalo.
    - Por que melhora: backtest nao captura todos os problemas de execucao, latencia, dados incompletos e comportamento real do loop.
 
-2. [ ] **Painel local**
+2. [ ] **Separar caixa, posicoes e patrimonio total**
+   - Mostrar `caixa livre`, `valor em posicoes abertas`, `patrimonio total`, `PnL realizado`, `PnL nao realizado` e `PnL total`.
+   - Aplicar no painel do bot, `status` e qualquer resumo operacional.
+   - Por que melhora: hoje o saldo exibido pode parecer menor quando ha posicao aberta, porque representa caixa livre e nao patrimonio total. Isso evita confundir paper trading atual com capital final de backtest.
+
+3. [ ] **Explicitar contexto do relatorio de edge**
+   - Mostrar no `python main.py edge`: `modo: backtest simulado`, par, timeframe, periodo testado, capital inicial simulado e aviso de que nao e o saldo atual do paper bot.
+   - Por que melhora: deixa claro que `Capital final` do edge e uma simulacao historica, enquanto o bot rodando usa estado real salvo em `data/state.json`.
+
+4. [ ] **Comparar paper atual vs backtest do mesmo periodo**
+   - Criar relatorio que use o intervalo em que o bot ficou ligado e rode um backtest equivalente no mesmo par/timeframe.
+   - Comparar trades reais paper, trades simulados, diferenca de entrada/saida, slippage, sinais perdidos e patrimonio final.
+   - Por que melhora: mostra se a execucao real do loop esta reproduzindo o backtest ou se ha divergencia por timing, cache, MTF, cooldown, posicoes abertas ou dados incompletos.
+
+5. [ ] **Painel local**
    - Adicionar `python main.py painel` para mostrar saldo, posicoes abertas, PnL, ultimas operacoes, ultimos sinais, status dos pares e bloqueios recentes.
    - Por que melhora: reduz operacao as cegas. O operador precisa saber rapidamente se o bot esta saudavel, parado, exposto ou repetindo erros.
 
-3. [ ] **Modo debug da estrategia**
+6. [ ] **Modo debug da estrategia**
    - Explicar por que cada par esta em `BUY`, `SELL` ou `HOLD`, incluindo EMA, RSI, volume, MTF, Bollinger, regime e cooldown.
    - Por que melhora: facilita diagnosticar sinais ausentes e evita mexer em parametros sem entender qual filtro esta dominando.
 
-4. [ ] **Graficos de performance**
+7. [ ] **Graficos de performance**
    - Gerar curva de capital, drawdown, PnL por par e candles com marcacoes de entrada/saida.
    - Por que melhora: algumas falhas aparecem melhor visualmente, como lucros concentrados em poucos trades, drawdown longo ou entradas logo antes de reversoes.
 
