@@ -33,11 +33,12 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     symbol    = symbol    or _select_pair()
     timeframe = timeframe or TIMEFRAME
 
-    from datetime import date
+    from datetime import datetime, timedelta
     df = fetch_ohlcv(symbol, timeframe, limit=limit)
     strategy = EmaRsiStrategy()
     df = strategy.calculate_indicators(df)
-    df = df[df.index.date == date.today()]
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    df = df[df.index >= cutoff]
 
     n = len(df)
     xs = list(range(n))
