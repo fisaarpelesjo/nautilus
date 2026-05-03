@@ -7,7 +7,10 @@ from rich.table import Table
 from rich import box
 
 from backtesting.engine import run_backtest
-from config.settings import BLACKLIST_PAIRS
+from config.settings import (
+    BLACKLIST_PAIRS, EMA_FAST, EMA_SLOW, EMA_TREND,
+    ATR_SL_MULTIPLIER, ATR_TP_MULTIPLIER,
+)
 from market.selector import is_blacklisted
 from utils.logger import get_logger
 
@@ -105,7 +108,8 @@ def print_scan(results: List[ScanResult]):
     console.print()
     console.print(
         f"  [bold cyan]◆[/bold cyan] [bold white]market scanner[/bold white]  "
-        f"[dim cyan]{TIMEFRAME} · EMA 9/21/50 · SL 1.5% · TP 6% · top {TOP_N} pares[/dim cyan]"
+        f"[dim cyan]{TIMEFRAME} · EMA {EMA_FAST}/{EMA_SLOW}/{EMA_TREND} · "
+        f"SL {ATR_SL_MULTIPLIER}×ATR · TP {ATR_TP_MULTIPLIER}×ATR · top {TOP_N} pares[/dim cyan]"
     )
     console.print("  [dim]" + "─" * 74 + "[/dim]")
     console.print()
