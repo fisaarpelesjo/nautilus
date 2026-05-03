@@ -1,10 +1,6 @@
-import sys
-import io
-import plotext as plt
-
-# força UTF-8 no stdout para caracteres de gráfico no Windows
-if hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+import numpy as np
+import pandas as pd
+import mplfinance as mpf
 
 from config.settings import TIMEFRAME, EMA_FAST, EMA_SLOW, EMA_TREND, RSI_OVERBOUGHT, RSI_OVERSOLD
 from data.fetcher import fetch_ohlcv
@@ -40,43 +36,58 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     cutoff = datetime.utcnow() - timedelta(days=7)
     df = df[df.index >= cutoff]
 
-    n = len(df)
-    xs = list(range(n))
+    # mplfinance requer index DatetimeIndex sem timezone e colunas capitalizadas
+    df_plot = df[["open", "high", "low", "close", "volume"]].copy()
+    df_plot.columns = ["Open", "High", "Low", "Close", "Volume"]
+    if df_plot.index.tz is not None:
+        df_plot.index = df_plot.index.tz_localize(None)
 
-    DATE_FMT = "%Y-%m-%d %H:%M"
-    dates    = [ts.strftime(DATE_FMT) for ts in df.index]
-    step     = max(1, n // 8)
-    tick_pos = xs[::step]
-    tick_lbl = [dates[i] for i in tick_pos]
+    cur_price = df["close"].iloc[-1]
+    cur_rsi   = df["rsi"].iloc[-1]
 
-    ohlc = {
-        "Open":  df["open"].tolist(),
-        "High":  df["high"].tolist(),
-        "Low":   df["low"].tolist(),
-        "Close": df["close"].tolist(),
-    }
-    rsi       = df["rsi"].tolist()
-    cur_rsi   = rsi[-1]
-    cur_price = ohlc["Close"][-1]
+    # sinais BUY/SELL como scatter
+    signals = precompute_signals(df, strategy)
+    buy_s  = pd.Series(np.nan, index=df.index)
+    sell_s = pd.Series(np.nan, index=df.index)
+    for i, s in enumerate(signals):
+        if s == Signal.BUY:
+            buy_s.iloc[i]  = df["low"].iloc[i]  * 0.997
+        elif s == Signal.SELL:
+            sell_s.iloc[i] = df["high"].iloc[i] * 1.003
+    buy_s.index  = df_plot.index
+    sell_s.index = df_plot.index
 
-    signals    = precompute_signals(df, strategy)
-    buy_xs     = [i for i, s in enumerate(signals) if s == Signal.BUY]
-    buy_prices = [df["low"].iloc[i] * 0.998 for i in buy_xs]
-    sell_xs    = [i for i, s in enumerate(signals) if s == Signal.SELL]
-    sell_prices = [df["high"].iloc[i] * 1.002 for i in sell_xs]
+    # EMAs e RSI como addplots
+    ema_fast_s  = df["ema_fast"].copy();  ema_fast_s.index  = df_plot.index
+    ema_slow_s  = df["ema_slow"].copy();  ema_slow_s.index  = df_plot.index
+    ema_trend_s = df["ema_trend"].copy(); ema_trend_s.index = df_plot.index
+    rsi_s       = df["rsi"].copy();       rsi_s.index       = df_plot.index
+    rsi_ob_s    = pd.Series(RSI_OVERBOUGHT, index=df_plot.index, dtype=float)
+    rsi_os_s    = pd.Series(RSI_OVERSOLD,   index=df_plot.index, dtype=float)
+    rsi_mid_s   = pd.Series(50,             index=df_plot.index, dtype=float)
 
-    plt.clf()
-    plt.theme("dark")
-    plt.plotsize(plt.terminal_width(), plt.terminal_height())
-    plt.title(
-        f"{symbol}  {timeframe}  |  "
-        f"preco {cur_price}  RSI {cur_rsi:.0f}  "
-        f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}"
+    ap = [
+        mpf.make_addplot(ema_fast_s,  color="#00e676", width=1.2, label=f"EMA{EMA_FAST}"),
+        mpf.make_addplot(ema_slow_s,  color="#ffeb3b", width=1.2, label=f"EMA{EMA_SLOW}"),
+        mpf.make_addplot(ema_trend_s, color="#ff5252", width=1.2, label=f"EMA{EMA_TREND}"),
+        mpf.make_addplot(rsi_s,      panel=1, color="#ce93d8", width=1.4, ylabel="RSI", ylim=(0, 100)),
+        mpf.make_addplot(rsi_ob_s,   panel=1, color="#ff5252", width=0.8, linestyle="--"),
+        mpf.make_addplot(rsi_os_s,   panel=1, color="#69f0ae", width=0.8, linestyle="--"),
+        mpf.make_addplot(rsi_mid_s,  panel=1, color="#ffffff", width=0.6, linestyle=":"),
+    ]
+    if not buy_s.isna().all():
+        ap.append(mpf.make_addplot(buy_s,  type="scatter", markersize=120, marker="^", color="#69f0ae", label="BUY"))
+    if not sell_s.isna().all():
+        ap.append(mpf.make_addplot(sell_s, type="scatter", markersize=120, marker="v", color="#ff5252", label="SELL"))
+
+    mpf.plot(
+        df_plot,
+        type="candle",
+        style="nightclouds",
+        title=f"\n{symbol}  {timeframe}  |  preço {cur_price}  RSI {cur_rsi:.0f}  EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}",
+        addplot=ap,
+        volume=False,
+        panel_ratios=(4, 1),
+        figsize=(16, 9),
+        tight_layout=True,
     )
-    plt.candlestick(xs, ohlc, colors=["red", "green"])
-    if buy_xs:
-        plt.scatter(buy_xs,  buy_prices,  color="bright green", marker="^", label="BUY")
-    if sell_xs:
-        plt.scatter(sell_xs, sell_prices, color="bright red",   marker="v", label="SELL")
-    plt.xticks(tick_pos, tick_lbl)
-    plt.show()

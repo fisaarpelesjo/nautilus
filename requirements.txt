@@ -1,5 +1,5 @@
 ccxt
-plotext
+mplfinance
 pandas
 numpy
 ta
