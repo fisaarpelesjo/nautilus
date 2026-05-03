@@ -2,7 +2,7 @@
 
 ## Overview
 
-Algorithmic trading bot for crypto written in Python. Connects to Binance via `ccxt`. Supports **paper** (simulated) and **live** (real money) modes. Main strategy: EMA crossover (9/21) with EMA50 trend filter and RSI confirmation.
+Algorithmic trading bot for crypto written in Python. Connects to Binance via `ccxt`. Supports **paper** (simulated) and **live** (real money) modes. Main strategy: EMA crossover (12/21) with EMA50 trend filter and RSI confirmation.
 
 ---
 
@@ -26,7 +26,7 @@ Algorithmic trading bot for crypto written in Python. Connects to Binance via `c
 ├── strategy/
 │   ├── base.py                # BaseStrategy interface + Signal/TradeSignal dataclasses
 │   ├── diagnostics.py         # Signal checks and diagnostics
-│   └── ema_rsi.py             # EMA9/21/50 + RSI14 strategy
+│   └── ema_rsi.py             # EMA12/21/50 + RSI14 strategy
 ├── trading/
 │   ├── runner.py              # Main bot loop (polls every 60s)
 │   ├── decision_logger.py     # Analytical decision history
@@ -40,6 +40,7 @@ Algorithmic trading bot for crypto written in Python. Connects to Binance via `c
 │   ├── multi.py               # Backtest on fixed pair list
 │   └── scanner.py             # Scans top 30 pairs by volume and backtests
 └── utils/
+    ├── chart.py               # Interactive Dash/Plotly chart (candlestick, EMAs, RSI, open position)
     ├── display.py             # Rich display: multi-pair table, price formatting
     ├── logger.py              # Colored terminal logger + file output in logs/
     └── notifier.py            # Telegram alerts (optional)
@@ -55,11 +56,12 @@ Runtime artifacts (`data/signals.csv`, `data/trades.csv`, `data/state.json`, `da
 python main.py backtest         # backtest on main pair (PAIRS[0])
 python main.py multibacktest    # backtest on fixed pair list
 python main.py scan             # backtest on top 30 Binance pairs by volume
+python main.py optimize         # grid search best EMA/RSI/ATR/volume/BB parameters
+python main.py analyze          # summarize data/trades.csv
+python main.py select           # rank dynamic pair candidates
+python main.py chart [PAIR] [TF]# interactive browser chart (Dash/Plotly)
 python main.py bot              # start multi-pair trading loop
 python main.py status           # current price and balance
-python main.py analisar         # summarize data/trades.csv
-python main.py otimizar         # test EMA/RSI/ATR/volume/BB parameter combinations
-python main.py selecionar       # rank dynamic pair candidates
 ```
 
 Default to `TRADING_MODE=paper` while developing.
@@ -91,7 +93,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `MAX_POSITIONS` | `5` | Max simultaneous open positions |
 | `STOP_LOSS_PCT` | `0.015` | Fixed stop loss (fallback without ATR) |
 | `TAKE_PROFIT_PCT` | `0.06` | Fixed take profit (fallback without ATR) |
-| `ATR_SL_MULTIPLIER` | `1.5` | ATR multiplier for stop loss |
+| `ATR_SL_MULTIPLIER` | `2.0` | ATR multiplier for stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | ATR multiplier for take profit |
 | `VOLUME_MA_PERIOD` | `20` | Volume moving average window for filter |
 | `VOLUME_MIN_RATIO` | `1.2` | Minimum volume = average × ratio for BUY |
@@ -111,7 +113,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 **File:** `strategy/ema_rsi.py`
 
 **Calculated indicators:**
-- `ema_fast` — EMA(9)
+- `ema_fast` — EMA(12)
 - `ema_slow` — EMA(21)
 - `ema_trend` — EMA(50), trend filter
 - `rsi` — RSI(14)
@@ -124,8 +126,8 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 
 | Signal | Condition |
 |---|---|
-| BUY | EMA9 crosses above EMA21 **and** price > EMA50 **and** RSI < 65 **and** volume > 1.2× avg(20) **and** price > EMA50 on daily timeframe (MTF) **and** price ≤ BB upper (not overextended) |
-| SELL | EMA9 crosses below EMA21 **and** RSI > 35 |
+| BUY | EMA12 crosses above EMA21 **and** price > EMA50 **and** RSI < 60 **and** volume > 1.2× avg(20) **and** price > EMA50 on daily timeframe (MTF) **and** price ≤ BB upper (not overextended) |
+| SELL | EMA12 crosses below EMA21 **and** RSI > 35 |
 | HOLD | none of the above |
 
 **Stop Loss / Trailing Stop / Take Profit** are managed in `trading/position_lifecycle.py`, not in the strategy. Each poll, if price makes a new high, stop loss rises to `high - 1.5×ATR`, locking in profit. Fixed TP remains as max target.
@@ -220,6 +222,8 @@ ta            # technical indicators (EMA, RSI, MACD)
 python-dotenv # .env loading
 colorlog      # colored terminal logs
 requests      # Telegram notifications
+plotly        # interactive charts
+dash          # local web server for interactive chart
 ```
 
 ---

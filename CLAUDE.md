@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via `ccxt`. Suporta modo **paper** (simulado) e **live** (dinheiro real). Estratégia principal: EMA crossover (9/21) com filtro de tendência EMA50 e confirmação RSI.
+Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via `ccxt`. Suporta modo **paper** (simulado) e **live** (dinheiro real). Estratégia principal: EMA crossover (12/21) com filtro de tendência EMA50 e confirmação RSI.
 
 ---
 
@@ -40,6 +40,7 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 │   ├── multi.py               # Backtest em lista fixa de pares
 │   └── scanner.py             # Busca top 30 pares por volume e faz backtest
 └── utils/
+    ├── chart.py               # Gráfico interativo Dash/Plotly (candlestick, EMAs, RSI, posição aberta)
     ├── display.py             # Display Rich: tabela multi-par, formatação de preços
     ├── logger.py              # Logger colorido no terminal + arquivo em logs/
     └── notifier.py            # Alertas via Telegram (opcional)
@@ -53,6 +54,10 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 python main.py backtest         # backtest no par principal (PAIRS[0])
 python main.py multibacktest    # backtest em lista fixa de pares
 python main.py scan             # backtest nos top 30 pares por volume na Binance
+python main.py optimize         # grid search dos melhores parâmetros
+python main.py analyze          # resumo do data/trades.csv
+python main.py select           # ranqueia candidatos de pares dinâmicos
+python main.py chart [PAR] [TF] # gráfico interativo no browser (Dash/Plotly)
 python main.py bot              # inicia o bot multi-par
 python main.py status           # preço atual e saldo
 ```
@@ -102,7 +107,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `MAX_POSITIONS` | `5` | Máximo de posições abertas simultaneamente |
 | `STOP_LOSS_PCT` | `0.015` | Stop loss fixo (fallback sem ATR) |
 | `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo (fallback sem ATR) |
-| `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
+| `ATR_SL_MULTIPLIER` | `2.0` | Multiplicador ATR para stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
 | `VOLUME_MA_PERIOD` | `20` | Janela da média de volume para filtro |
 | `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |
@@ -122,7 +127,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 **Arquivo:** `strategy/ema_rsi.py`
 
 **Indicadores calculados:**
-- `ema_fast` — EMA(9)
+- `ema_fast` — EMA(12)
 - `ema_slow` — EMA(21)
 - `ema_trend` — EMA(50), filtro de tendência
 - `rsi` — RSI(14)
@@ -135,8 +140,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 | Sinal | Condição |
 |---|---|
-| BUY | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 65 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) **e** preço ≤ BB superior (não sobreextendido) |
-| SELL | EMA9 cruza abaixo EMA21 **e** RSI > 35 |
+| BUY | EMA12 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 60 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) **e** preço ≤ BB superior (não sobreextendido) |
+| SELL | EMA12 cruza abaixo EMA21 **e** RSI > 35 |
 | HOLD | nenhuma das anteriores |
 
 **Stop Loss / Trailing Stop / Take Profit** são gerenciados em `trading/position_lifecycle.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
@@ -197,6 +202,8 @@ ta            # indicadores técnicos (EMA, RSI, MACD)
 python-dotenv # leitura do .env
 colorlog      # logs coloridos no terminal
 requests      # notificações Telegram
+plotly        # gráficos interativos
+dash          # servidor web local para o chart interativo
 ```
 
 ---

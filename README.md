@@ -6,7 +6,7 @@ Bot de trading algorítmico para cripto em Python. Conecta na Binance via API, c
 
 ## Funcionalidades
 
-- Estratégia EMA crossover (9/21) com filtro de tendência EMA50 + RSI
+- Estratégia EMA crossover (12/21) com filtro de tendência EMA50 + RSI
 - Entrada por pullback em tendência (além do crossover)
 - Stop Loss dinâmico via ATR14 + Trailing Stop automático
 - Take Profit dinâmico via ATR14
@@ -16,7 +16,8 @@ Bot de trading algorítmico para cripto em Python. Conecta na Binance via API, c
 - Cooldown automático após stop loss
 - Limite de drawdown diário (suspende novas entradas)
 - Backtest com métricas completas (Sharpe, profit factor, win rate, drawdown)
-- Otimização de parâmetros (`python main.py otimizar`)
+- Otimização de parâmetros (`python main.py optimize`)
+- Gráfico interativo no browser com Dash/Plotly (`python main.py chart`)
 - Seleção dinâmica de pares por liquidez, spread, volatilidade e backtest
 - Persistência completa: trades, sinais, candles e estado salvos em disco
 - Recuperação automática de estado após restart
@@ -33,11 +34,11 @@ graph TD
     CLI -->|bot| Runner["trading/runner.py\nLoop principal 60s"]
     CLI -->|backtest| Engine["backtesting/engine.py\nSimulação histórica"]
     CLI -->|scan| Scanner["backtesting/scanner.py\nTop 30 pares por volume"]
-    CLI -->|otimizar| Optimizer["backtesting/optimizer.py\nGrid search de parâmetros"]
-    CLI -->|analisar| Analysis["backtesting/analysis.py\nResumo de trades.csv"]
-    CLI -->|selecionar| Selector["market/selector.py\nSeleção dinâmica de pares"]
+    CLI -->|optimize| Optimizer["backtesting/optimizer.py\nGrid search de parâmetros"]
+    CLI -->|analyze| Analysis["backtesting/analysis.py\nResumo de trades.csv"]
+    CLI -->|select| Selector["market/selector.py\nSeleção dinâmica de pares"]
 
-    Runner --> Strategy["strategy/ema_rsi.py\nEMA9/21/50 + RSI14"]
+    Runner --> Strategy["strategy/ema_rsi.py\nEMA12/21/50 + RSI14"]
     Runner --> Lifecycle["trading/position_lifecycle.py\nEntrada, saída, trailing, MTF"]
     Runner --> OrderMgr["execution/order_manager.py\nOrdens paper e live"]
     Runner --> Fetcher["data/fetcher.py\nCandles + cache em memória"]
@@ -106,23 +107,23 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A([Candles OHLCV]) --> B[Calcular EMA9 / EMA21 / EMA50\nRSI14 / ATR14 / Volume MA / BB20]
+    A([Candles OHLCV]) --> B[Calcular EMA12 / EMA21 / EMA50\nRSI14 / ATR14 / Volume MA / BB20]
 
-    B --> C{Cruzamento bullish?\nEMA9 cruza acima EMA21}
+    B --> C{Cruzamento bullish?\nEMA12 cruza acima EMA21}
     C -->|Sim| D{Preço > EMA50?}
     D -->|Sim| E{RSI < RSI_OVERBOUGHT\npadrão 70}
     E -->|Sim| F{Volume ≥ média × ratio?}
     F -->|Sim| G{Preço ≤ BB superior?}
     G -->|Sim| H[✅ BUY — Crossover]
 
-    B --> I{Pullback em tendência?\nEMA9 > EMA21 > EMA50\ne preço > EMA50}
+    B --> I{Pullback em tendência?\nEMA12 > EMA21 > EMA50\ne preço > EMA50}
     I -->|Sim| J{RSI entre\nPULLBACK_RSI_MIN e 70?}
     J -->|Sim| K{Low próximo EMA21?\ndentro de PULLBACK_MAX_DISTANCE_PCT}
-    K -->|Sim| L{Preço > EMA9\ne candle bullish?}
+    K -->|Sim| L{Preço > EMA12\ne candle bullish?}
     L -->|Sim| M{Volume OK\ne BB OK?}
     M -->|Sim| N[✅ BUY — Pullback]
 
-    B --> O{Cruzamento bearish?\nEMA9 cruza abaixo EMA21}
+    B --> O{Cruzamento bearish?\nEMA12 cruza abaixo EMA21}
     O -->|Sim| P{RSI > RSI_OVERSOLD\npadrão 35?}
     P -->|Sim| Q[🔴 SELL]
 
@@ -189,9 +190,9 @@ flowchart TD
 
 | Sinal | Condição |
 |---|---|
-| **BUY (crossover)** | EMA9 cruza acima EMA21 **e** preço > EMA50 **e** RSI < `RSI_OVERBOUGHT` **e** volume ≥ média×`VOLUME_MIN_RATIO` **e** preço ≤ BB superior **e** MTF confirmado |
-| **BUY (pullback)** | EMA9 > EMA21 > EMA50 **e** preço > EMA50 **e** RSI entre `PULLBACK_RSI_MIN`–`RSI_OVERBOUGHT` **e** low próximo EMA21 **e** preço > EMA9 **e** candle bullish **e** volume OK **e** BB OK |
-| **SELL** | EMA9 cruza abaixo EMA21 **e** RSI > `RSI_OVERSOLD` |
+| **BUY (crossover)** | EMA12 cruza acima EMA21 **e** preço > EMA50 **e** RSI < `RSI_OVERBOUGHT` **e** volume ≥ média×`VOLUME_MIN_RATIO` **e** preço ≤ BB superior **e** MTF confirmado |
+| **BUY (pullback)** | EMA12 > EMA21 > EMA50 **e** preço > EMA50 **e** RSI entre `PULLBACK_RSI_MIN`–`RSI_OVERBOUGHT` **e** low próximo EMA21 **e** preço > EMA12 **e** candle bullish **e** volume OK **e** BB OK |
+| **SELL** | EMA12 cruza abaixo EMA21 **e** RSI > `RSI_OVERSOLD` |
 | **HOLD** | nenhuma das condições acima |
 
 ---
@@ -296,9 +297,10 @@ cp .env.example .env
 | `python main.py backtest` | Backtest no par principal (`PAIRS[0]`) |
 | `python main.py multibacktest` | Backtest em lista fixa de pares |
 | `python main.py scan` | Backtest nos top 30 pares por volume na Binance |
-| `python main.py analisar` | Analisa `data/trades.csv` e gera relatório de desempenho |
-| `python main.py otimizar` | Grid search de parâmetros EMA/RSI/ATR/BB/Volume |
-| `python main.py selecionar` | Seleciona pares por liquidez, spread, volatilidade e backtest |
+| `python main.py analyze` | Analisa `data/trades.csv` e gera relatório de desempenho |
+| `python main.py optimize` | Grid search de parâmetros EMA/RSI/ATR/BB/Volume |
+| `python main.py select` | Seleciona pares por liquidez, spread, volatilidade e backtest |
+| `python main.py chart [PAR] [TF]` | Gráfico interativo no browser (Dash/Plotly) |
 
 ---
 
@@ -347,7 +349,7 @@ O bot **restaura estado automaticamente** ao reiniciar — posição aberta e sa
 ├── strategy/
 │   ├── base.py                # BaseStrategy + dataclasses Signal/TradeSignal
 │   ├── diagnostics.py         # Diagnóstico de sinais e checklist
-│   └── ema_rsi.py             # Estratégia EMA9/21/50 + RSI14
+│   └── ema_rsi.py             # Estratégia EMA12/21/50 + RSI14
 ├── trading/
 │   ├── runner.py              # Loop principal do bot (poll 60s)
 │   ├── decision_logger.py     # Histórico analítico decisions.csv
