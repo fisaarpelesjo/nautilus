@@ -3,9 +3,14 @@
 Ponto de entrada principal.
 
 Uso:
-  python main.py backtest      -- roda backtest historico
-  python main.py bot           -- inicia o bot de trading
-  python main.py status        -- mostra saldo e preco atual
+  python main.py backtest      -- run single-pair backtest
+  python main.py multibacktest -- run backtest on fixed pair list
+  python main.py scan          -- backtest top 30 pairs by volume
+  python main.py optimize      -- grid search best parameters
+  python main.py analyze       -- analyze backtest results
+  python main.py select        -- select dynamic pairs
+  python main.py bot           -- start the trading bot
+  python main.py status        -- show balance and open positions
 """
 import sys
 from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
@@ -86,13 +91,15 @@ COMMANDS = {
     "backtest":      cmd_backtest,
     "multibacktest": cmd_multibacktest,
     "scan":          cmd_scan,
-    "analisar":      cmd_analisar,
     "analyze":       cmd_analisar,
-    "otimizar":      cmd_otimizar,
     "optimize":      cmd_otimizar,
-    "selecionar":    cmd_selecionar,
+    "select":        cmd_selecionar,
     "bot":           cmd_bot,
     "status":        cmd_status,
+    # aliases pt-br
+    "analisar":      cmd_analisar,
+    "otimizar":      cmd_otimizar,
+    "selecionar":    cmd_selecionar,
 }
 
 if __name__ == "__main__":
