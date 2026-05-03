@@ -1,12 +1,43 @@
 import numpy as np
 import pandas as pd
 import mplfinance as mpf
+import matplotlib.pyplot as plt
 
 from config.settings import TIMEFRAME, EMA_FAST, EMA_SLOW, EMA_TREND, RSI_OVERBOUGHT, RSI_OVERSOLD
 from data.fetcher import fetch_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
 from backtesting.engine import precompute_signals
 from strategy.base import Signal
+
+# cores TradingView-inspired
+_UP    = "#26a69a"
+_DOWN  = "#ef5350"
+_BG    = "#131722"
+_GRID  = "#1c2030"
+_TEXT  = "#d1d4dc"
+_EMA1  = "#00e676"
+_EMA2  = "#ffeb3b"
+_EMA3  = "#ff5252"
+_BB    = "#4fc3f7"
+_RSI   = "#ce93d8"
+_WHITE = "#d1d4dc"
+
+_STYLE = mpf.make_mpf_style(
+    base_mpf_style="nightclouds",
+    marketcolors=mpf.make_marketcolors(
+        up=_UP, down=_DOWN,
+        edge="inherit", wick="inherit",
+        volume={"up": _UP, "down": _DOWN},
+    ),
+    gridcolor=_GRID,
+    gridstyle="-",
+    facecolor=_BG,
+    edgecolor="#2a2d3e",
+    figcolor="#0d1117",
+    y_on_right=True,
+    rc={"font.size": 9, "axes.labelcolor": _TEXT, "text.color": _TEXT,
+        "xtick.color": _TEXT, "ytick.color": _TEXT},
+)
 
 
 def _select_pair() -> str:
@@ -36,58 +67,79 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
     cutoff = datetime.utcnow() - timedelta(days=7)
     df = df[df.index >= cutoff]
 
-    # mplfinance requer index DatetimeIndex sem timezone e colunas capitalizadas
     df_plot = df[["open", "high", "low", "close", "volume"]].copy()
     df_plot.columns = ["Open", "High", "Low", "Close", "Volume"]
     if df_plot.index.tz is not None:
         df_plot.index = df_plot.index.tz_localize(None)
 
+    n         = len(df_plot)
+    idx       = df_plot.index
     cur_price = df["close"].iloc[-1]
     cur_rsi   = df["rsi"].iloc[-1]
 
-    # sinais BUY/SELL como scatter
-    signals = precompute_signals(df, strategy)
-    buy_s  = pd.Series(np.nan, index=df.index)
-    sell_s = pd.Series(np.nan, index=df.index)
-    for i, s in enumerate(signals):
-        if s == Signal.BUY:
-            buy_s.iloc[i]  = df["low"].iloc[i]  * 0.997
-        elif s == Signal.SELL:
-            sell_s.iloc[i] = df["high"].iloc[i] * 1.003
-    buy_s.index  = df_plot.index
-    sell_s.index = df_plot.index
+    def s(col): return df[col].values  # array helper
 
-    # EMAs e RSI como addplots
-    ema_fast_s  = df["ema_fast"].copy();  ema_fast_s.index  = df_plot.index
-    ema_slow_s  = df["ema_slow"].copy();  ema_slow_s.index  = df_plot.index
-    ema_trend_s = df["ema_trend"].copy(); ema_trend_s.index = df_plot.index
-    rsi_s       = df["rsi"].copy();       rsi_s.index       = df_plot.index
-    rsi_ob_s    = pd.Series(RSI_OVERBOUGHT, index=df_plot.index, dtype=float)
-    rsi_os_s    = pd.Series(RSI_OVERSOLD,   index=df_plot.index, dtype=float)
-    rsi_mid_s   = pd.Series(50,             index=df_plot.index, dtype=float)
+    # BUY/SELL markers
+    signals = precompute_signals(df, strategy)
+    buy_s  = pd.Series(np.nan, index=idx)
+    sell_s = pd.Series(np.nan, index=idx)
+    for i, sig in enumerate(signals):
+        if sig == Signal.BUY:
+            buy_s.iloc[i]  = df["low"].iloc[i]  * 0.996
+        elif sig == Signal.SELL:
+            sell_s.iloc[i] = df["high"].iloc[i] * 1.004
+
+    # addplots
+    def S(arr): return pd.Series(arr if hasattr(arr, "__len__") else [arr]*n, index=idx)
 
     ap = [
-        mpf.make_addplot(ema_fast_s,  color="#00e676", width=1.2, label=f"EMA{EMA_FAST}"),
-        mpf.make_addplot(ema_slow_s,  color="#ffeb3b", width=1.2, label=f"EMA{EMA_SLOW}"),
-        mpf.make_addplot(ema_trend_s, color="#ff5252", width=1.2, label=f"EMA{EMA_TREND}"),
-        mpf.make_addplot(rsi_s,      panel=1, color="#ce93d8", width=1.4, ylabel="RSI", ylim=(0, 100)),
-        mpf.make_addplot(rsi_ob_s,   panel=1, color="#ff5252", width=0.8, linestyle="--"),
-        mpf.make_addplot(rsi_os_s,   panel=1, color="#69f0ae", width=0.8, linestyle="--"),
-        mpf.make_addplot(rsi_mid_s,  panel=1, color="#ffffff", width=0.6, linestyle=":"),
+        # Bollinger Bands
+        mpf.make_addplot(S(s("bb_upper")),  color=_BB,   width=0.8, linestyle="--", alpha=0.7),
+        mpf.make_addplot(S(s("bb_lower")),  color=_BB,   width=0.8, linestyle="--", alpha=0.7),
+        mpf.make_addplot(S(s("bb_middle")), color=_BB,   width=0.6, linestyle=":",  alpha=0.4),
+        # EMAs
+        mpf.make_addplot(S(s("ema_fast")),  color=_EMA1, width=1.3, label=f"EMA{EMA_FAST}"),
+        mpf.make_addplot(S(s("ema_slow")),  color=_EMA2, width=1.3, label=f"EMA{EMA_SLOW}"),
+        mpf.make_addplot(S(s("ema_trend")), color=_EMA3, width=1.3, label=f"EMA{EMA_TREND}"),
+        # RSI panel (panel=2 porque volume ocupa panel=1)
+        mpf.make_addplot(S(s("rsi")),                panel=2, color=_RSI,   width=1.4, ylabel="RSI", ylim=(0, 100)),
+        mpf.make_addplot(S(RSI_OVERBOUGHT),          panel=2, color=_DOWN,  width=0.8, linestyle="--"),
+        mpf.make_addplot(S(RSI_OVERSOLD),            panel=2, color=_UP,    width=0.8, linestyle="--"),
+        mpf.make_addplot(S(50),                      panel=2, color="#555",  width=0.6, linestyle=":"),
     ]
     if not buy_s.isna().all():
-        ap.append(mpf.make_addplot(buy_s,  type="scatter", markersize=120, marker="^", color="#69f0ae", label="BUY"))
+        ap.append(mpf.make_addplot(buy_s,  type="scatter", markersize=150, marker="^", color=_UP,   label="BUY"))
     if not sell_s.isna().all():
-        ap.append(mpf.make_addplot(sell_s, type="scatter", markersize=120, marker="v", color="#ff5252", label="SELL"))
+        ap.append(mpf.make_addplot(sell_s, type="scatter", markersize=150, marker="v", color=_DOWN, label="SELL"))
 
-    mpf.plot(
+    fig, axes = mpf.plot(
         df_plot,
         type="candle",
-        style="nightclouds",
-        title=f"\n{symbol}  {timeframe}  |  preço {cur_price}  RSI {cur_rsi:.0f}  EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}",
+        style=_STYLE,
+        title=f"\n{symbol}  {timeframe}  |  {cur_price}  RSI {cur_rsi:.0f}  "
+              f"EMA{EMA_FAST}/{EMA_SLOW}/{EMA_TREND}",
         addplot=ap,
-        volume=False,
-        panel_ratios=(4, 1),
-        figsize=(16, 9),
+        volume=True,
+        panel_ratios=(5, 1, 2),
+        figsize=(18, 10),
         tight_layout=True,
+        returnfig=True,
     )
+
+    ax_main = axes[0]
+
+    # Bollinger Band fill
+    bb_lo = s("bb_lower")
+    bb_hi = s("bb_upper")
+    xs    = np.arange(n)
+    ax_main.fill_between(xs, bb_lo, bb_hi, alpha=0.05, color=_BB, zorder=0)
+
+    # linha de preço atual
+    ax_main.axhline(cur_price, color=_WHITE, linewidth=0.8, linestyle="--", alpha=0.6)
+    ax_main.annotate(
+        f"  {cur_price}",
+        xy=(1, cur_price), xycoords=("axes fraction", "data"),
+        color=_WHITE, fontsize=8, va="center",
+    )
+
+    plt.show()
