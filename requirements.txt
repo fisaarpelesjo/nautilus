@@ -1,4 +1,5 @@
 ccxt
+plotext
 pandas
 numpy
 ta

@@ -9,6 +9,7 @@ Uso:
   python main.py optimize      -- grid search best parameters
   python main.py analyze       -- analyze backtest results
   python main.py select        -- select dynamic pairs
+  python main.py chart [PAIR] [TF] [N]  -- terminal chart with EMAs and RSI
   python main.py bot           -- start the trading bot
   python main.py status        -- show balance and open positions
 """
@@ -38,6 +39,15 @@ def cmd_otimizar():
 def cmd_selecionar():
     from market.commands import run
     run()
+
+def cmd_chart():
+    from utils.chart import run
+    args = sys.argv[2:]
+    symbol   = args[0].upper() if len(args) > 0 else None
+    timeframe = args[1]        if len(args) > 1 else None
+    limit    = int(args[2])    if len(args) > 2 else 100
+    run(symbol=symbol, timeframe=timeframe, limit=limit)
+
 
 def cmd_bot():
     from trading.runner import run
@@ -94,6 +104,7 @@ COMMANDS = {
     "analyze":       cmd_analisar,
     "optimize":      cmd_otimizar,
     "select":        cmd_selecionar,
+    "chart":         cmd_chart,
     "bot":           cmd_bot,
     "status":        cmd_status,
     # aliases pt-br
