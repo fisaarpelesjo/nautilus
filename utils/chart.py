@@ -216,6 +216,23 @@ def run(symbol: str = None, timeframe: str = None, limit: int = 100):
         from dash import ctx
         return ctx.triggered_id["index"]
 
+    _btn_base = {
+        "color": _TEXT, "padding": "6px 12px",
+        "cursor": "pointer", "borderRadius": "4px", "fontSize": "12px",
+    }
+
+    @app.callback(
+        [Output({"type": "pair-btn", "index": p}, "style") for p in PAIRS],
+        Input("selected-pair", "data"),
+    )
+    def _highlight(sym):
+        return [
+            {**_btn_base, "backgroundColor": _UP,      "border": f"1px solid {_UP}"}
+            if p == sym else
+            {**_btn_base, "backgroundColor": "#1e2235", "border": "1px solid #2a2d3e"}
+            for p in PAIRS
+        ]
+
     @app.callback(
         Output("chart", "figure"),
         Input("selected-pair", "data"),
