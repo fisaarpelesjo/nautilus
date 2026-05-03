@@ -1,7 +1,7 @@
 import pandas as pd
 from dataclasses import dataclass
 from math import sqrt
-from typing import List
+from typing import List, Optional
 from config.settings import (
     STOP_LOSS_PCT,
     TAKE_PROFIT_PCT,
@@ -11,7 +11,7 @@ from config.settings import (
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
 )
-from strategy.base import Signal
+from strategy.base import Signal, TradeSignal
 from strategy.ema_rsi import EmaRsiStrategy
 from data.fetcher import fetch_ohlcv
 from utils.logger import get_logger
@@ -59,6 +59,46 @@ def run_backtest(symbol: str, timeframe: str, initial_capital: float = 1000.0, c
     return result
 
 
+def precompute_signals(df: pd.DataFrame, strategy: EmaRsiStrategy) -> pd.Series:
+    p = strategy.params
+
+    prev_ef = df["ema_fast"].shift(1)
+    prev_es = df["ema_slow"].shift(1)
+
+    bullish_cross = (prev_ef < prev_es) & (df["ema_fast"] > df["ema_slow"])
+    bearish_cross = (prev_ef > prev_es) & (df["ema_fast"] < df["ema_slow"])
+
+    above_trend      = df["close"] > df["ema_trend"]
+    volume_ok        = df["volume"] >= df["volume_ma"] * p.volume_min_ratio
+    not_overextended = df["close"] <= df["bb_upper"]
+    rsi_buy_ok       = df["rsi"] < p.rsi_overbought
+    rsi_sell_ok      = df["rsi"] > p.rsi_oversold
+
+    if p.pullback_entry_enabled:
+        trend_aligned = (
+            (df["ema_fast"] > df["ema_slow"]) &
+            (df["ema_slow"] > df["ema_trend"]) &
+            above_trend
+        )
+        pullback = (
+            trend_aligned &
+            (df["rsi"] >= p.pullback_rsi_min) & rsi_buy_ok &
+            (df["low"] <= df["ema_slow"] * (1 + p.pullback_max_distance_pct)) &
+            (df["close"] > df["ema_fast"]) &
+            (df["close"] > df["open"])
+        )
+    else:
+        pullback = pd.Series(False, index=df.index)
+
+    buy  = (bullish_cross & above_trend & rsi_buy_ok & volume_ok & not_overextended) | (pullback & volume_ok & not_overextended)
+    sell = bearish_cross & rsi_sell_ok
+
+    result = pd.Series(Signal.HOLD, index=df.index)
+    result[sell] = Signal.SELL
+    result[buy]  = Signal.BUY
+    return result
+
+
 def simulate_backtest(
     df: pd.DataFrame,
     strategy,
@@ -70,6 +110,7 @@ def simulate_backtest(
     take_profit_pct: float = TAKE_PROFIT_PCT,
     atr_sl_multiplier: float = ATR_SL_MULTIPLIER,
     atr_tp_multiplier: float = ATR_TP_MULTIPLIER,
+    precomputed_signals: Optional[pd.Series] = None,
 ) -> BacktestResult:
     capital = initial_capital
     trades: List[Trade] = []
@@ -93,6 +134,11 @@ def simulate_backtest(
         if peak_equity > 0:
             max_drawdown_pct = max(max_drawdown_pct, (peak_equity - equity) / peak_equity * 100)
 
+        if precomputed_signals is not None:
+            sig = precomputed_signals.iloc[i]
+        else:
+            sig = strategy.generate_signal(df.iloc[:i]).signal
+
         if in_position:
             exit_reason = None
             exit_price = price * (1 - slippage_pct)
@@ -107,8 +153,7 @@ def simulate_backtest(
                 exit_reason = "Take Profit"
                 exit_price = take_price * (1 - slippage_pct)
 
-            signal = strategy.generate_signal(window)
-            if signal.signal == Signal.SELL and exit_reason is None:
+            if sig == Signal.SELL and exit_reason is None:
                 exit_reason = "Sinal de venda"
 
             if exit_reason:
@@ -121,8 +166,7 @@ def simulate_backtest(
                 in_position = False
                 quantity = 0.0
         else:
-            signal = strategy.generate_signal(window)
-            if signal.signal == Signal.BUY and capital >= 10:
+            if sig == Signal.BUY and capital >= 10:
                 order_size = min(MAX_ORDER_SIZE_USDT, capital * 0.95)
                 if order_size * (1 + fee_rate) > capital:
                     order_size = capital / (1 + fee_rate)

@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.table import Table
 import io, sys
 
-from backtesting.engine import BacktestResult, simulate_backtest
+from backtesting.engine import BacktestResult, precompute_signals, simulate_backtest
 from config.settings import (
     ATR_SL_MULTIPLIER,
     ATR_TP_MULTIPLIER,
@@ -80,6 +80,12 @@ def run(symbols: list = None, timeframe: str = TIMEFRAME, candle_limit: int = 20
     _print_results(results, symbols)
 
 
+def _indicator_key(params: EmaRsiParams) -> tuple:
+    return (params.ema_fast, params.ema_slow, params.ema_trend,
+            params.rsi_period, params.bb_period, params.bb_std,
+            params.volume_ma_period)
+
+
 def _optimize_multi(
     dfs: Dict[str, pd.DataFrame],
     grid: dict = None,
@@ -87,19 +93,25 @@ def _optimize_multi(
     min_trades_per_pair: int = 2,
 ) -> List[MultiOptResult]:
     results = []
+    indicator_cache: Dict[tuple, Dict[str, pd.DataFrame]] = {}
 
     for params in _iter_param_sets(grid or DEFAULT_GRID):
         strategy = EmaRsiStrategy(params.strategy)
-        pair_scores = []
-        pair_returns = []
-        pair_winrates = []
-        pair_drawdowns = []
-        per_pair = {}
+        ikey = _indicator_key(params.strategy)
+
+        if ikey not in indicator_cache:
+            indicator_cache[ikey] = {
+                sym: strategy.calculate_indicators(raw_df)
+                for sym, raw_df in dfs.items()
+            }
+
+        pair_scores, pair_returns, pair_winrates, pair_drawdowns = [], [], [], []
+        per_pair: Dict[str, float] = {}
         total_trades = 0
 
-        for sym, raw_df in dfs.items():
+        for sym, prepared in indicator_cache[ikey].items():
             try:
-                prepared = strategy.calculate_indicators(raw_df)
+                signals = precompute_signals(prepared, strategy)
                 r = simulate_backtest(
                     prepared,
                     strategy,
@@ -107,6 +119,7 @@ def _optimize_multi(
                     atr_tp_multiplier=params.atr_tp_multiplier,
                     stop_loss_pct=params.stop_loss_pct,
                     take_profit_pct=params.take_profit_pct,
+                    precomputed_signals=signals,
                 )
                 score = _score(r, min_trades=min_trades_per_pair)
                 pair_scores.append(score)
