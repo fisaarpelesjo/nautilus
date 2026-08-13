@@ -11,7 +11,7 @@ from config.settings import (
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
 )
-from strategy.base import Signal, TradeSignal
+from strategy.base import Signal
 from strategy.ema_rsi import EmaRsiStrategy
 from data.fetcher import fetch_ohlcv
 from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, C_PRICE, console, _fmt_price
@@ -132,7 +132,6 @@ def simulate_backtest(
     entry_atr = 0.0
 
     for i in range(start_index, len(df)):
-        window = df.iloc[:i]
         current = df.iloc[i]
         price = current["close"]
         equity = capital + (quantity * price * (1 - slippage_pct) if in_position else 0.0)
@@ -251,7 +250,6 @@ def _calculate_advanced_metrics(
     avg_win_pct = sum(win_returns) / len(win_returns) if win_returns else 0.0
     avg_loss_pct = sum(loss_returns) / len(loss_returns) if loss_returns else 0.0
     payoff_ratio = avg_win_pct / abs(avg_loss_pct) if avg_loss_pct else (float("inf") if avg_win_pct > 0 else 0.0)
-    edge_return = total_return_pct - buy_hold_return_pct
     edge_score = _edge_score(
         total_return_pct=total_return_pct,
         buy_hold_return_pct=buy_hold_return_pct,

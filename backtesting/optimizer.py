@@ -4,9 +4,7 @@ from typing import Dict, List
 
 import pandas as pd
 from rich import box
-from rich.console import Console
 from rich.table import Table
-import io, sys
 
 from backtesting.engine import BacktestResult, precompute_signals, simulate_backtest
 from config.settings import (
@@ -151,7 +149,7 @@ def _optimize_multi(
 def _iter_param_sets(grid: dict):
     keys = list(grid.keys())
     for values in product(*(grid[k] for k in keys)):
-        raw = dict(zip(keys, values))
+        raw = dict(zip(keys, values, strict=True))
         if raw["ema_fast"] >= raw["ema_slow"]:
             continue
         yield OptimizationParams(

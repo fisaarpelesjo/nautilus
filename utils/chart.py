@@ -1,9 +1,8 @@
-import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from dash import Dash, dcc, html, Input, Output, callback
-import webbrowser, threading
+from dash import Dash, dcc, html, Input, Output
+import webbrowser
+import threading
 
 from config.settings import TIMEFRAME, EMA_FAST, EMA_SLOW, EMA_TREND, RSI_OVERBOUGHT, RSI_OVERSOLD, PAIRS
 from data.fetcher import fetch_ohlcv

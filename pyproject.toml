@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+ignore = [
+    "E501",  # linha longa - nao bloquear neste momento, so bugs reais (F, B)
+]

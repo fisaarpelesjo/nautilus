@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List
 from rich.console import Console
 from rich.table import Table
 from rich import box
-import io, sys
+import io
+import sys
 
-from backtesting.engine import run_backtest, BacktestResult
+from backtesting.engine import run_backtest
 from utils.logger import get_logger
 
 log = get_logger("multi_backtest")

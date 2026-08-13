@@ -15,7 +15,7 @@ Uso:
   python main.py status        -- show balance and open positions
 """
 import sys
-from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
+from config.settings import SYMBOL, TIMEFRAME
 
 def cmd_backtest():
     from backtesting.engine import run_backtest
@@ -61,7 +61,6 @@ def cmd_bot():
 def cmd_status():
     from data.fetcher import fetch_ticker
     from data.state_store import load_state
-    from config.settings import PAIRS, TIMEFRAME
     from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price
 
     header()
