@@ -17,6 +17,7 @@ data/decisions.csv
 data/trades.csv
 data/state.json
 data/ohlcv/
+.coverage
 
 # local research papers and full-text conversions
 /*.pdf

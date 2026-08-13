@@ -227,7 +227,11 @@ Objetivo: explorar melhorias maiores somente depois que validacao, risco e opera
 
 ## Qualidade de Codigo
 
-Refactor SDD iniciado em 2026-08-13 (`.specify/memory/project-spec.yml`, `plan.md`, `tasks.md`). Fase 1 (foundation) configurou ruff, mypy (escopado em `risk/manager.py` e `execution/order_manager.py`) e CI no GitHub Actions.
+Refactor SDD iniciado em 2026-08-13 usando o GitHub Spec Kit oficial
+(`specs/001-hardening-incremental/spec.md`, `plan.md`, `tasks.md`; principios em
+`.specify/memory/constitution.md`). Fase de Setup/Foundational configurou ruff, mypy
+(escopado em `risk/manager.py` e `execution/order_manager.py`) e pytest-cov; CI no
+GitHub Actions e pre-commit ainda pendentes (ver `tasks.md` T006/T007).
 
 Baseline de cobertura de teste registrado em 2026-08-13 (`pytest --cov`): **66% no projeto inteiro**. Modulos criticos para o hardening da Fase 2:
 
@@ -244,4 +248,5 @@ Meta de `test_coverage_min_pct` da spec (80%) aplica-se primeiro a `risk/` e `ex
 - `docs/research/`: artigos e notas sobre analise tecnica, custos, drawdown, out-of-sample e comparacao com buy-and-hold.
 - `backtesting/engine.py`: simulacao historica, custos, slippage e metricas atuais.
 - `backtesting/optimizer.py`: busca de parametros atual, ponto de partida para split treino/teste e walk-forward.
-- `.specify/memory/`: spec, plan e tasks do refactor SDD em andamento.
+- `.specify/memory/constitution.md`: principios inegociaveis do projeto (SDD).
+- `specs/001-hardening-incremental/`: spec, plan e tasks do refactor SDD em andamento (GitHub Spec Kit).
