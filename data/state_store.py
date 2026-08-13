@@ -1,12 +1,12 @@
 import json
 import os
 
+from data.atomic_io import atomic_write
 from data.paths import STATE_FILE
 
 
 def save_state(state: dict):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2, default=str)
+    atomic_write(STATE_FILE, lambda f: json.dump(state, f, indent=2, default=str))
 
 
 def load_state() -> dict:

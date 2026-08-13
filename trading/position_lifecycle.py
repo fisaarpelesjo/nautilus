@@ -11,30 +11,31 @@ def handle_open_position(manager: OrderManager, symbol: str, pos, signal, curren
         if new_trail > pos.stop_loss:
             pos.highest_price = current_price
             pos.stop_loss = new_trail
-            manager._persist_state()
+            manager._persist_state_with_retry(f"ao ajustar trailing stop de {symbol}")
             row["decision"] = "trailing stop ajustado"
 
     if should_stop_loss(current_price, pos.stop_loss):
-        pnl, pnl_pct_val = position_pnl(pos, current_price)
-        manager.close_position(symbol, "Stop Loss", current_price)
-        manager.set_cooldown(symbol)
-        row["in_pos"] = False
-        row["decision"] = "fechou: stop loss"
-        trade_events.append(("result", f"stop loss  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
+        _attempt_close(manager, symbol, pos, current_price, "Stop Loss", "stop loss", row, trade_events, cooldown="always")
     elif should_take_profit(current_price, pos.take_profit):
-        pnl, pnl_pct_val = position_pnl(pos, current_price)
-        manager.close_position(symbol, "Take Profit", current_price)
-        row["in_pos"] = False
-        row["decision"] = "fechou: take profit"
-        trade_events.append(("result", f"take profit  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
+        _attempt_close(manager, symbol, pos, current_price, "Take Profit", "take profit", row, trade_events, cooldown="never")
     elif signal.signal == Signal.SELL:
-        pnl, pnl_pct_val = position_pnl(pos, current_price)
-        manager.close_position(symbol, "Sinal de venda", current_price)
-        if pnl < 0:
-            manager.set_cooldown(symbol)
-        row["in_pos"] = False
-        row["decision"] = "fechou: sinal de venda"
-        trade_events.append(("result", f"sinal de venda  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
+        _attempt_close(manager, symbol, pos, current_price, "Sinal de venda", "sinal de venda", row, trade_events, cooldown="on_loss")
+
+
+def _attempt_close(manager, symbol, pos, current_price, reason, label, row, trade_events, cooldown):
+    pnl, pnl_pct_val = position_pnl(pos, current_price)
+    manager.close_position(symbol, reason, current_price)
+    if manager.has_position(symbol):
+        # close_position pode falhar silenciosamente (ex: erro de rede em
+        # live) e manter a posicao local de proposito -- ver
+        # execution/order_manager.py _live_sell. Nao reportar como fechada.
+        row["decision"] = f"fechamento falhou: {label} (posicao mantida para nova tentativa)"
+        return
+    if cooldown == "always" or (cooldown == "on_loss" and pnl < 0):
+        manager.set_cooldown(symbol)
+    row["in_pos"] = False
+    row["decision"] = f"fechou: {label}"
+    trade_events.append(("result", f"{label}  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
 
 
 def handle_entry_candidate(

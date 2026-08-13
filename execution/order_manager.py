@@ -40,6 +40,7 @@ class Position:
     opened_at: datetime = field(default_factory=datetime.now)
     order_id: Optional[str] = None
     client_order_id: Optional[str] = None
+    pending_close_client_order_id: Optional[str] = None
 
 class OrderManager:
     def __init__(self):
@@ -100,6 +101,7 @@ class OrderManager:
                     opened_at     = datetime.fromisoformat(pos["opened_at"]),
                     order_id      = pos.get("order_id"),
                     client_order_id = pos.get("client_order_id"),
+                    pending_close_client_order_id = pos.get("pending_close_client_order_id"),
                 )
         if self.positions:
             log.info(f"Posicoes restauradas: {list(self.positions.keys())}")
@@ -119,6 +121,7 @@ class OrderManager:
                 "opened_at":     pos.opened_at.isoformat(),
                 "order_id":      pos.order_id,
                 "client_order_id": pos.client_order_id,
+                "pending_close_client_order_id": pos.pending_close_client_order_id,
             }
         save_state({
             "paper_balance_usdt": self.paper_balance_usdt,
@@ -132,6 +135,26 @@ class OrderManager:
             "last_reconciliation": self.last_reconciliation,
             "updated_at":         datetime.now().isoformat(),
         })
+
+    def _persist_state_with_retry(self, context: str, attempts: int = 2):
+        """Persiste o estado com uma tentativa extra antes de desistir.
+
+        Usado apos uma venda ja confirmada pela exchange: se state.json nao
+        for atualizado, um restart pode "ressuscitar" uma posicao ja fechada
+        (client_order_id de fechamento ja usado -> proxima tentativa seria
+        rejeitada pela Binance como duplicata). Isso ainda pode acontecer no
+        pior caso (falha em todas as tentativas); a reconciliacao periodica
+        e quem flagra essa divergencia para revisao manual.
+        """
+        for attempt in range(1, attempts + 1):
+            try:
+                self._persist_state()
+                return
+            except Exception as e:
+                if attempt < attempts:
+                    log.warning(f"Falha ao persistir estado {context} (tentativa {attempt}): {e}")
+                else:
+                    log.error(f"Falha ao persistir estado {context} apos {attempts} tentativas: {e}")
 
     def record_reconciliation(self, status: str, checked_at: str, diffs: list):
         self.last_reconciliation = {"status": status, "checked_at": checked_at, "diffs": diffs}
@@ -186,7 +209,7 @@ class OrderManager:
         if TRADING_MODE == "paper":
             self._paper_sell(symbol, reason, current_price)
         else:
-            self._live_sell(symbol, reason)
+            self._live_sell(symbol, reason, current_price)
 
     def _paper_buy(self, symbol: str, risk: RiskLevels):
         cost = risk.quantity * risk.entry_price
@@ -238,40 +261,55 @@ class OrderManager:
         if pnl > 0:
             self.winning_trades += 1
 
-        log_trade({
-            "opened_at":     pos.opened_at,
-            "closed_at":     datetime.now(),
-            "symbol":        pos.symbol,
-            "side":          pos.side,
-            "entry_price":   pos.entry_price,
-            "exit_price":    exit_price,
-            "quantity":      pos.quantity,
-            "pnl_usdt":      round(pnl, 6),
-            "pnl_pct":       round(pnl_pct, 4),
-            "exit_reason":   reason,
-            "balance_after": round(self.paper_balance_usdt, 4),
-            "client_order_id": pos.client_order_id,
-        })
-        log_event(
-            "paper_order_closed",
-            mode=TRADING_MODE,
-            symbol=pos.symbol,
-            side=pos.side,
-            entry_price=pos.entry_price,
-            exit_price=exit_price,
-            quantity=pos.quantity,
-            pnl_usdt=round(pnl, 6),
-            pnl_pct=round(pnl_pct, 4),
-            exit_reason=reason,
-            balance_after=round(self.paper_balance_usdt, 4),
-            daily_pnl=round(self.daily_pnl, 6),
-        )
-
-        msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
-        log.info(msg)
-        send_telegram(msg)
+        # Remove a posicao e persiste ANTES do log/alerta: se um desses passos
+        # falhar (disco cheio, etc.), a posicao nao pode ficar presa em memoria
+        # com os contadores ja incrementados -- na proxima tentativa ela seria
+        # contabilizada de novo. Mesmo padrao aplicado a _live_sell.
         del self.positions[symbol]
-        self._persist_state()
+        self._persist_state_with_retry(f"apos vender (paper) {symbol}")
+
+        try:
+            log_trade({
+                "opened_at":     pos.opened_at,
+                "closed_at":     datetime.now(),
+                "symbol":        pos.symbol,
+                "side":          pos.side,
+                "entry_price":   pos.entry_price,
+                "exit_price":    exit_price,
+                "quantity":      pos.quantity,
+                "pnl_usdt":      round(pnl, 6),
+                "pnl_pct":       round(pnl_pct, 4),
+                "exit_reason":   reason,
+                "balance_after": round(self.paper_balance_usdt, 4),
+                "client_order_id": pos.client_order_id,
+            })
+        except Exception as e:
+            log.error(f"Venda paper de {symbol} confirmada, mas falha ao registrar trade: {e}")
+
+        try:
+            log_event(
+                "paper_order_closed",
+                mode=TRADING_MODE,
+                symbol=pos.symbol,
+                side=pos.side,
+                entry_price=pos.entry_price,
+                exit_price=exit_price,
+                quantity=pos.quantity,
+                pnl_usdt=round(pnl, 6),
+                pnl_pct=round(pnl_pct, 4),
+                exit_reason=reason,
+                balance_after=round(self.paper_balance_usdt, 4),
+                daily_pnl=round(self.daily_pnl, 6),
+            )
+        except Exception as e:
+            log.error(f"Venda paper de {symbol} confirmada, mas falha ao registrar evento: {e}")
+
+        try:
+            msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
+            log.info(msg)
+            send_telegram(msg)
+        except Exception as e:
+            log.error(f"Venda paper de {symbol} confirmada, mas falha ao enviar alerta: {e}")
 
     def _live_buy(self, symbol: str, risk: RiskLevels):
         if self.exchange is None:
@@ -318,16 +356,81 @@ class OrderManager:
                 error=str(e), client_order_id=client_order_id,
             )
 
-    def _live_sell(self, symbol: str, reason: str):
+    def _live_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         if self.exchange is None:
             raise RuntimeError("Exchange live nao inicializada.")
         pos = self.positions[symbol]
-        client_order_id = _generate_client_order_id()
+        # Reusa o client_order_id de uma tentativa anterior desta MESMA posicao
+        # em vez de gerar um novo a cada chamada: se a primeira tentativa deu
+        # timeout mas a Binance aceitou a ordem, um retry com o mesmo ID e
+        # reconhecido pela exchange como a mesma ordem (idempotencia de
+        # verdade -- constitution P6). Um ID novo a cada retry, como antes,
+        # nao protegia contra nada.
+        if pos.pending_close_client_order_id is None:
+            pos.pending_close_client_order_id = _generate_client_order_id()
+            self._persist_state_with_retry(f"ao registrar tentativa de venda de {symbol}")
+        client_order_id = pos.pending_close_client_order_id
+
         try:
             order = self.exchange.create_market_sell_order(
                 symbol, pos.quantity,
                 params={"newClientOrderId": client_order_id},
             )
+        except Exception as e:
+            # Nao remove a posicao local em caso de erro na CHAMADA: a ordem
+            # pode ter sido aceita pela exchange apesar do erro (timeout,
+            # etc.), e apagar o registro local aqui derrubaria SL/TP/trailing
+            # de uma posicao que ainda pode estar aberta de verdade.
+            # pending_close_client_order_id fica salvo para o proximo retry
+            # reusar o mesmo ID. Reconciliacao e quem flagra divergencia real
+            # para revisao manual.
+            log.error(f"Erro ao vender {symbol}: {e}")
+            log_event(
+                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell",
+                error=str(e), client_order_id=client_order_id,
+            )
+            send_telegram(f"[LIVE] ERRO ao vender {symbol}: {e} | posicao mantida localmente para revisao")
+            return
+
+        # A partir daqui a venda foi aceita pela exchange -- a posicao MUST
+        # sair do estado local mesmo que o log/alerta abaixo falhe (evita um
+        # "erro ao vender" falso quando a venda na verdade deu certo).
+        exit_price = float(order.get("average") or order.get("price") or current_price or pos.entry_price)
+        pnl     = (exit_price - pos.entry_price) * pos.quantity
+        pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
+        self._check_daily_reset()
+        self.total_trades += 1
+        self.realized_pnl += pnl
+        self.daily_pnl    += pnl
+        if pnl > 0:
+            self.winning_trades += 1
+
+        del self.positions[symbol]
+        self._persist_state_with_retry(f"apos vender {symbol}")
+
+        # A venda ja esta confirmada, a posicao ja foi removida e o PnL ja foi
+        # contabilizado acima -- daqui pra baixo sao 3 acoes de observabilidade
+        # independentes entre si. Cada uma isolada no seu proprio try/except
+        # para que uma falhar (ex: trades.csv sem espaco em disco) nao impeca
+        # as outras duas de rodar.
+        try:
+            log_trade({
+                "opened_at":     pos.opened_at,
+                "closed_at":     datetime.now(),
+                "symbol":        pos.symbol,
+                "side":          pos.side,
+                "entry_price":   pos.entry_price,
+                "exit_price":    exit_price,
+                "quantity":      pos.quantity,
+                "pnl_usdt":      round(pnl, 6),
+                "pnl_pct":       round(pnl_pct, 4),
+                "exit_reason":   reason,
+                "client_order_id": pos.client_order_id,
+            })
+        except Exception as e:
+            log.error(f"Venda de {symbol} confirmada, mas falha ao registrar trade: {e}")
+
+        try:
             log_event(
                 "live_order_closed",
                 mode=TRADING_MODE,
@@ -337,21 +440,16 @@ class OrderManager:
                 exit_reason=reason,
                 order_id=order["id"],
                 client_order_id=client_order_id,
+                pnl_usdt=round(pnl, 6),
+                pnl_pct=round(pnl_pct, 4),
+                daily_pnl=round(self.daily_pnl, 6),
             )
-            msg = f"[LIVE] VENDA {symbol} | {reason} | ID={order['id']}"
+        except Exception as e:
+            log.error(f"Venda de {symbol} confirmada, mas falha ao registrar evento: {e}")
+
+        try:
+            msg = f"[LIVE] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | ID={order['id']}"
             log.info(msg)
             send_telegram(msg)
-            del self.positions[symbol]
-            self._persist_state()
         except Exception as e:
-            # Nao remove a posicao local em caso de erro: a ordem pode ter sido
-            # aceita pela exchange apesar do erro (timeout, etc.), e apagar o
-            # registro local aqui derrubaria SL/TP/trailing de uma posicao que
-            # ainda pode estar aberta de verdade. Reconciliacao (T013-T015)
-            # e quem deve flagar a divergencia para revisao manual.
-            log.error(f"Erro ao vender {symbol}: {e}")
-            log_event(
-                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell",
-                error=str(e), client_order_id=client_order_id,
-            )
-            send_telegram(f"[LIVE] ERRO ao vender {symbol}: {e} | posicao mantida localmente para revisao")
+            log.error(f"Venda de {symbol} confirmada, mas falha ao enviar alerta: {e}")

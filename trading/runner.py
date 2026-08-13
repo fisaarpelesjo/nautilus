@@ -47,28 +47,48 @@ RECONCILIATION_INTERVAL_CYCLES = 30
 
 
 def _run_reconciliation(manager: OrderManager, tracked_symbols):
-    # Todo o corpo fica dentro do try: tanto a chamada de inicializacao (fora do
-    # loop principal) quanto a periodica dependem disso nao derrubar o bot --
-    # uma falha aqui (API da exchange, I/O ao persistir) deve so ser logada.
+    # Chamado tanto na inicializacao (fora do loop principal) quanto
+    # periodicamente -- uma falha aqui nunca pode derrubar o bot.
     try:
         result = reconcile(manager, tracked_symbols=tracked_symbols)
-        if result is None:
-            return
-        manager.record_reconciliation(result.status, result.checked_at.isoformat(), result.diffs)
-        if result.status == "mismatch":
-            log.warning(f"Divergencia de reconciliacao: {result.diffs}")
+    except Exception as exc:
+        log.error(f"Reconciliacao falhou: {exc}")
+        log_event("reconciliation_error", mode=TRADING_MODE, error=str(exc))
+        try:
+            manager.record_reconciliation("error", datetime.now().isoformat(), [str(exc)])
+        except Exception as persist_exc:
+            log.error(f"Falha ao persistir status de erro de reconciliacao: {persist_exc}")
+        return
+
+    if result is None:
+        return
+
+    # O alerta de uma divergencia real vem ANTES de tentar persistir o
+    # resultado, e cada passo e isolado no seu proprio try/except: uma falha
+    # ao persistir (I/O) nao pode engolir o alerta de uma divergencia
+    # genuina -- isso derrotaria o proposito da reconciliacao.
+    if result.status == "mismatch":
+        log.warning(f"Divergencia de reconciliacao: {result.diffs}")
+        try:
             log_event(
                 "reconciliation_mismatch",
                 mode=TRADING_MODE,
                 diffs=result.diffs,
                 checked_at=result.checked_at.isoformat(),
             )
+        except Exception as exc:
+            log.error(f"Falha ao registrar evento de divergencia: {exc}")
+        try:
             send_telegram("Divergencia de reconciliacao detectada:\n" + "\n".join(result.diffs))
-        else:
-            log.info("Reconciliacao ok")
+        except Exception as exc:
+            log.error(f"Falha ao enviar alerta de divergencia: {exc}")
+    else:
+        log.info("Reconciliacao ok")
+
+    try:
+        manager.record_reconciliation(result.status, result.checked_at.isoformat(), result.diffs)
     except Exception as exc:
-        log.error(f"Reconciliacao falhou: {exc}")
-        log_event("reconciliation_error", mode=TRADING_MODE, error=str(exc))
+        log.error(f"Falha ao persistir resultado de reconciliacao: {exc}")
 
 
 def _round_price(price: float) -> float:

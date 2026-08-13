@@ -1,6 +1,8 @@
 import csv
 import os
 
+from data.atomic_io import atomic_write
+
 
 def ensure_csv(path: str, headers: list):
     if not os.path.exists(path):
@@ -22,8 +24,11 @@ def _migrate_header(path: str, headers: list):
     (colunas novas ficam vazias nas linhas antigas)."""
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
-    with open(path, "w", newline="") as f:
+
+    def _write(f):
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
         for row in rows:
             writer.writerow({h: row.get(h, "") for h in headers})
+
+    atomic_write(path, _write)

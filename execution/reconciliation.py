@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Sequence
 
 TOLERANCE_PCT = 0.01  # tolerancia para taxas/arredondamento ao comparar saldo real vs esperado
-DUST_THRESHOLD_PCT = 0.0001  # ignora saldo residual (fees/rounding) abaixo disso ao checar o sentido inverso
+DUST_THRESHOLD_USDT = 1.0  # abaixo deste valor em USDT, saldo residual nao dispara alerta
 
 
 @dataclass
@@ -44,7 +44,7 @@ def reconcile(manager, tracked_symbols: Optional[Sequence[str]] = None) -> Optio
 
     for symbol, expected_qty in local_positions.items():
         base = symbol.split("/")[0]
-        actual_qty = float(totals.get(base, 0.0))
+        actual_qty = float(totals.get(base) or 0.0)
         remote_balances[base] = actual_qty
         if actual_qty < expected_qty * (1 - TOLERANCE_PCT):
             diffs.append(
@@ -56,12 +56,16 @@ def reconcile(manager, tracked_symbols: Optional[Sequence[str]] = None) -> Optio
         if symbol in local_positions:
             continue
         base = symbol.split("/")[0]
-        actual_qty = float(totals.get(base, 0.0))
-        if actual_qty <= DUST_THRESHOLD_PCT:
+        actual_qty = float(totals.get(base) or 0.0)
+        if actual_qty <= 0:
+            continue
+        value_usdt = _estimate_value_usdt(manager, symbol, actual_qty)
+        if value_usdt <= DUST_THRESHOLD_USDT:
             continue
         remote_balances[base] = actual_qty
         diffs.append(
-            f"{symbol}: sem posicao local, mas conta tem {actual_qty:.8f} {base}"
+            f"{symbol}: sem posicao local, mas conta tem {actual_qty:.8f} {base} "
+            f"(~${value_usdt:.2f})"
         )
 
     return ReconciliationResult(
@@ -70,3 +74,22 @@ def reconcile(manager, tracked_symbols: Optional[Sequence[str]] = None) -> Optio
         remote_balances=remote_balances,
         diffs=diffs,
     )
+
+
+def _estimate_value_usdt(manager, symbol: str, quantity: float) -> float:
+    """Valor aproximado em USDT de `quantity` unidades de `symbol`.
+
+    Se o preco nao puder ser obtido, retorna infinito em vez de 0 -- preferimos
+    um falso positivo (alerta por um saldo que pode ser pequeno) a um falso
+    negativo (silenciar uma divergencia real so porque o preco falhou).
+    """
+    try:
+        ticker = manager.exchange.fetch_ticker(symbol)
+        price = ticker.get("last")
+        if not price:
+            # Sem preco disponivel (par ilíquido, sem trades recentes) -- nao
+            # sabemos o valor real, entao nao pode virar "dust" por omissao.
+            return float("inf")
+        return quantity * float(price)
+    except Exception:
+        return float("inf")

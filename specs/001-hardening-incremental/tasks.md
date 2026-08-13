@@ -130,6 +130,174 @@ comitar:
 4. Chamada de reconciliação na inicialização não estava protegida por `try/except` como a
    periódica — corrigido: todo o corpo de `_run_reconciliation` agora está dentro do try.
 
+Segunda rodada de `/code-review high` (sobre o commit já com os 4 fixes acima) encontrou mais 8
+problemas — 6 corrigidos, 2 avaliados e deliberadamente não corrigidos (justificativa abaixo):
+
+5. `handle_open_position` (`trading/position_lifecycle.py`) reportava a posição como fechada (linha
+   da tabela, cooldown, trade_event com PnL calculado) mesmo quando `close_position` falha
+   silenciosamente e mantém a posição — corrigido: agora checa `manager.has_position(symbol)` depois
+   de chamar `close_position`, no mesmo padrão já usado em `handle_entry_candidate`.
+6. `_live_sell`: `del`/`_persist_state()` estavam dentro do mesmo `try` que `log_event`/
+   `send_telegram`, então uma falha *depois* da venda ter sido aceita pela exchange (ex: disco cheio
+   ao gravar o JSONL) caía no `except` escrito para "a venda falhou", reportando erro falso e
+   mantendo a posição local por engano — corrigido: a posição só é removida no caminho de sucesso da
+   chamada à exchange; falhas de log/persistência depois disso são isoladas em try/except próprios
+   que não reescrevem o resultado da venda.
+7. `_generate_client_order_id()` gerava um ID novo a cada tentativa de venda, inclusive em retry
+   após timeout — isso anulava o propósito de idempotência (a Binance só reconhece um retry como
+   "a mesma ordem" se o `clientOrderId` for igual). Corrigido: novo campo
+   `Position.pending_close_client_order_id`, gerado uma vez e persistido; reusado em toda tentativa
+   de fechar a mesma posição até ela fechar de verdade.
+8. `_run_reconciliation`: o `except` nunca chamava `record_reconciliation`, então uma falha
+   persistente de reconciliação (ex: API key perdeu permissão) deixava `python main.py status`
+   mostrando o último resultado "ok" antigo, escondendo que a reconciliação estava falhando —
+   corrigido: falha agora grava `status="error"` com a mensagem do erro.
+9. `DUST_THRESHOLD_PCT` era uma quantidade absoluta (0.0001 unidades) aplicada igual a qualquer
+   ativo, apesar do nome sugerir percentual — muito permissivo para ativos caros, ruidoso para
+   baratos. Corrigido: `DUST_THRESHOLD_USDT` compara valor em USDT via `fetch_ticker`; se o preço não
+   puder ser obtido, trata como não-dust (prefere falso positivo a esconder divergência real).
+10. `float(totals.get(base, 0.0))` quebrava com `TypeError` se a Binance retornasse `None` para um
+    ativo — corrigido para `float(totals.get(base) or 0.0)` nos dois sentidos da checagem.
+11. `_migrate_header` (`data/csv_utils.py`) truncava e reescrevia o CSV sem atomicidade — um crash no
+    meio da escrita podia perder meses de histórico de trades. Corrigido: escreve em `.tmp` e troca
+    com `os.replace` (atômico).
+12. `ensure_csv` passou a abrir e ler a primeira linha do arquivo a cada chamada, mesmo com o
+    cabeçalho já correto — chamado a cada ciclo por par via `decision_store`/`signal_store`.
+    Corrigido: cache em memória (`_verified_paths`) evita reabrir o arquivo após a primeira
+    confirmação no processo.
+
+Não corrigidos (avaliados e descartados conscientemente):
+- `record_reconciliation` reserializa o `state.json` inteiro a cada reconciliação (a cada ~30min) só
+  para persistir 3 campos — I/O desprezível para o volume de dados deste bot (poucas posições,
+  arquivo de poucos KB); resolver isso agora seria otimização prematura.
+- US1 inteira foi entregue em um commit só, contrariando o Fluxo Incremental do `CLAUDE.md` — válido
+  como observação de processo, mas não é algo para "corrigir" no código (reescrever o histórico já
+  publicado seria mais arriscado que o problema). Fica como aprendizado para as próximas User
+  Stories: commits menores por sub-tópico, revisão antes do push final da story.
+
+Antes da 3ª rodada, passei pelas lentes de arquitetura/segurança/QA/governança de spec (não só
+correção): achei 2 gaps de teste — nada garantia que `reconcile()` nunca muda `manager.positions`
+(FR-003) nem que uma divergência real dispara `send_telegram`/`log_event` no nível do runner
+(SC-002). Testes adicionados (`test_reconcile_never_mutates_local_positions`,
+`test_run_reconciliation_alerts_on_mismatch`).
+
+Terceira rodada de `/code-review high` (sobre os fixes da 2ª rodada) encontrou mais 3 problemas — 2
+corrigidos, 1 avaliado e descartado:
+
+13. `_estimate_value_usdt` retornava `0.0` (não o `inf` documentado) quando `fetch_ticker` tinha
+    sucesso mas devolvia `last=None` (par ilíquido, sem trade recente) — `float(None or 0.0)` vira
+    zero, então um saldo real virava "dust" por omissão. Corrigido: `None`/preço ausente agora conta
+    como "preço indisponível" (→ `inf`), igual a uma exceção.
+14. Depois de uma venda live confirmada, se `_persist_state()` falhasse (I/O), o erro só era
+    logado — um restart nesse intervalo ressuscitaria a posição já vendida a partir do
+    `state.json` desatualizado, e a próxima tentativa de fechar reusaria o
+    `pending_close_client_order_id` já consumido, que a Binance rejeitaria como duplicata (posição
+    "presa" até a reconciliação periódica pegar, ~30min). Corrigido com
+    `_persist_state_with_retry`: uma tentativa extra antes de desistir. Não elimina o risco por
+    completo (só reduz a janela) — a reconciliação continua sendo a rede de segurança final para o
+    pior caso, e isso está documentado no código.
+
+Não corrigido (avaliado e descartado):
+- `_estimate_value_usdt` faz uma chamada de rede (`fetch_ticker`) por símbolo rastreado sem posição
+  local durante a reconciliação — só acontece no caminho raro (saldo órfão sem posição local, que é
+  exatamente o cenário anômalo que a reconciliação existe para detectar) e roda a cada ~30min, não a
+  cada ciclo — mesma categoria de trade-off do item de `record_reconciliation` acima.
+
+61 testes passando (5 novos desde a rodada 2), ruff/mypy limpos.
+
+Quarta rodada de `/code-review high` encontrou mais 2 problemas, os dois corrigidos:
+
+15. **Gap pré-existente, não introduzido por esta feature, mas no escopo direto dela**: `_live_sell`
+    nunca chamava `log_trade` nem atualizava `realized_pnl`/`daily_pnl`/`total_trades`/
+    `winning_trades` (diferente de `_paper_sell`, que sempre fez isso). Resultado: em modo live, o
+    circuit breaker de `DAILY_DRAWDOWN_LIMIT` nunca disparava de verdade, e `data/trades.csv` nunca
+    tinha registro de trade live nenhum. Corrigido: `_live_sell` agora calcula PnL (preço de saída do
+    fill da ordem, com fallback para `current_price` e depois `entry_price`), atualiza os mesmos
+    contadores que o caminho paper, e chama `log_trade`. `close_position` agora repassa
+    `current_price` para `_live_sell` (antes só ia para `_paper_sell`).
+16. **Regressão introduzida por mim na rodada 2**: o cache `_verified_paths` de `ensure_csv` (pensado
+    para evitar reabrir o arquivo em toda chamada) fazia com que um CSV apagado/truncado por fora
+    (rotação de log, crash) no meio da vida do processo nunca mais recuperasse o cabeçalho —
+    `log_trade`/`log_signal` passavam a escrever linhas cruas num arquivo sem header. Corrigido:
+    revertido o cache por completo. O custo de I/O que ele evitava (abrir e ler uma linha por
+    ciclo/par) é desprezível perto do risco de corromper o histórico de trades silenciosamente —
+    decisão consciente de preferir correção a uma otimização pequena.
+
+62 testes passando (1 novo desde a rodada 3), ruff/mypy limpos.
+
+Quinta rodada de `/code-review high` encontrou mais 4 problemas — 2 corrigidos, 2 avaliados e
+descartados:
+
+17. A geração do `pending_close_client_order_id` (primeira tentativa de venda) chamava
+    `self._persist_state()` direto, sem try/except, ao contrário do resto do método já protegido.
+    Corrigido: usa `_persist_state_with_retry` como o resto de `_live_sell`.
+18. O ajuste de trailing stop em `trading/position_lifecycle.py` chamava `manager._persist_state()`
+    direto, sem proteção — uma falha ali abortava o ciclo inteiro daquele símbolo antes mesmo dos
+    checks de SL/TP rodarem, driblando toda a blindagem adicionada nesta mesma função (achado #5).
+    Corrigido: usa `manager._persist_state_with_retry(...)`.
+
+Não corrigidos (avaliados e descartados):
+- Se `create_market_sell_order` gerar timeout depois da Binance já ter aceitado a ordem, o retry
+  reusa o mesmo `client_order_id` e a Binance rejeita como duplicata — essa rejeição hoje é tratada
+  igual a uma falha genérica, entao o bot re-alerta a cada ciclo (~60s) ate a reconciliacao periodica
+  (ate 30 ciclos, ~30min) detectar e sinalizar a divergencia. O jeito "certo" de resolver isso de
+  verdade seria consultar o status real da ordem na exchange (`fetch_order`/`fetch_my_trades`) antes
+  de decidir se foi de fato erro ou duplicata — isso e uma feature de verificacao de status de ordem
+  bem maior que o escopo desta spec (idempotencia + reconciliacao), nao um ajuste pontual. Fica
+  registrado como candidato a item de ROADMAP; o pior caso (posicao "presa" ate 30min, sem risco
+  financeiro pois o ativo ja foi vendido de verdade) continua coberto pela reconciliacao.
+- `_estimate_value_usdt` chama `fetch_ticker` por símbolo sem posição local durante a reconciliação —
+  o review citou o "~5s por chamada completa" do `CLAUDE.md` como risco de travar o loop, mas esse
+  número é especificamente sobre `fetch_ohlcv` com 100 candles (endpoint pesado), não sobre
+  `fetch_ticker` (endpoint leve, resposta de um único objeto). Mantida a decisão das rodadas 3/4:
+  caminho raro (só quando há saldo órfão sem posição local) e pouco frequente (a cada ~30min).
+
+65 testes passando (3 novos desde a rodada 4), ruff/mypy limpos.
+
+Sexta rodada de `/code-review high` encontrou mais 2 problemas, os dois corrigidos:
+
+19. `data/state_store.py` `save_state()` não era atômico (`open(..., "w")` trunca antes de escrever)
+    — inconsistente com o fix já aplicado em `data/csv_utils.py`, e `state.json` é ainda mais crítico
+    (posições abertas, cooldowns, `pending_close_client_order_id`). Se as duas tentativas de
+    `_persist_state_with_retry` falhassem no meio da escrita, o bot subiria com um `state.json`
+    corrompido/vazio e travaria no próximo start (`json.JSONDecodeError` não tratado) — pior que o
+    problema que o retry tentava mitigar. Corrigido: mesmo padrão `.tmp` + `os.replace`.
+20. Em `_live_sell`, `log_trade`/`log_event`/`send_telegram` (pós-venda confirmada) estavam no mesmo
+    `try/except` — uma falha na primeira chamada (`log_trade`) pulava as outras duas, apesar de serem
+    ações de observabilidade independentes. Corrigido: cada uma isolada no seu próprio try/except.
+
+67 testes passando (2 novos desde a rodada 5), ruff/mypy limpos.
+
+Sétima rodada de `/code-review high` encontrou mais 5 problemas — 4 corrigidos, 1 é o próprio
+processo de revisão (endereçado abaixo, fora do código):
+
+21. `_paper_sell` tinha exatamente o mesmo problema já corrigido em `_live_sell` na rodada 6
+    (achado #20): contadores (`total_trades`, `realized_pnl`, `daily_pnl`) incrementados antes de
+    `log_trade`/`log_event`/telegram, sem isolamento — se uma dessas chamadas falhasse, a exceção
+    subia sem tratamento (`_paper_sell` não tinha try/except nenhum), a posição nunca era removida, e
+    o próximo ciclo contabilizaria o mesmo trade de novo. Corrigido com o mesmo padrão: posição
+    removida e persistida antes do log, cada ação de observabilidade isolada no seu try/except.
+22. Em `_run_reconciliation`, `record_reconciliation` era chamado *antes* do alerta de divergência —
+    se a persistência falhasse durante uma divergência real, o alerta (`log_event`/`send_telegram`
+    com os diffs de verdade) nunca rodava, e o `except` só registrava `status="error"` perdendo os
+    diffs originais. Corrigido: alerta primeiro (cada passo isolado), persistência por último,
+    também isolada.
+23. Padrão de escrita atômica (`.tmp` + `os.replace`) estava duplicado entre `data/csv_utils.py` e
+    `data/state_store.py`. Extraído para `data/atomic_io.py` (`atomic_write`), usado pelos dois. Bônus
+    encontrado escrevendo o teste do próprio helper: a versão original deixava o `.tmp` para trás se
+    `write_fn` falhasse no meio — corrigido para limpar o `.tmp` nesse caso.
+24. Os 3 ramos de fechamento em `handle_open_position` (stop loss/take profit/sinal de venda)
+    repetiam a mesma sequência `close_position` → checar `has_position` → atualizar `row`/
+    `trade_events` quase palavra por palavra — risco real de um ajuste futuro esquecer um dos três
+    ramos (o review usou a palavra "quase" porque isso já quase aconteceu). Extraído para
+    `_attempt_close`, uma função só, parametrizada pela regra de cooldown de cada caso.
+25. **Processo, não código**: o review apontou (de novo) que o trabalho acumulado das rodadas 2-7
+    inteiras seguia sem commit — reincidência do achado #9 da rodada 2. Resolvido logo abaixo: commit
+    do acumulado antes de continuar para a rodada 8, e a partir da User Story 2 os commits acontecem
+    por sub-tópico dentro da própria story, não só ao final dela.
+
+72 testes passando (5 novos desde a rodada 6), ruff/mypy limpos.
+
 ---
 
 ## Phase 4: User Story 2 - Circuit breaker além do limite diário de drawdown (Priority: P2)

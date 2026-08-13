@@ -1,3 +1,5 @@
+import os
+
 from data import decision_store, state_store
 
 
@@ -13,6 +15,17 @@ def test_save_and_load_state_round_trip(tmp_path, monkeypatch):
     state_store.save_state(state)
 
     assert state_store.load_state() == state
+
+
+def test_save_state_writes_atomically_without_leftover_tmp_file(tmp_path, monkeypatch):
+    state_file = tmp_path / "state.json"
+    monkeypatch.setattr(state_store, "STATE_FILE", str(state_file))
+
+    state_store.save_state({"a": 1})
+    state_store.save_state({"a": 2})  # sobrescreve -- garante que o replace funciona 2x
+
+    assert state_store.load_state() == {"a": 2}
+    assert not os.path.exists(f"{state_file}.tmp")
 
 
 def test_load_state_returns_empty_dict_when_missing(tmp_path, monkeypatch):
