@@ -1,0 +1,351 @@
+# =====================================================================
+# SDD SPEC — Refatoração de Bot de Daytrade Binance (Python)
+# =====================================================================
+# Fase phase_0_discovery concluída em 2026-08-13: current_state e
+# open_questions abaixo foram preenchidos lendo o código real do
+# repositório (não são mais placeholders). open_questions foram
+# resolvidos com defaults sensatos para um bot pessoal/solo — cada um
+# tem `decision` e `rationale` e pode ser revisitado se o contexto
+# mudar (ex: uso deixa de ser pessoal, volume de dados cresce, etc.).
+# =====================================================================
+
+meta:
+  project_name: "binance-daytrade-bot"
+  version: "0.2.0-refactor"
+  methodology: "Spec-Driven Development (SDD)"
+  objective: >
+    Endurecer (hardening) o bot de daytrade existente sobre a base que
+    já funciona — não reescrevê-lo do zero. Fechar os gaps reais de
+    segurança operacional (idempotência de ordens, reconciliação com a
+    exchange, circuit breaker mais completo), qualidade (CI, lint,
+    type-check) e validação de estratégia (walk-forward), preservando
+    tudo que já está testado e em produção (paper mode).
+  language: "pt-BR (documentação e specs) / código em inglês (padrão da indústria)"
+  owner: "filipesalesaraujo@gmail.com"
+  last_updated: "2026-08-13"
+
+# ---------------------------------------------------------------------
+# CONSTITUTION — princípios inegociáveis. Sobrepõem qualquer atalho de
+# implementação.
+# ---------------------------------------------------------------------
+constitution:
+  principles:
+    - id: P1_SAFETY_FIRST
+      rule: >
+        Nenhuma mudança em risk/manager.py, execution/order_manager.py
+        ou trading/position_lifecycle.py vai para TRADING_MODE=live
+        sem antes rodar em paper mode e, quando aplicável, Binance
+        Testnet. TRADING_MODE=live já exige LIVE_TRADING_CONFIRMATION
+        explícito em config/settings.py — preservar esse guard-rail.
+    - id: P2_NO_SECRETS_IN_CODE
+      rule: >
+        BINANCE_API_KEY/SECRET e TELEGRAM_* só via .env (já no
+        .gitignore). Nunca commitar .env real. .env.example continua
+        sem valores reais.
+    - id: P3_TEST_BEFORE_IMPLEMENT
+      rule: >
+        Cada task do tasks.md tem critério de teste definido antes da
+        implementação. O projeto já tem suíte pytest em tests/ — toda
+        task nova estende essa suíte, não recomeça do zero.
+    - id: P4_INCREMENTAL_DELIVERY
+      rule: >
+        Segue o "Fluxo Incremental" do CLAUDE.md: tópico pequeno →
+        rodar testes relevantes → commit Conventional Commit em
+        português → push para origin/main → próximo tópico. Nunca uma
+        reescrita grande em um único commit.
+    - id: P5_OBSERVABILITY_MANDATORY
+      rule: >
+        O projeto já grava eventos estruturados em
+        logs/events-YYYY-MM-DD.jsonl e decisões por ciclo em
+        data/decisions.csv. Toda nova decisão de risco (kill switch,
+        circuit breaker, rejeição de ordem) deve gerar evento nesse
+        mesmo pipeline — não introduzir um sistema de logging paralelo.
+    - id: P6_IDEMPOTENCY_AND_RECONCILIATION
+      rule: >
+        GAP REAL CONFIRMADO: execution/order_manager.py hoje não usa
+        clientOrderId nem reconcilia estado local com a conta real na
+        Binance. Esta é a prioridade #1 do refactor (phase_2).
+    - id: P7_EXPLAIN_BEFORE_CODE
+      rule: >
+        Antes de codar uma task complexa (risk engine, order
+        executor), resumir em 3-5 linhas o design escolhido e por quê,
+        documentar no commit, e só então prosseguir.
+
+# ---------------------------------------------------------------------
+# CONTEXTO ATUAL — preenchido a partir de leitura real do código em
+# 2026-08-13 (não são mais suposições).
+# ---------------------------------------------------------------------
+current_state:
+  description: >
+    Bot de daytrade cripto em Python (>=3.10), usa `ccxt` para se
+    conectar à Binance Spot via REST (poll a cada 60s, sem WebSocket).
+    Estratégia EMA9/21/50 + RSI14 + Bollinger Bands + ATR14 é
+    configurável 100% via .env (config/settings.py), incluindo entrada
+    por pullback além do crossover clássico. Suporta modo `paper`
+    (padrão) e `live` (exige LIVE_TRADING_CONFIRMATION explícito).
+    Já tem: SL/TP dinâmico via ATR + trailing stop, cooldown pós-stop,
+    limite de drawdown diário, confirmação multi-timeframe (MTF),
+    seleção dinâmica de pares por liquidez/spread/volatilidade,
+    blacklist de pares, backtest com taxas/slippage/Sharpe/profit
+    factor/drawdown, otimizador via grid search, relatório de edge vs
+    buy-and-hold, persistência em CSV/JSON (data/*.csv, state.json),
+    logs estruturados JSONL + texto, notificações e relatório diário
+    via Telegram. Suíte de 9 arquivos de teste (pytest) cobre risk
+    manager, order manager, backtest engine/optimizer, strategy,
+    settings validation. `ROADMAP.md` e `STRATEGY_REVIEW.md` já
+    documentam um processo de evolução iterativo em andamento — este
+    refactor complementa esse roadmap, não o substitui.
+  known_limitations:
+    - "Sem idempotência de ordens (clientOrderId) nem reconciliação periódica com o estado real da conta Binance — P6 da constitution."
+    - "Sem CI (não existe .github/workflows) — lint/testes só rodam manualmente."
+    - "Sem lint (ruff) nem type-check (mypy) no fluxo de desenvolvimento."
+    - "Sem WebSocket — poll REST a cada 60s via ccxt; aceitável para o timeframe atual (4h) mas limita evolução para timeframes menores."
+    - "Sem kill switch manual explícito (comando CLI de emergência) — só o DAILY_DRAWDOWN_LIMIT automático."
+    - "Circuit breaker cobre só drawdown diário; não cobre perdas consecutivas nem erro anômalo de API."
+    - "Persistência 100% em CSV/JSON — sem banco de dados; funciona bem no volume atual (histórico pessoal, poucos pares)."
+    - "Só Binance Spot, sem Futures/alavancagem — coerente com o aviso do CLAUDE.md ('bot opera apenas posições long')."
+  repo_entry_point: "main.py — python main.py [backtest|edge|multibacktest|scan|optimize|analyze|select|chart|bot|status]"
+
+# ---------------------------------------------------------------------
+# ESCOPO
+# ---------------------------------------------------------------------
+goals:
+  - "Fechar o gap de idempotência/reconciliação em execution/order_manager.py (P6)"
+  - "CI no GitHub Actions: lint (ruff) + type-check (mypy nos módulos de risco/execução) + pytest a cada push/PR"
+  - "Circuit breaker mais completo: perdas consecutivas + kill switch manual via CLI, além do drawdown diário já existente"
+  - "Validação de estratégia mais rigorosa: walk-forward / out-of-sample no motor de backtest já existente (backtesting/engine.py), sem trocar de motor"
+  - "Manter 100% de compatibilidade com o fluxo atual (paper mode continua padrão, comandos do main.py continuam os mesmos)"
+  - "Documentação viva: ROADMAP.md, STRATEGY_REVIEW.md, CLAUDE.md/AGENTS.md atualizados a cada fase concluída"
+
+non_goals:
+  - "Não reescrever o motor de backtest para vectorbt/backtrader/NautilusTrader — o motor atual (backtesting/engine.py) já cobre taxas, slippage, Sharpe, profit factor, drawdown; trocar de motor é reescrita sem ganho claro para o escopo atual."
+  - "Não migrar para PostgreSQL/TimescaleDB/Redis agora — CSV/JSON atende o volume atual (uso pessoal, poucos pares). Revisitar só se isso virar gargalo real (ver open_questions)."
+  - "Não adicionar Binance Futures/alavancagem — fora de escopo, aumenta risco e complexidade de risk management sem pedido do usuário."
+  - "Não migrar para asyncio/WebSocket agora — poll de 60s é suficiente para timeframe 4h; revisitar só se o timeframe operacional cair para minutos."
+  - "Não montar stack de observabilidade completa (Prometheus/Grafana) — os eventos JSONL + Telegram já dão visibilidade suficiente para uso solo; alertas adicionais entram no pipeline existente, não em um novo sistema."
+  - "Não é objetivo suportar multi-conta/multi-usuário — uso pessoal single-account."
+
+open_questions:
+  - question: "Estratégia é baseada em indicadores técnicos, order flow, ou ML?"
+    decision: "Indicadores técnicos (EMA/RSI/BB/ATR), confirmado lendo strategy/ema_rsi.py. Sem ML, sem order flow."
+    rationale: "Já respondido por leitura direta do código — não é mais uma pergunta em aberto."
+  - question: "Onde o bot roda: VPS próprio, cloud ou local?"
+    decision: "Continua local por enquanto (default)."
+    rationale: "Uso pessoal, sem indicação de necessidade de 24/7 fora da máquina do usuário. Revisitar se o usuário decidir rodar sem supervisão constante — nesse caso, VPS entra como nova fase, não faz parte deste refactor."
+  - question: "SQLite, PostgreSQL/TimescaleDB, ou continuar CSV/JSON?"
+    decision: "Continua CSV/JSON (default)."
+    rationale: "Volume atual (histórico pessoal, poucos pares, timeframe 4h) não justifica servidor de banco. SQLite fica documentado como próxima opção natural se o volume de dados/queries crescer — não implementado agora."
+  - question: "Multi-conta/multi-usuário ou uso pessoal single-account?"
+    decision: "Single-account, uso pessoal (default)."
+    rationale: "Sem indicação de necessidade multi-usuário; CLAUDE.md e o restante da spec tratam de uma única conta Binance do owner."
+  - question: "Vai usar alavancagem (Futures)? Se sim, teto máximo?"
+    decision: "Não — spot only, sem alavancagem (default, max_leverage=1)."
+    rationale: "CLAUDE.md já declara isso como restrição atual do bot ('short não está implementado'); manter reduz risco e complexidade do risk engine."
+
+# ---------------------------------------------------------------------
+# STACK TECNOLÓGICO — trimmed para o escopo de hardening incremental.
+# Mantém o que já está em uso; adiciona só o necessário para fechar os
+# gaps de known_limitations.
+# ---------------------------------------------------------------------
+tech_stack:
+  language_runtime:
+    python: ">=3.10 (versão já em uso; não forçar 3.12 sem necessidade)"
+    async: "Mantém código síncrono no hot path (poll 60s via ccxt). Não migrar para asyncio neste refactor — ver non_goals."
+    package_manager: "pip + requirements.txt (já em uso). Não introduzir uv/poetry sem necessidade real."
+
+  exchange_connectivity:
+    current: "ccxt (já em uso) — mantém. Não introduzir python-binance nem unicorn-binance-* (WebSocket fica fora de escopo)."
+    market_types: ["spot"]
+    environments: ["paper (default)", "live (com LIVE_TRADING_CONFIRMATION)", "Binance Testnet (opcional, para validar mudanças em order_manager antes de live)"]
+
+  market_data:
+    current: "pandas + ta (já em uso) para indicadores. data/fetcher.py já faz cache em memória. Sem mudança de biblioteca."
+
+  strategy_and_backtesting:
+    current: "Motor de backtest próprio em backtesting/engine.py (fees, slippage, Sharpe, profit factor, drawdown) — mantém. Adiciona walk-forward/out-of-sample split sobre esse mesmo motor, não troca de motor (ver non_goals)."
+
+  risk_management:
+    current: "risk/manager.py (SL/TP via ATR, position sizing) + trading/position_lifecycle.py (trailing stop) + cooldown/drawdown diário no runner — mantém e estende com: circuit breaker de perdas consecutivas, kill switch manual via CLI."
+
+  persistence:
+    current: "CSV/JSON (data/*.csv, state.json) — mantém. SQLite documentado como opção futura, não implementado agora (ver open_questions)."
+
+  configuration:
+    current: "config/settings.py com validate_config() manual — funciona e já é testado (tests/test_settings_validation.py). Migração para pydantic-settings é opcional/nice-to-have, só se simplificar sem quebrar compatibilidade; não é bloqueante."
+
+  observability:
+    current: "logs/YYYY-MM-DD.log (texto) + logs/events-YYYY-MM-DD.jsonl (estruturado) + Telegram (utils/notifier.py) — mantém. Novas decisões de risco (kill switch, circuit breaker) publicam no mesmo pipeline de eventos."
+
+  testing_and_quality:
+    unit_integration: "pytest (já em uso, 9 arquivos em tests/) + pytest-cov para medir cobertura"
+    lint_format: "ruff (lint + format) — introduzir em phase_1"
+    type_check: "mypy, aplicado primeiro em risk/manager.py e execution/order_manager.py (módulos críticos), não --strict no projeto inteiro de início"
+    pre_commit: "pre-commit hooks (ruff, mypy nos módulos críticos, pytest -k unit) — introduzir em phase_1"
+
+  ci_cd:
+    - "GitHub Actions: lint (ruff) → type-check (mypy) → pytest, em push e PR para main. Sem job de integração contra testnet por enquanto (pode entrar depois se o usuário quiser)."
+
+  infra_and_deploy:
+    current: "Execução local via `python main.py bot` — mantém. Sem Docker/containerização neste refactor (ver non_goals)."
+    secrets: ".env local, já no .gitignore. Sem secret manager externo — desnecessário para uso pessoal single-machine."
+
+  security:
+    - "API keys da Binance com permissão mínima (Leitura + Trading Spot, sem saque) — já documentado no CLAUDE.md, reforçar como checklist em phase_6."
+    - "Rate limiting/backoff: revisar tratamento de erro de API em execution/order_manager.py como parte de phase_2."
+
+# ---------------------------------------------------------------------
+# ARQUITETURA — mapeada para os módulos que já existem no repo, não
+# nomes genéricos inventados.
+# ---------------------------------------------------------------------
+architecture:
+  style: "Monolito modular já existente — reforça fronteiras atuais, sem introduzir microsserviços."
+  modules:
+    - name: "data/ (fetcher, paths, trade_store, signal_store, decision_store, state_store, ohlcv_store)"
+      responsibility: "Busca OHLCV via ccxt com cache; persiste trades, sinais, decisões, estado e candles em CSV/JSON."
+    - name: "strategy/ (base, diagnostics, ema_rsi)"
+      responsibility: "Interface BaseStrategy + EmaRsiStrategy; calcula indicadores e gera Signal/TradeSignal. Usada tanto no backtest quanto no live (mesma lógica, sem duplicação — já atende ao princípio de paridade)."
+    - name: "risk/manager.py"
+      responsibility: "Calcula SL/TP via ATR (com fallback fixo), tamanho de posição. Alvo de extensão: circuit breaker de perdas consecutivas."
+    - name: "execution/order_manager.py"
+      responsibility: "Abre/fecha ordens paper e live, persiste state, restaura ao reiniciar. Alvo principal de phase_2: clientOrderId + reconciliação."
+    - name: "trading/ (runner, decision_logger, position_lifecycle)"
+      responsibility: "Loop principal (poll 60s), histórico analítico de decisões, entrada/saída/trailing/MTF. Alvo de extensão: kill switch manual, hook do circuit breaker de perdas consecutivas."
+    - name: "backtesting/ (engine, multi, scanner, analysis, optimizer)"
+      responsibility: "Simulação histórica, backtest multi-par, scanner top-30, grid search, análise de trades.csv. Alvo de extensão: walk-forward/out-of-sample."
+    - name: "market/ (selector, commands)"
+      responsibility: "Seleção dinâmica de pares por liquidez/spread/volatilidade/backtest."
+    - name: "utils/ (chart, display, logger, notifier)"
+      responsibility: "Gráfico Dash/Plotly, display Rich, logger colorido + JSONL, alertas Telegram."
+    - name: "config/settings.py"
+      responsibility: "Config tipada via .env + validate_config(). Mantém como está; pydantic-settings é opcional."
+
+# ---------------------------------------------------------------------
+# CONTROLES DE RISCO — o que já é garantido hoje vs. o que este
+# refactor adiciona.
+# ---------------------------------------------------------------------
+risk_controls:
+  already_implemented:
+    - "Stop-loss obrigatório (ATR dinâmico com fallback fixo) em todo trade"
+    - "Trailing stop automático (máximo - 1.5×ATR)"
+    - "Limite de perda diária (DAILY_DRAWDOWN_LIMIT) que suspende novas entradas"
+    - "Cooldown pós-stop-loss (COOLDOWN_HOURS)"
+    - "TRADING_MODE=live exige LIVE_TRADING_CONFIRMATION explícito"
+    - "MAX_ENTRIES_PER_CYCLE=1 evita entradas correlacionadas simultâneas"
+  mandatory_to_add:
+    - "clientOrderId único em toda ordem enviada (idempotência) — phase_2"
+    - "Reconciliação periódica entre state.json e conta real na Binance — phase_2"
+    - "Kill switch manual acessível via CLI (python main.py kill ou equivalente) — phase_2"
+    - "Circuit breaker de perdas consecutivas (N stops seguidos suspende novas entradas), complementando o drawdown diário — phase_2"
+  configurable_defaults:
+    max_risk_per_trade_pct: "definido implicitamente via MAX_ORDER_SIZE_USDT e ATR_SL_MULTIPLIER — formalizar como % explícito é opcional, não bloqueante"
+    max_daily_loss_pct: 5.0  # DAILY_DRAWDOWN_LIMIT atual
+    max_open_positions: 5  # MAX_POSITIONS atual
+    max_consecutive_losses: 3  # NOVO — a definir/validar com o usuário durante phase_2
+    max_leverage: 1  # spot only, sem alavancagem
+
+# ---------------------------------------------------------------------
+# REQUISITOS NÃO FUNCIONAIS
+# ---------------------------------------------------------------------
+non_functional_requirements:
+  reliability: "Bot já restaura estado do state.json ao reiniciar. Reforçar: reconciliação com a exchange na inicialização (phase_2)."
+  performance: "Poll de 60s é suficiente para timeframe 4h — sem requisito de latência sub-segundo."
+  test_coverage_min_pct: 80  # aplicado a risk/ e execution/, não ao projeto inteiro de início
+  type_checking: "mypy nos módulos risk/manager.py e execution/order_manager.py no mínimo (phase_1/phase_2)"
+  documentation: "Atualizar ROADMAP.md, STRATEGY_REVIEW.md, CLAUDE.md e AGENTS.md ao final de cada fase concluída."
+
+# ---------------------------------------------------------------------
+# PLANO DE REFATORAÇÃO — fases ajustadas aos gaps reais encontrados.
+# ---------------------------------------------------------------------
+refactor_plan:
+  phase_0_discovery:
+    goal: "Entender o bot atual e preencher current_state e open_questions"
+    status: "CONCLUÍDA em 2026-08-13"
+    tasks:
+      - "Ler todo o código atual e mapear responsabilidades existentes"
+      - "Levantar tests/, ROADMAP.md, STRATEGY_REVIEW.md, README.md como fonte de verdade do estado atual"
+      - "Resolver open_questions com defaults sensatos documentados (uso pessoal, sem infra externa)"
+    acceptance_criteria:
+      - "current_state e known_limitations refletem o código real, não suposições — CUMPRIDO"
+      - "open_questions têm decision + rationale — CUMPRIDO"
+
+  phase_1_foundation:
+    goal: "CI, lint, type-check e cobertura de teste medida, sem tocar lógica de trading"
+    tasks:
+      - "Configurar ruff (lint + format) com pyproject.toml"
+      - "Configurar mypy para risk/manager.py e execution/order_manager.py"
+      - "Configurar pytest-cov e medir baseline de cobertura atual"
+      - "Configurar pre-commit hooks (ruff, mypy nos módulos críticos, pytest -k unit)"
+      - "Criar GitHub Actions workflow (lint → type-check → pytest) em push/PR para main"
+    acceptance_criteria:
+      - "CI verde rodando lint+mypy+pytest a cada push"
+      - "pre-commit instalado e documentado no README"
+      - "Baseline de cobertura registrado em STRATEGY_REVIEW.md ou ROADMAP.md"
+
+  phase_2_execution_hardening:
+    goal: "Fechar o gap P6: idempotência de ordens + reconciliação + circuit breaker mais completo"
+    tasks:
+      - "Adicionar clientOrderId único (ex: uuid4 truncado + timestamp) em toda ordem criada em execution/order_manager.py"
+      - "Implementar reconciliação: ao iniciar o bot e periodicamente, comparar state.json com posições/ordens reais na conta Binance via ccxt; logar e alertar divergência"
+      - "Implementar circuit breaker de perdas consecutivas (novo campo em state.json, threshold configurável via .env)"
+      - "Implementar kill switch manual: novo subcomando em main.py que suspende novas entradas imediatamente e persiste esse estado"
+    acceptance_criteria:
+      - "Testes cobrindo: geração de clientOrderId único, detecção de divergência na reconciliação, ativação do circuit breaker após N perdas, ativação/desativação do kill switch"
+      - "Validado em paper mode por período mínimo definido pelo usuário antes de considerar uso em live"
+
+  phase_3_observability_extension:
+    goal: "Estender o pipeline de eventos já existente para cobrir as novas decisões de risco"
+    tasks:
+      - "Novo tipo de evento JSONL para: reconciliação com divergência, circuit breaker ativado, kill switch ativado/desativado"
+      - "Alerta Telegram para os três eventos acima (reusar utils/notifier.py)"
+    acceptance_criteria:
+      - "Evento e alerta disparados corretamente em teste simulado de cada cenário"
+
+  phase_4_strategy_validation_hardening:
+    goal: "Validação de estratégia mais rigorosa sobre o motor de backtest existente"
+    tasks:
+      - "Adicionar split walk-forward/out-of-sample em backtesting/engine.py (treina/otimiza em uma janela, valida em janela seguinte não vista)"
+      - "Formalizar critério de aprovação automática (retorno > buy-and-hold, profit factor > 1.2, drawdown aceitável, nº mínimo de trades) — já esboçado no ROADMAP.md item 2, integrar aqui"
+    acceptance_criteria:
+      - "Relatório de backtest passa a mostrar performance in-sample vs out-of-sample lado a lado"
+      - "Critério de aprovação automática testado com casos conhecidos (estratégia boa vs ruim)"
+
+  phase_5_persistence_review:
+    goal: "Reavaliar se CSV/JSON ainda é suficiente (não implementar banco a menos que necessário)"
+    status: "DEFERRED — só entra se known_limitations mudar (ex: volume de dados crescer)"
+    tasks:
+      - "Medir tempo de leitura/escrita de data/*.csv com o volume real acumulado"
+      - "Se virar gargalo real: propor migração pontual para SQLite (não Postgres/TimescaleDB, ver non_goals)"
+    acceptance_criteria:
+      - "Decisão documentada com dados reais, não especulação"
+
+  phase_6_hardening_and_go_live_checklist:
+    goal: "Checklist de segurança antes de qualquer mudança de escopo ir para TRADING_MODE=live"
+    tasks:
+      - "Confirmar API key da Binance sem permissão de saque"
+      - "Rodar mudanças de phase_2 (order_manager) em paper mode por período mínimo definido pelo usuário"
+      - "Testar kill switch manualmente em paper mode antes de confiar nele em live"
+      - "Documentar processo de rollback (reverter para versão anterior do bot em caso de comportamento inesperado)"
+    acceptance_criteria:
+      - "Checklist 100% concluído e aprovação explícita do usuário antes de qualquer go-live de mudança em execution/order_manager.py"
+
+# ---------------------------------------------------------------------
+# DEFINIÇÃO DE PRONTO (Definition of Done) por task
+# ---------------------------------------------------------------------
+definition_of_done:
+  - "Código passa em ruff e mypy (módulos críticos) sem erros, uma vez que phase_1 estiver concluída"
+  - "Testes automatizados cobrindo o comportamento novo/alterado, suíte pytest completa verde"
+  - "Sem segredos ou chaves reais no diff"
+  - "Evento estruturado (JSONL) e, se crítico, alerta Telegram adicionados para o novo comportamento de risco"
+  - "ROADMAP.md/STRATEGY_REVIEW.md/CLAUDE.md/AGENTS.md atualizados quando a mudança afeta o comportamento documentado"
+  - "Rodado com sucesso em paper mode quando a mudança envolve risk/, execution/ ou trading/"
+
+# ---------------------------------------------------------------------
+# INSTRUÇÕES OPERACIONAIS PARA O CLAUDE CODE
+# ---------------------------------------------------------------------
+claude_code_operating_instructions:
+  - "Trabalhe em modo SDD: specify -> plan -> tasks -> implement, nessa ordem, por fase de refactor_plan."
+  - "phase_0_discovery já está concluída — não refazer, só atualizar se o código mudar de forma que invalide current_state."
+  - "Nunca pule direto para código sem antes ter tasks.md detalhado para a fase atual."
+  - "Toda mudança em risk/manager.py ou execution/order_manager.py exige testes cobrindo os itens de risk_controls.mandatory_to_add antes de ser considerada concluída."
+  - "Siga o Fluxo Incremental do CLAUDE.md: tópico pequeno -> testes -> commit -> push -> próximo tópico."
+  - "Ao final de cada fase de refactor_plan, gere um resumo do que foi feito vs. acceptance_criteria."
