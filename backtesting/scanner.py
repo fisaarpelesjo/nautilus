@@ -1,5 +1,6 @@
 import ccxt
-import io, sys
+import io
+import sys
 from typing import List
 from dataclasses import dataclass
 from rich.console import Console
@@ -145,7 +146,7 @@ def _print_table(title: str, results: List[ScanResult], highlight: bool):
         border_style="dim",
         pad_edge=False,
     )
-    table.add_column(f"  {title}", style="white", min_width=14)
+    table.add_column(f"  {title}", style=color, min_width=14)
     table.add_column("vol 24h",   justify="right", min_width=10)
     table.add_column("trades",    justify="right", min_width=7)
     table.add_column("win rate",  justify="right", min_width=9)
