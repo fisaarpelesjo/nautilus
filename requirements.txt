@@ -8,4 +8,5 @@ ta
 python-dotenv
 requests
 colorlog
+rich
 pytest
