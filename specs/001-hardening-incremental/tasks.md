@@ -67,10 +67,11 @@ de T007 (CI) estar concluída.
       passando, documentado no `README.md`. Achado no processo: `pytest` rodado direto (sem
       `python -m`) quebrava por import error (`ModuleNotFoundError`) — corrigido com
       `[tool.pytest.ini_options] pythonpath = ["."]` em `pyproject.toml`
-- [ ] T007 Criar `.github/workflows/ci.yml`: jobs `lint` (ruff) → `typecheck` (mypy) → `test`
+- [x] T007 Criar `.github/workflows/ci.yml`: jobs `lint` (ruff) → `typecheck` (mypy) → `test`
       (pytest), rodando em `push`/`pull_request` para `main`
 
-**Checkpoint**: CI verde, pre-commit funcionando localmente — só então iniciar Phase 3.
+**Checkpoint**: Foundational concluída — CI configurada, pre-commit funcionando localmente. Phase 3
+(User Story 1) pode começar em uma próxima sessão.
 
 ---
 
