@@ -87,31 +87,48 @@ divergência.
 
 > Escrever estes testes primeiro; devem falhar antes da implementação.
 
-- [ ] T008 [P] [US1] Teste: `clientOrderId` único gerado e persistido por ordem (paper e live) em
+- [x] T008 [P] [US1] Teste: `clientOrderId` único gerado e persistido por ordem (paper e live) em
       `tests/test_order_manager_safety.py`
-- [ ] T009 [P] [US1] Teste: reconciliação detecta divergência entre `state.json` e conta real
+- [x] T009 [P] [US1] Teste: reconciliação detecta divergência entre `state.json` e conta real
       (mockada) em `tests/test_reconciliation.py` (novo arquivo)
-- [ ] T010 [P] [US1] Teste: reconciliação não roda quando `TRADING_MODE=paper` em
+- [x] T010 [P] [US1] Teste: reconciliação não roda quando `TRADING_MODE=paper` em
       `tests/test_reconciliation.py`
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Gerar e persistir `client_order_id` em toda ordem criada em
-      `execution/order_manager.py` (depende de T008 estar falhando)
-- [ ] T012 [US1] Persistir `client_order_id` no registro de trade fechado em `data/trade_store.py`
-- [ ] T013 [US1] Implementar `execution/reconciliation.py` — compara posições locais (`state.json`)
-      com posições reais via `ccxt` (`fetch_positions`/`fetch_open_orders`), retorna relatório
-      `ok`/`mismatch` (depende de T009, T010 estarem falhando)
-- [ ] T014 [US1] Chamar reconciliação na inicialização do bot em `trading/runner.py`, só quando
-      `TRADING_MODE=live` (depende de T013)
-- [ ] T015 [US1] Chamar reconciliação periódica dentro do loop existente de 60s em
-      `trading/runner.py` (depende de T013)
-- [ ] T016 [US1] Evento `reconciliation_mismatch` em `utils/logger.py` (JSONL) e alerta em
-      `utils/notifier.py` (Telegram), disparado quando o relatório de T013 é `mismatch`
-- [ ] T017 [US1] Exibir resultado da última reconciliação em `python main.py status`
-      (`cmd_status` em `main.py`)
+- [x] T011 [US1] Gerar e persistir `client_order_id` em toda ordem criada em
+      `execution/order_manager.py` (`_generate_client_order_id()`; paper e live, passado à Binance
+      via `params={"newClientOrderId": ...}`)
+- [x] T012 [US1] Persistir `client_order_id` no registro de trade fechado em `data/trade_store.py`
+      (novo campo em `TRADE_HEADERS`)
+- [x] T013 [US1] Implementar `execution/reconciliation.py` — compara posições locais (`state.json`)
+      com saldo real via `ccxt fetch_balance()` (não `fetch_positions`: Binance Spot não tem conceito
+      de "position", só saldo do ativo base), retorna `ReconciliationResult` `ok`/`mismatch` com
+      tolerância de 1% para taxas/arredondamento
+- [x] T014 [US1] Chamar reconciliação na inicialização do bot em `trading/runner.py` (`_run_reconciliation`,
+      que já é um no-op em paper mode via `reconcile()` retornando `None`)
+- [x] T015 [US1] Chamar reconciliação periódica dentro do loop existente de 60s em
+      `trading/runner.py` — a cada `RECONCILIATION_INTERVAL_CYCLES=30` ciclos (~30min)
+- [x] T016 [US1] Evento `reconciliation_mismatch` (e `reconciliation_error` para falha de API) em
+      `utils/logger.py` (JSONL) e alerta em `utils/notifier.py` (Telegram) via `_run_reconciliation`;
+      último resultado persistido em `OrderManager.last_reconciliation` (`record_reconciliation`)
+- [x] T017 [US1] Exibir resultado da última reconciliação em `python main.py status`
+      (`cmd_status` em `main.py`, só quando `TRADING_MODE=live`)
 
 **Checkpoint**: US1 completa e testável de forma independente — gap P6 da constitution fechado.
+47 testes passando, ruff/mypy limpos.
+
+`/code-review high` rodado antes do commit encontrou 4 problemas reais, todos corrigidos antes de
+comitar:
+1. `_live_sell` apagava a posição local mesmo quando a venda falhava — corrigido: só remove a
+   posição no caminho de sucesso; erro mantém a posição local e alerta via Telegram.
+2. `reconcile()` só detectava posição local sem saldo real, não o inverso (saldo real sem posição
+   local) — corrigido: novo parâmetro `tracked_symbols` checa os dois sentidos, limitado aos pares
+   que o bot acompanha (evita alertar sobre outros ativos da mesma conta).
+3. `ensure_csv` não migrava o cabeçalho de um CSV já existente ao adicionar `client_order_id` —
+   corrigido de forma genérica em `data/csv_utils.py` (afeta trades/signals/decisions).
+4. Chamada de reconciliação na inicialização não estava protegida por `try/except` como a
+   periódica — corrigido: todo o corpo de `_run_reconciliation` agora está dentro do try.
 
 ---
 

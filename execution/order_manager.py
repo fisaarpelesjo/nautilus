@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional, Dict
@@ -20,6 +21,12 @@ from utils.notifier import send_telegram
 
 log = get_logger("orders")
 
+
+def _generate_client_order_id() -> str:
+    """ID unico por ordem (paper e live) para idempotencia -- ver constitution P6."""
+    return f"bot-{uuid.uuid4().hex[:8]}-{int(datetime.now().timestamp())}"
+
+
 @dataclass
 class Position:
     symbol: str
@@ -32,6 +39,7 @@ class Position:
     highest_price: float = 0.0
     opened_at: datetime = field(default_factory=datetime.now)
     order_id: Optional[str] = None
+    client_order_id: Optional[str] = None
 
 class OrderManager:
     def __init__(self):
@@ -44,6 +52,7 @@ class OrderManager:
         self.cooldowns: Dict[str, datetime] = {}
         self.daily_pnl: float = 0.0
         self.daily_reset_date: str = ""
+        self.last_reconciliation: Optional[dict] = None
         if TRADING_MODE == "live":
             self._assert_live_trading_allowed()
             self.exchange = get_exchange()
@@ -66,6 +75,7 @@ class OrderManager:
         self.total_trades       = state.get("total_trades", 0)
         self.winning_trades     = state.get("winning_trades", 0)
         self.realized_pnl       = state.get("realized_pnl", 0.0)
+        self.last_reconciliation = state.get("last_reconciliation")
         for symbol, ts in state.get("cooldowns", {}).items():
             self.cooldowns[symbol] = datetime.fromisoformat(ts)
         today = datetime.now().strftime("%Y-%m-%d")
@@ -89,6 +99,7 @@ class OrderManager:
                     highest_price = pos.get("highest_price", pos["entry_price"]),
                     opened_at     = datetime.fromisoformat(pos["opened_at"]),
                     order_id      = pos.get("order_id"),
+                    client_order_id = pos.get("client_order_id"),
                 )
         if self.positions:
             log.info(f"Posicoes restauradas: {list(self.positions.keys())}")
@@ -107,6 +118,7 @@ class OrderManager:
                 "highest_price": pos.highest_price,
                 "opened_at":     pos.opened_at.isoformat(),
                 "order_id":      pos.order_id,
+                "client_order_id": pos.client_order_id,
             }
         save_state({
             "paper_balance_usdt": self.paper_balance_usdt,
@@ -117,8 +129,13 @@ class OrderManager:
             "cooldowns":          {s: dt.isoformat() for s, dt in self.cooldowns.items()},
             "daily_pnl":          self.daily_pnl,
             "daily_reset_date":   self.daily_reset_date,
+            "last_reconciliation": self.last_reconciliation,
             "updated_at":         datetime.now().isoformat(),
         })
+
+    def record_reconciliation(self, status: str, checked_at: str, diffs: list):
+        self.last_reconciliation = {"status": status, "checked_at": checked_at, "diffs": diffs}
+        self._persist_state()
 
     def _check_daily_reset(self):
         today = datetime.now().strftime("%Y-%m-%d")
@@ -177,6 +194,7 @@ class OrderManager:
             log.warning(f"Saldo insuficiente para {symbol}: ${self.paper_balance_usdt:.2f}")
             return
         self.paper_balance_usdt -= cost
+        client_order_id = _generate_client_order_id()
         self.positions[symbol] = Position(
             symbol        = symbol,
             side          = "long",
@@ -186,6 +204,7 @@ class OrderManager:
             take_profit   = risk.take_profit,
             atr           = risk.atr,
             highest_price = risk.entry_price,
+            client_order_id = client_order_id,
         )
         self._persist_state()
         log_event(
@@ -198,6 +217,7 @@ class OrderManager:
             stop_loss=risk.stop_loss,
             take_profit=risk.take_profit,
             balance_after=self.paper_balance_usdt,
+            client_order_id=client_order_id,
         )
         msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
         log.info(msg)
@@ -230,6 +250,7 @@ class OrderManager:
             "pnl_pct":       round(pnl_pct, 4),
             "exit_reason":   reason,
             "balance_after": round(self.paper_balance_usdt, 4),
+            "client_order_id": pos.client_order_id,
         })
         log_event(
             "paper_order_closed",
@@ -255,10 +276,14 @@ class OrderManager:
     def _live_buy(self, symbol: str, risk: RiskLevels):
         if self.exchange is None:
             raise RuntimeError("Exchange live nao inicializada.")
+        client_order_id = _generate_client_order_id()
         try:
             order = self.exchange.create_market_buy_order(
                 symbol, risk.quantity,
-                params={"quoteOrderQty": risk.quantity * risk.entry_price}
+                params={
+                    "quoteOrderQty": risk.quantity * risk.entry_price,
+                    "newClientOrderId": client_order_id,
+                }
             )
             self.positions[symbol] = Position(
                 symbol      = symbol,
@@ -268,6 +293,7 @@ class OrderManager:
                 stop_loss   = risk.stop_loss,
                 take_profit = risk.take_profit,
                 order_id    = order["id"],
+                client_order_id = client_order_id,
             )
             self._persist_state()
             log_event(
@@ -280,20 +306,28 @@ class OrderManager:
                 stop_loss=risk.stop_loss,
                 take_profit=risk.take_profit,
                 order_id=order["id"],
+                client_order_id=client_order_id,
             )
             msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
             log.info(msg)
             send_telegram(msg)
         except Exception as e:
             log.error(f"Erro ao comprar {symbol}: {e}")
-            log_event("live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy", error=str(e))
+            log_event(
+                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy",
+                error=str(e), client_order_id=client_order_id,
+            )
 
     def _live_sell(self, symbol: str, reason: str):
         if self.exchange is None:
             raise RuntimeError("Exchange live nao inicializada.")
         pos = self.positions[symbol]
+        client_order_id = _generate_client_order_id()
         try:
-            order = self.exchange.create_market_sell_order(symbol, pos.quantity)
+            order = self.exchange.create_market_sell_order(
+                symbol, pos.quantity,
+                params={"newClientOrderId": client_order_id},
+            )
             log_event(
                 "live_order_closed",
                 mode=TRADING_MODE,
@@ -302,13 +336,22 @@ class OrderManager:
                 quantity=pos.quantity,
                 exit_reason=reason,
                 order_id=order["id"],
+                client_order_id=client_order_id,
             )
             msg = f"[LIVE] VENDA {symbol} | {reason} | ID={order['id']}"
             log.info(msg)
             send_telegram(msg)
-        except Exception as e:
-            log.error(f"Erro ao vender {symbol}: {e}")
-            log_event("live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell", error=str(e))
-        finally:
             del self.positions[symbol]
             self._persist_state()
+        except Exception as e:
+            # Nao remove a posicao local em caso de erro: a ordem pode ter sido
+            # aceita pela exchange apesar do erro (timeout, etc.), e apagar o
+            # registro local aqui derrubaria SL/TP/trailing de uma posicao que
+            # ainda pode estar aberta de verdade. Reconciliacao (T013-T015)
+            # e quem deve flagar a divergencia para revisao manual.
+            log.error(f"Erro ao vender {symbol}: {e}")
+            log_event(
+                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell",
+                error=str(e), client_order_id=client_order_id,
+            )
+            send_telegram(f"[LIVE] ERRO ao vender {symbol}: {e} | posicao mantida localmente para revisao")

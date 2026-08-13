@@ -15,7 +15,7 @@ Uso:
   python main.py status        -- show balance and open positions
 """
 import sys
-from config.settings import SYMBOL, TIMEFRAME
+from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
 
 def cmd_backtest():
     from backtesting.engine import run_backtest
@@ -100,6 +100,22 @@ def cmd_status():
     else:
         console.print(f"  [{C_DIM}]nenhuma posição aberta[/{C_DIM}]")
     console.print()
+
+    if TRADING_MODE == "live":
+        last_reconciliation = state.get("last_reconciliation") if state else None
+        if last_reconciliation:
+            status = last_reconciliation.get("status", "?")
+            checked_at = last_reconciliation.get("checked_at", "?")
+            rc = C_POS if status == "ok" else C_NEG
+            console.print(
+                f"  [{C_LABEL}]reconciliação[/{C_LABEL}] [{rc}]{status}[/{rc}]"
+                f"   [{C_LABEL}]em[/{C_LABEL}] [{C_DIM}]{checked_at}[/{C_DIM}]"
+            )
+            for diff in last_reconciliation.get("diffs", []):
+                console.print(f"  [{C_NEG}]  {diff}[/{C_NEG}]")
+        else:
+            console.print(f"  [{C_DIM}]reconciliação ainda não rodou nesta sessão[/{C_DIM}]")
+        console.print()
 
 COMMANDS = {
     "backtest":      cmd_backtest,

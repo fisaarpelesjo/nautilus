@@ -16,6 +16,7 @@ from data.fetcher import fetch_ohlcv
 from data.ohlcv_store import save_ohlcv
 from data.signal_store import log_signal
 from execution.order_manager import OrderManager
+from execution.reconciliation import reconcile
 from market.selector import select_dynamic_pairs, selected_symbols
 from strategy.base import Signal
 from strategy.diagnostics import hold_diagnosis, signal_checks
@@ -42,6 +43,32 @@ from utils.notifier import send_telegram
 log = get_logger("bot")
 POLL_INTERVAL = 60
 MAX_ENTRIES_PER_CYCLE = 1
+RECONCILIATION_INTERVAL_CYCLES = 30
+
+
+def _run_reconciliation(manager: OrderManager, tracked_symbols):
+    # Todo o corpo fica dentro do try: tanto a chamada de inicializacao (fora do
+    # loop principal) quanto a periodica dependem disso nao derrubar o bot --
+    # uma falha aqui (API da exchange, I/O ao persistir) deve so ser logada.
+    try:
+        result = reconcile(manager, tracked_symbols=tracked_symbols)
+        if result is None:
+            return
+        manager.record_reconciliation(result.status, result.checked_at.isoformat(), result.diffs)
+        if result.status == "mismatch":
+            log.warning(f"Divergencia de reconciliacao: {result.diffs}")
+            log_event(
+                "reconciliation_mismatch",
+                mode=TRADING_MODE,
+                diffs=result.diffs,
+                checked_at=result.checked_at.isoformat(),
+            )
+            send_telegram("Divergencia de reconciliacao detectada:\n" + "\n".join(result.diffs))
+        else:
+            log.info("Reconciliacao ok")
+    except Exception as exc:
+        log.error(f"Reconciliacao falhou: {exc}")
+        log_event("reconciliation_error", mode=TRADING_MODE, error=str(exc))
 
 
 def _round_price(price: float) -> float:
@@ -65,10 +92,13 @@ def run():
 
     bot_boot(active_pairs, MAX_POSITIONS, POLL_INTERVAL, DYNAMIC_PAIRS_ENABLED)
     send_telegram(f"Bot iniciado | {len(active_pairs)} pares | Modo={TRADING_MODE}")
+    _run_reconciliation(manager, active_pairs)
 
     while True:
         try:
             cycle_id += 1
+            if cycle_id % RECONCILIATION_INTERVAL_CYCLES == 0:
+                _run_reconciliation(manager, active_pairs)
             if entry_cooldown > 0:
                 entry_cooldown -= 1
             pair_rows = []
