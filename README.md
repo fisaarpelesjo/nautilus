@@ -237,6 +237,21 @@ cp .env.example .env
 # edite .env com suas API keys da Binance
 ```
 
+### Ambiente de desenvolvimento
+
+```bash
+# dependências extras (ruff, mypy, pytest-cov, pre-commit)
+pip install -r requirements-dev.txt
+
+# hooks de lint/type-check/teste antes de cada commit
+pre-commit install
+
+# rodar manualmente
+ruff check .
+mypy
+pytest
+```
+
 ---
 
 ## Configuração (.env)

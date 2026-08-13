@@ -62,9 +62,11 @@ de T007 (CI) estar concluída.
 - [x] T005 Configurar `pytest-cov` e registrar baseline de cobertura (66% geral, 93% em
       `risk/manager.py`, 36% em `execution/order_manager.py`) em `ROADMAP.md` — commit
       `chore: adicionar pytest-cov e registrar baseline de cobertura`
-- [ ] T006 [P] Instalar e validar `pre-commit` (`.pre-commit-config.yaml` já criado com hooks de
-      ruff --fix, mypy nos módulos críticos e pytest): rodar `pre-commit install` e
-      `pre-commit run --all-files`, documentar `pre-commit install` no `README.md`
+- [x] T006 [P] Instalar e validar `pre-commit` (`.pre-commit-config.yaml` com hooks de ruff --fix,
+      mypy nos módulos críticos e pytest): `pre-commit install` + `pre-commit run --all-files`
+      passando, documentado no `README.md`. Achado no processo: `pytest` rodado direto (sem
+      `python -m`) quebrava por import error (`ModuleNotFoundError`) — corrigido com
+      `[tool.pytest.ini_options] pythonpath = ["."]` em `pyproject.toml`
 - [ ] T007 Criar `.github/workflows/ci.yml`: jobs `lint` (ruff) → `typecheck` (mypy) → `test`
       (pytest), rodando em `push`/`pull_request` para `main`
 
