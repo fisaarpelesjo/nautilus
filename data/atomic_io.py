@@ -11,10 +11,14 @@ def atomic_write(path: str, write_fn: Callable[[TextIO], None]):
     try:
         with open(tmp_path, "w", newline="") as f:
             write_fn(f)
+        os.replace(tmp_path, path)
     except Exception:
+        # Cobre tanto falha ao escrever o .tmp quanto falha do proprio
+        # os.replace (ex: neste repo, que vive numa pasta sincronizada pelo
+        # OneDrive, o cliente de sync pode segurar o arquivo brevemente e
+        # fazer o replace falhar mesmo com o .tmp escrito com sucesso).
         try:
             os.remove(tmp_path)
         except OSError:
             pass
         raise
-    os.replace(tmp_path, path)

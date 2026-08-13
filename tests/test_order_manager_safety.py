@@ -147,6 +147,67 @@ def test_live_sell_keeps_local_position_when_exchange_call_fails(monkeypatch):
     assert manager.has_position("BTC/USDT")
 
 
+def _live_manager(monkeypatch, exchange, log_trade=None):
+    monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
+    monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
+    monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
+    monkeypatch.setattr(order_manager, "load_state", lambda: {})
+    monkeypatch.setattr(order_manager, "save_state", lambda state: None)
+    monkeypatch.setattr(order_manager, "send_telegram", lambda msg: None)
+    monkeypatch.setattr(order_manager, "get_exchange", lambda: exchange)
+    if log_trade is not None:
+        monkeypatch.setattr(order_manager, "log_trade", log_trade)
+    return OrderManager()
+
+
+def test_live_buy_does_not_create_position_when_exchange_call_fails(monkeypatch):
+    class _FailingExchange:
+        def create_market_buy_order(self, symbol, quantity, params=None):
+            raise RuntimeError("network timeout")
+
+    manager = _live_manager(monkeypatch, _FailingExchange())
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+
+    assert not manager.has_position("BTC/USDT")
+
+
+def test_live_buy_reuses_client_order_id_across_retries(monkeypatch):
+    calls = []
+
+    class _FailingExchange:
+        def create_market_buy_order(self, symbol, quantity, params=None):
+            calls.append(params.get("newClientOrderId"))
+            raise RuntimeError("network timeout")
+
+    manager = _live_manager(monkeypatch, _FailingExchange())
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+    manager.open_long("BTC/USDT", risk)
+
+    assert len(calls) == 2
+    assert calls[0] is not None
+    assert calls[0] == calls[1]
+
+
+def test_live_buy_clears_pending_id_and_creates_position_on_success(monkeypatch):
+    class _SucceedingExchange:
+        def create_market_buy_order(self, symbol, quantity, params=None):
+            return {"id": "abc123"}
+
+    manager = _live_manager(monkeypatch, _SucceedingExchange())
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+
+    assert manager.has_position("BTC/USDT")
+    assert "BTC/USDT" not in manager.pending_open_client_order_ids
+    assert manager.get_position("BTC/USDT").client_order_id is not None
+
+
 def test_persist_state_with_retry_succeeds_on_second_attempt(monkeypatch):
     calls = []
 
@@ -270,6 +331,25 @@ def test_live_sell_updates_pnl_and_trade_counters(monkeypatch):
     assert manager.daily_pnl == -10.0
     assert logged_trades[0]["pnl_usdt"] == -10.0
     assert logged_trades[0]["exit_price"] == 90.0
+
+
+def test_live_sell_records_distinct_open_and_close_client_order_ids(monkeypatch):
+    class _SucceedingExchange:
+        def create_market_sell_order(self, symbol, quantity, params=None):
+            return {"id": "abc123", "average": 90.0}
+
+    logged_trades = []
+    manager = _live_manager(monkeypatch, _SucceedingExchange(), log_trade=logged_trades.append)
+    manager.positions["BTC/USDT"] = order_manager.Position(
+        symbol="BTC/USDT", side="long", entry_price=100.0, quantity=1.0,
+        stop_loss=90.0, take_profit=110.0, client_order_id="bot-open-id",
+    )
+
+    manager.close_position("BTC/USDT", "Stop Loss", current_price=90.0)
+
+    assert logged_trades[0]["client_order_id"] == "bot-open-id"
+    assert logged_trades[0]["close_client_order_id"] is not None
+    assert logged_trades[0]["close_client_order_id"] != "bot-open-id"
 
 
 def test_live_sell_falls_back_to_current_price_when_order_has_no_fill_price(monkeypatch):

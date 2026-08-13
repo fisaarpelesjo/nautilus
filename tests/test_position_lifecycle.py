@@ -48,6 +48,21 @@ class _FakeManager:
             return  # simula "falhou mas foi engolido", como o metodo real faz
 
 
+def test_attempt_close_uses_real_balance_in_live_mode(monkeypatch):
+    monkeypatch.setattr(position_lifecycle, "TRADING_MODE", "live")
+    monkeypatch.setattr(position_lifecycle, "_get_usdt_balance", lambda: 4242.0)
+    manager = _FakeManager(close_succeeds=True)
+    manager.paper_balance_usdt = 1000.0  # nao deve ser usado em modo live
+    pos = _FakePosition(stop_loss=99.0)
+    row = {}
+    trade_events = []
+
+    position_lifecycle.handle_open_position(manager, "BTC/USDT", pos, _FakeSignal(), 98.0, row, trade_events)
+
+    balance_after = trade_events[0][4]
+    assert balance_after == 4242.0
+
+
 def test_handle_open_position_trailing_stop_uses_persist_with_retry():
     manager = _FakeManager(persist_raises=True)
     pos = _FakePosition(entry_price=100.0, stop_loss=90.0, take_profit=200.0, atr=2.0, highest_price=100.0)

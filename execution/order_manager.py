@@ -54,6 +54,7 @@ class OrderManager:
         self.daily_pnl: float = 0.0
         self.daily_reset_date: str = ""
         self.last_reconciliation: Optional[dict] = None
+        self.pending_open_client_order_ids: Dict[str, str] = {}
         if TRADING_MODE == "live":
             self._assert_live_trading_allowed()
             self.exchange = get_exchange()
@@ -77,6 +78,7 @@ class OrderManager:
         self.winning_trades     = state.get("winning_trades", 0)
         self.realized_pnl       = state.get("realized_pnl", 0.0)
         self.last_reconciliation = state.get("last_reconciliation")
+        self.pending_open_client_order_ids = state.get("pending_open_client_order_ids", {})
         for symbol, ts in state.get("cooldowns", {}).items():
             self.cooldowns[symbol] = datetime.fromisoformat(ts)
         today = datetime.now().strftime("%Y-%m-%d")
@@ -133,6 +135,7 @@ class OrderManager:
             "daily_pnl":          self.daily_pnl,
             "daily_reset_date":   self.daily_reset_date,
             "last_reconciliation": self.last_reconciliation,
+            "pending_open_client_order_ids": self.pending_open_client_order_ids,
             "updated_at":         datetime.now().isoformat(),
         })
 
@@ -158,7 +161,7 @@ class OrderManager:
 
     def record_reconciliation(self, status: str, checked_at: str, diffs: list):
         self.last_reconciliation = {"status": status, "checked_at": checked_at, "diffs": diffs}
-        self._persist_state()
+        self._persist_state_with_retry("ao registrar resultado de reconciliacao")
 
     def _check_daily_reset(self):
         today = datetime.now().strftime("%Y-%m-%d")
@@ -229,22 +232,30 @@ class OrderManager:
             highest_price = risk.entry_price,
             client_order_id = client_order_id,
         )
-        self._persist_state()
-        log_event(
-            "paper_order_opened",
-            mode=TRADING_MODE,
-            symbol=symbol,
-            side="long",
-            entry_price=risk.entry_price,
-            quantity=risk.quantity,
-            stop_loss=risk.stop_loss,
-            take_profit=risk.take_profit,
-            balance_after=self.paper_balance_usdt,
-            client_order_id=client_order_id,
-        )
-        msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
-        log.info(msg)
-        send_telegram(msg)
+        self._persist_state_with_retry(f"apos comprar (paper) {symbol}")
+
+        try:
+            log_event(
+                "paper_order_opened",
+                mode=TRADING_MODE,
+                symbol=symbol,
+                side="long",
+                entry_price=risk.entry_price,
+                quantity=risk.quantity,
+                stop_loss=risk.stop_loss,
+                take_profit=risk.take_profit,
+                balance_after=self.paper_balance_usdt,
+                client_order_id=client_order_id,
+            )
+        except Exception as e:
+            log.error(f"Compra paper de {symbol} confirmada, mas falha ao registrar evento: {e}")
+
+        try:
+            msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
+            log.info(msg)
+            send_telegram(msg)
+        except Exception as e:
+            log.error(f"Compra paper de {symbol} confirmada, mas falha ao enviar alerta: {e}")
 
     def _paper_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         pos = self.positions[symbol]
@@ -314,7 +325,16 @@ class OrderManager:
     def _live_buy(self, symbol: str, risk: RiskLevels):
         if self.exchange is None:
             raise RuntimeError("Exchange live nao inicializada.")
-        client_order_id = _generate_client_order_id()
+        # Mesmo padrao de _live_sell: reusa o client_order_id de uma tentativa
+        # anterior de compra deste symbol em vez de gerar um novo a cada
+        # chamada. Sem isso, um timeout depois da Binance ja ter aceitado a
+        # ordem faria o proximo ciclo comprar de novo com um ID novo -- uma
+        # segunda ordem de compra de verdade, exposicao dobrada de capital.
+        if symbol not in self.pending_open_client_order_ids:
+            self.pending_open_client_order_ids[symbol] = _generate_client_order_id()
+            self._persist_state_with_retry(f"ao registrar tentativa de compra de {symbol}")
+        client_order_id = self.pending_open_client_order_ids[symbol]
+
         try:
             order = self.exchange.create_market_buy_order(
                 symbol, risk.quantity,
@@ -323,17 +343,35 @@ class OrderManager:
                     "newClientOrderId": client_order_id,
                 }
             )
-            self.positions[symbol] = Position(
-                symbol      = symbol,
-                side        = "long",
-                entry_price = risk.entry_price,
-                quantity    = risk.quantity,
-                stop_loss   = risk.stop_loss,
-                take_profit = risk.take_profit,
-                order_id    = order["id"],
-                client_order_id = client_order_id,
+        except Exception as e:
+            # Nao registra a posicao em caso de erro na CHAMADA: a ordem pode
+            # ter sido aceita pela exchange apesar do erro (timeout, etc.).
+            # pending_open_client_order_ids mantem o mesmo ID salvo para o
+            # proximo retry. Reconciliacao e quem flagra divergencia real.
+            log.error(f"Erro ao comprar {symbol}: {e}")
+            log_event(
+                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy",
+                error=str(e), client_order_id=client_order_id,
             )
-            self._persist_state()
+            send_telegram(f"[LIVE] ERRO ao comprar {symbol}: {e}")
+            return
+
+        # A partir daqui a compra foi aceita pela exchange -- a posicao MUST
+        # existir mesmo que o log/alerta abaixo falhe.
+        self.pending_open_client_order_ids.pop(symbol, None)
+        self.positions[symbol] = Position(
+            symbol      = symbol,
+            side        = "long",
+            entry_price = risk.entry_price,
+            quantity    = risk.quantity,
+            stop_loss   = risk.stop_loss,
+            take_profit = risk.take_profit,
+            order_id    = order["id"],
+            client_order_id = client_order_id,
+        )
+        self._persist_state_with_retry(f"apos comprar {symbol}")
+
+        try:
             log_event(
                 "live_order_opened",
                 mode=TRADING_MODE,
@@ -346,15 +384,15 @@ class OrderManager:
                 order_id=order["id"],
                 client_order_id=client_order_id,
             )
+        except Exception as e:
+            log.error(f"Compra de {symbol} confirmada, mas falha ao registrar evento: {e}")
+
+        try:
             msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
             log.info(msg)
             send_telegram(msg)
         except Exception as e:
-            log.error(f"Erro ao comprar {symbol}: {e}")
-            log_event(
-                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy",
-                error=str(e), client_order_id=client_order_id,
-            )
+            log.error(f"Compra de {symbol} confirmada, mas falha ao enviar alerta: {e}")
 
     def _live_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         if self.exchange is None:
@@ -426,6 +464,7 @@ class OrderManager:
                 "pnl_pct":       round(pnl_pct, 4),
                 "exit_reason":   reason,
                 "client_order_id": pos.client_order_id,
+                "close_client_order_id": client_order_id,
             })
         except Exception as e:
             log.error(f"Venda de {symbol} confirmada, mas falha ao registrar trade: {e}")

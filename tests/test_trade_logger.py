@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 from data import decision_store, state_store
 
 
@@ -32,6 +34,17 @@ def test_load_state_returns_empty_dict_when_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(state_store, "STATE_FILE", str(tmp_path / "missing.json"))
 
     assert state_store.load_state() == {}
+
+
+def test_load_state_raises_clear_error_on_corrupted_json(tmp_path, monkeypatch):
+    # Nao deve tratar JSON corrompido como "sem estado" (retornar {}) -- isso
+    # esconderia posicoes abertas de verdade na exchange.
+    state_file = tmp_path / "state.json"
+    state_file.write_text("{nao e json valido", encoding="utf-8")
+    monkeypatch.setattr(state_store, "STATE_FILE", str(state_file))
+
+    with pytest.raises(RuntimeError, match="corrompido"):
+        state_store.load_state()
 
 
 def test_log_decision_writes_analysis_row(tmp_path, monkeypatch):

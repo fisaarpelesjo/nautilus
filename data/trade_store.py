@@ -6,7 +6,7 @@ from data.paths import TRADES_FILE
 TRADE_HEADERS = [
     "opened_at", "closed_at", "symbol", "side", "entry_price",
     "exit_price", "quantity", "pnl_usdt", "pnl_pct", "exit_reason",
-    "balance_after", "client_order_id",
+    "balance_after", "client_order_id", "close_client_order_id",
 ]
 
 

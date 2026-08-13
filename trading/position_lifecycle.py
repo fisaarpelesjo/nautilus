@@ -35,7 +35,8 @@ def _attempt_close(manager, symbol, pos, current_price, reason, label, row, trad
         manager.set_cooldown(symbol)
     row["in_pos"] = False
     row["decision"] = f"fechou: {label}"
-    trade_events.append(("result", f"{label}  {symbol}", pnl, pnl_pct_val, manager.paper_balance_usdt))
+    balance_after = manager.paper_balance_usdt if TRADING_MODE == "paper" else _get_usdt_balance()
+    trade_events.append(("result", f"{label}  {symbol}", pnl, pnl_pct_val, balance_after))
 
 
 def handle_entry_candidate(

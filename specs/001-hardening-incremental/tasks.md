@@ -296,6 +296,66 @@ processo de revisão (endereçado abaixo, fora do código):
     do acumulado antes de continuar para a rodada 8, e a partir da User Story 2 os commits acontecem
     por sub-tópico dentro da própria story, não só ao final dela.
 
+Commitado (`f00d0cb`) e enviado ao `origin/main` antes de continuar. 79 testes, ruff/mypy limpos.
+
+Oitava rodada de `/code-review high` (sobre o commit `f00d0cb`) encontrou mais 10 problemas — a
+essa altura, o próprio review usou o histórico deste `tasks.md` para diferenciar achados novos de
+riscos já aceitos conscientemente, o que ajudou a manter o foco. 8 corrigidos, 2 avaliados e
+descartados:
+
+26. **O mais grave**: `_live_buy` gerava um `client_order_id` novo a cada chamada — o mesmo problema
+    já corrigido em `_live_sell` na rodada 3 (achado #7), só que no lado da compra. Um timeout depois
+    da Binance já ter aceitado a ordem faria o próximo ciclo comprar de novo com um ID novo: uma
+    segunda ordem de compra de verdade, capital duplicado. Corrigido com o mesmo padrão do lado da
+    venda: novo `OrderManager.pending_open_client_order_ids` (dict por symbol, já que ainda não existe
+    `Position` para guardar o campo antes da compra confirmar), persistido e reusado até a compra
+    confirmar ou falhar definitivamente.
+27. `_live_buy` também tinha o mesmo problema do achado #6 (rodada 6): chamada à exchange, criação da
+    `Position`, persistência e log/alerta tudo no mesmo `try/except` — uma falha de persistência
+    depois de uma compra bem-sucedida virava "Erro ao comprar" falso. Corrigido com o mesmo padrão de
+    `_live_sell`/`_paper_sell`: posição criada e persistida (com retry) antes do log, log/alerta
+    isolados em try/except próprios.
+28. `_paper_buy` chamava `self._persist_state()` direto, sem retry nem isolamento do log/alerta —
+    mesma classe de gap já fechada em `_paper_sell`, `_live_sell` e `_live_buy`. Corrigido.
+29. `record_reconciliation` ainda chamava `self._persist_state()` (sem retry), inconsistente com o
+    padrão já aplicado em todo outro ponto de persistência crítica. Corrigido para usar
+    `_persist_state_with_retry`.
+30. `load_state()` não tinha tratamento para `state.json` corrompido — um `json.JSONDecodeError` não
+    tratado derrubava a inicialização do bot sem explicação. Mas retornar `{}` silenciosamente (como
+    se não houvesse estado) seria pior: esconderia posições abertas de verdade. Corrigido para
+    levantar um erro claro e acionável, sem inicializar com estado vazio.
+31. `atomic_write`: o `os.replace` final estava *fora* do try/except de limpeza do `.tmp` — se o
+    próprio `replace` falhasse (achado relevante porque este repositório vive numa pasta sincronizada
+    pelo OneDrive, que pode segurar um arquivo brevemente durante upload), o `.tmp` ficava para trás.
+    Corrigido: `replace` agora dentro do mesmo try/except.
+32. Em `_live_sell`, o `log_trade` gravava `client_order_id=pos.client_order_id` (o ID da ordem de
+    COMPRA que abriu a posição) enquanto o `log_event` do mesmo fechamento usava o ID da ordem de
+    VENDA (`pending_close_client_order_id`) — dois valores diferentes sob o mesmo nome de campo,
+    dificultando rastrear um fechamento específico. Corrigido: nova coluna `close_client_order_id`
+    em `TRADE_HEADERS`, `client_order_id` continua sendo sempre o ID de abertura.
+33. `_attempt_close` (`trading/position_lifecycle.py`) usava `manager.paper_balance_usdt`
+    incondicionalmente no "saldo após o trade" exibido, mesmo em modo live (onde esse campo nunca é
+    atualizado e fica travado no valor simulado padrão) — diferente de `handle_entry_candidate`, que
+    já bifurca por `TRADING_MODE`. Corrigido com a mesma bifurcação.
+
+Não corrigidos (avaliados e descartados):
+- `_attempt_close` calcula pnl/pnl_pct a partir de `current_price` (estimativa no momento do sinal),
+  não do preço de execução real que `_live_sell` usa internamente para `log_trade`/contadores — em
+  modo live, slippage pode fazer a decisão de cooldown e o valor exibido no terminal discordarem do
+  que fica gravado em `trades.csv`. Esse cálculo (`position_pnl`) já existia antes desta spec e não
+  foi alterado por nenhum dos meus commits — é um comportamento pré-existente, não introduzido nem
+  agravado por esta feature. Fica como candidato a item de `ROADMAP.md` (unificar o cálculo de PnL
+  entre estimativa de sinal e preço de execução real, paper e live), fora do escopo de "idempotência +
+  reconciliação" desta spec.
+- `_estimate_value_usdt` chamando `fetch_ticker` por símbolo sem posição local, sequencial, dentro da
+  reconciliação síncrona — terceira vez que esse ponto é levantado (rodadas 3, 5 e agora 8). Decisão
+  final mantida: caminho raro (só quando há saldo órfão sem posição local — o cenário anômalo que a
+  reconciliação existe para detectar) e pouco frequente (a cada ~30min, não a cada ciclo). Registrado
+  aqui para não ser reaberto sem uma mudança real de contexto (ex: se `tracked_symbols` crescer muito
+  ou a reconciliação passar a rodar com mais frequência).
+
+79 testes passando (7 novos desde o commit `f00d0cb`), ruff/mypy limpos.
+
 72 testes passando (5 novos desde a rodada 6), ruff/mypy limpos.
 
 ---
