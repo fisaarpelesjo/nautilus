@@ -225,9 +225,23 @@ Objetivo: explorar melhorias maiores somente depois que validacao, risco e opera
    - Generalizar configuracao de corretora alem da Binance usando a base existente com `ccxt`.
    - Por que melhora: permite comparar liquidez/custos e reduz dependencia operacional, mas aumenta complexidade de execucao.
 
+## Qualidade de Codigo
+
+Refactor SDD iniciado em 2026-08-13 (`.specify/memory/project-spec.yml`, `plan.md`, `tasks.md`). Fase 1 (foundation) configurou ruff, mypy (escopado em `risk/manager.py` e `execution/order_manager.py`) e CI no GitHub Actions.
+
+Baseline de cobertura de teste registrado em 2026-08-13 (`pytest --cov`): **66% no projeto inteiro**. Modulos criticos para o hardening da Fase 2:
+
+- `risk/manager.py`: 93%
+- `execution/order_manager.py`: 36% (foco do gap de idempotencia/reconciliacao, ver `.specify/memory/plan.md` Fase 2)
+- `strategy/ema_rsi.py`: 77%
+- `backtesting/engine.py`: 83%
+
+Meta de `test_coverage_min_pct` da spec (80%) aplica-se primeiro a `risk/` e `execution/`, nao ao projeto inteiro.
+
 ## Referencias Internas
 
 - `STRATEGY_REVIEW.md`: hipoteses, resultados locais e diagnostico da estrategia.
 - `docs/research/`: artigos e notas sobre analise tecnica, custos, drawdown, out-of-sample e comparacao com buy-and-hold.
 - `backtesting/engine.py`: simulacao historica, custos, slippage e metricas atuais.
 - `backtesting/optimizer.py`: busca de parametros atual, ponto de partida para split treino/teste e walk-forward.
+- `.specify/memory/`: spec, plan e tasks do refactor SDD em andamento.
