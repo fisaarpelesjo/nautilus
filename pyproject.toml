@@ -7,3 +7,9 @@ select = ["E", "F", "B"]
 ignore = [
     "E501",  # linha longa - nao bloquear neste momento, so bugs reais (F, B)
 ]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["risk/manager.py", "execution/order_manager.py"]
+check_untyped_defs = true
+ignore_missing_imports = true
