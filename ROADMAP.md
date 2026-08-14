@@ -256,8 +256,11 @@ Objetivo: explorar melhorias maiores somente depois que validacao, risco e opera
 Refactor SDD iniciado em 2026-08-13 usando o GitHub Spec Kit oficial
 (`specs/001-hardening-incremental/spec.md`, `plan.md`, `tasks.md`; principios em
 `.specify/memory/constitution.md`). Fase de Setup/Foundational configurou ruff, mypy
-(escopado em `risk/manager.py` e `execution/order_manager.py`) e pytest-cov; CI no
-GitHub Actions e pre-commit ainda pendentes (ver `tasks.md` T006/T007).
+(escopado em `risk/manager.py` e `execution/order_manager.py`), pytest-cov, pre-commit
+(`.pre-commit-config.yaml`) e CI no GitHub Actions (`.github/workflows/ci.yml`, jobs
+`lint` → `typecheck` → `test`) — `tasks.md` T006/T007 concluidas. A spec inteira
+(US1/US2/US3 + Polish) foi concluida; ver `tasks.md` para o historico de 13+ rodadas de
+`/code-review high` por User Story.
 
 Baseline de cobertura de teste registrado em 2026-08-13 (`pytest --cov`): **66% no projeto inteiro**. Modulos criticos para o hardening da Fase 2:
 
