@@ -65,21 +65,23 @@ def handle_entry_candidate(
     if manager.is_in_cooldown(symbol):
         blockers.append("cooldown")
 
-    current_balance = None
-    if not blockers:
-        # So busca o saldo se nenhum outro bloqueio mais barato ja descartou
-        # a entrada. Saldo desconhecido (falha ao buscar) MUST bloquear a
-        # compra -- tratar como 0.0 mandaria uma ordem de quantidade zero de
-        # verdade para a exchange (ver risk/manager.py calculate_risk).
-        current_balance = _current_balance(manager)
-        if current_balance is None:
-            blockers.append("saldo indisponivel")
-
     if not blockers:
         row["mtf_checked"] = True
         row["mtf_ok"] = mtf_confirmed(symbol, current_price, strategy)
         if not row["mtf_ok"]:
             blockers.append("MTF negado")
+
+    current_balance = None
+    if not blockers:
+        # So busca o saldo se nenhum bloqueio mais barato (incluindo MTF) ja
+        # descartou a entrada -- preserva a ordem original (MTF antes do
+        # saldo) para nao gastar uma chamada de rede extra quando o MTF ja
+        # bloqueia. Saldo desconhecido (falha ao buscar) MUST bloquear a
+        # compra -- tratar como 0.0 mandaria uma ordem de quantidade zero de
+        # verdade para a exchange (ver risk/manager.py calculate_risk).
+        current_balance = _current_balance(manager)
+        if current_balance is None:
+            blockers.append("saldo indisponivel")
 
     if blockers:
         row["blockers"] = ", ".join(blockers)

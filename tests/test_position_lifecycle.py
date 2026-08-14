@@ -80,6 +80,12 @@ def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
         position_lifecycle, "fetch_balance",
         lambda: (_ for _ in ()).throw(RuntimeError("timeout")),
     )
+    # MTF roda antes do saldo (mesma ordem de antes desta spec); mocka para
+    # nao bater na rede de verdade no teste.
+    monkeypatch.setattr(
+        position_lifecycle, "fetch_ohlcv",
+        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
+    )
     manager = _FakeEntryManager()
     row = {}
     trade_events = []
@@ -112,6 +118,49 @@ def test_handle_entry_candidate_opens_when_balance_known(monkeypatch):
 
     assert opened is True
     assert len(manager.open_calls) == 1
+
+
+def test_handle_entry_candidate_skips_balance_fetch_when_mtf_blocks(monkeypatch):
+    # Regressao: o saldo (chamada de rede) so deve ser buscado se nenhum
+    # bloqueio mais barato -- incluindo o MTF, tambem uma chamada de rede --
+    # ja tiver descartado a entrada. Buscar o saldo antes do MTF gastaria uma
+    # chamada extra sempre que o MTF bloqueasse.
+    monkeypatch.setattr(position_lifecycle, "TRADING_MODE", "live")
+
+    class _RealMtfStrategy:
+        def calculate_indicators(self, df):
+            raise AssertionError("nao deveria chegar aqui neste teste")
+
+    balance_calls = []
+
+    def _fake_ohlcv(symbol, timeframe):
+        import pandas as pd
+        return pd.DataFrame({"close": [100.0]})
+
+    def _fake_fetch_balance():
+        balance_calls.append(1)
+        return {"USDT": 1000.0}
+
+    monkeypatch.setattr(position_lifecycle, "fetch_ohlcv", _fake_ohlcv)
+    monkeypatch.setattr(position_lifecycle, "fetch_balance", _fake_fetch_balance)
+
+    class _BlockingStrategy:
+        def calculate_indicators(self, df):
+            return df.assign(ema_trend=[10_000.0])  # preco atual (100) nunca supera isso -> MTF nega
+
+    manager = _FakeEntryManager(balance=1000.0)
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=_BlockingStrategy(), row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert "MTF negado" in row["blockers"]
+    assert balance_calls == []  # saldo nunca foi buscado
 
 
 def test_attempt_close_uses_real_balance_in_live_mode(monkeypatch):

@@ -452,6 +452,28 @@ Não corrigidos (avaliados e descartados):
 
 86 testes passando (3 novos desde o commit `a247176`), ruff/mypy limpos.
 
+Commitado (`3a36fc3`) e enviado ao `origin/main` antes de continuar.
+
+Décima primeira rodada de `/code-review high` (sobre o commit `3a36fc3`) encontrou só 3 problemas —
+o review explicitamente relatou que **nenhum bug de correção sobreviveu ao escrutínio** desta vez,
+sinal de convergência. 2 corrigidos, 1 é observação de processo (não código):
+
+44. A correção do achado #39 (rodada anterior) buscava o saldo *antes* do MTF, invertendo a ordem
+    original (MTF antes do saldo) e gastando uma chamada de rede extra sempre que o MTF já bloqueava
+    a entrada. Corrigido: saldo volta a ser checado só depois do MTF passar, preservando o
+    short-circuit original — e adicionado teste garantindo que o saldo não é buscado quando o MTF
+    bloqueia.
+45. `_safe_step` em `execution/order_manager.py` tinha virado um wrapper de uma linha só chamando
+    `utils.logger.safe_step` — sobra da extração da rodada 10. Removido; todos os ~11 pontos de
+    chamada agora usam `safe_step(log, ...)` direto.
+
+Não corrigido (observação de processo, não código):
+- O título do commit da rodada 10 tinha 76 caracteres, acima do limite de 72 do `CLAUDE.md`. Não dá
+  para reescrever um commit já publicado sem risco desproporcional ao problema (mensagem de commit).
+  Cuidado redobrado com o tamanho do título a partir daqui.
+
+87 testes passando (1 novo desde o commit `3a36fc3`), ruff/mypy limpos.
+
 ---
 
 ## Phase 4: User Story 2 - Circuit breaker além do limite diário de drawdown (Priority: P2)

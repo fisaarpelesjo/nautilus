@@ -28,10 +28,6 @@ def _generate_client_order_id() -> str:
     return f"bot-{uuid.uuid4().hex[:8]}-{int(datetime.now().timestamp())}"
 
 
-def _safe_step(log_prefix: str, fn):
-    safe_step(log, log_prefix, fn)
-
-
 def _notify_safe(prefix: str, msg: str):
     """Loga e envia `msg` via Telegram, isolado (nao propaga falha) -- usado
     depois de uma ordem confirmada, onde uma falha de notificacao nao pode
@@ -39,7 +35,7 @@ def _notify_safe(prefix: str, msg: str):
     def _notify():
         log.info(msg)
         send_telegram(msg)
-    _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
+    safe_step(log, f"{prefix}, mas falha ao enviar alerta", _notify)
 
 
 @dataclass
@@ -251,7 +247,7 @@ class OrderManager:
         self._persist_state_with_retry(f"apos comprar (paper) {symbol}")
 
         prefix = f"Compra paper de {symbol} confirmada"
-        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+        safe_step(log, f"{prefix}, mas falha ao registrar evento", lambda: log_event(
             "paper_order_opened",
             mode=TRADING_MODE,
             symbol=symbol,
@@ -291,7 +287,7 @@ class OrderManager:
         self._persist_state_with_retry(f"apos vender (paper) {symbol}")
 
         prefix = f"Venda paper de {symbol} confirmada"
-        _safe_step(f"{prefix}, mas falha ao registrar trade", lambda: log_trade({
+        safe_step(log, f"{prefix}, mas falha ao registrar trade", lambda: log_trade({
             "opened_at":     pos.opened_at,
             "closed_at":     datetime.now(),
             "symbol":        pos.symbol,
@@ -306,7 +302,7 @@ class OrderManager:
             "client_order_id": pos.client_order_id,
         }))
 
-        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+        safe_step(log, f"{prefix}, mas falha ao registrar evento", lambda: log_event(
             "paper_order_closed",
             mode=TRADING_MODE,
             symbol=pos.symbol,
@@ -354,11 +350,11 @@ class OrderManager:
             error_message = str(e)  # 'e' some ao sair do except; captura antes das lambdas
             log.error(f"Erro ao comprar {symbol}: {error_message}")
             error_prefix = f"Erro ao comprar {symbol} ja registrado no log"
-            _safe_step(f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
+            safe_step(log, f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
                 "live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy",
                 error=error_message, client_order_id=client_order_id,
             ))
-            _safe_step(f"{error_prefix}, mas falha ao enviar alerta",
+            safe_step(log, f"{error_prefix}, mas falha ao enviar alerta",
                        lambda: send_telegram(f"[LIVE] ERRO ao comprar {symbol}: {error_message}"))
             return
 
@@ -378,7 +374,7 @@ class OrderManager:
         self._persist_state_with_retry(f"apos comprar {symbol}")
 
         prefix = f"Compra de {symbol} confirmada"
-        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+        safe_step(log, f"{prefix}, mas falha ao registrar evento", lambda: log_event(
             "live_order_opened",
             mode=TRADING_MODE,
             symbol=symbol,
@@ -426,11 +422,12 @@ class OrderManager:
             error_message = str(e)  # 'e' some ao sair do except; captura antes das lambdas
             log.error(f"Erro ao vender {symbol}: {error_message}")
             error_prefix = f"Erro ao vender {symbol} ja registrado no log"
-            _safe_step(f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
+            safe_step(log, f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
                 "live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell",
                 error=error_message, client_order_id=client_order_id,
             ))
-            _safe_step(
+            safe_step(
+                log,
                 f"{error_prefix}, mas falha ao enviar alerta",
                 lambda: send_telegram(
                     f"[LIVE] ERRO ao vender {symbol}: {error_message} | posicao mantida localmente para revisao"
@@ -460,7 +457,7 @@ class OrderManager:
         # falhar (ex: trades.csv sem espaco em disco) nao impeca as outras
         # duas de rodar nem reapareca como se a venda tivesse falhado.
         prefix = f"Venda de {symbol} confirmada"
-        _safe_step(f"{prefix}, mas falha ao registrar trade", lambda: log_trade({
+        safe_step(log, f"{prefix}, mas falha ao registrar trade", lambda: log_trade({
             "opened_at":     pos.opened_at,
             "closed_at":     datetime.now(),
             "symbol":        pos.symbol,
@@ -475,7 +472,7 @@ class OrderManager:
             "close_client_order_id": client_order_id,
         }))
 
-        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+        safe_step(log, f"{prefix}, mas falha ao registrar evento", lambda: log_event(
             "live_order_closed",
             mode=TRADING_MODE,
             symbol=symbol,
