@@ -64,6 +64,17 @@ def handle_entry_candidate(
         blockers.append("drawdown diario")
     if manager.is_in_cooldown(symbol):
         blockers.append("cooldown")
+
+    current_balance = None
+    if not blockers:
+        # So busca o saldo se nenhum outro bloqueio mais barato ja descartou
+        # a entrada. Saldo desconhecido (falha ao buscar) MUST bloquear a
+        # compra -- tratar como 0.0 mandaria uma ordem de quantidade zero de
+        # verdade para a exchange (ver risk/manager.py calculate_risk).
+        current_balance = _current_balance(manager)
+        if current_balance is None:
+            blockers.append("saldo indisponivel")
+
     if not blockers:
         row["mtf_checked"] = True
         row["mtf_ok"] = mtf_confirmed(symbol, current_price, strategy)
@@ -75,7 +86,7 @@ def handle_entry_candidate(
         row["decision"] = "compra bloqueada: " + ", ".join(blockers)
         return False
 
-    available = (_current_balance(manager) or 0.0) / slots_left
+    available = current_balance / slots_left
     atr = float(indicators.get("atr", 0) or 0)
     risk = calculate_risk(current_price, available, atr)
     manager.open_long(symbol, risk)

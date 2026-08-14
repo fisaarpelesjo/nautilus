@@ -48,6 +48,72 @@ class _FakeManager:
             return  # simula "falhou mas foi engolido", como o metodo real faz
 
 
+class _FakeEntryManager:
+    def __init__(self, balance=1000.0, daily_limit_hit=False, in_cooldown=False, open_succeeds=True):
+        self.positions = {}
+        self.paper_balance_usdt = balance
+        self._daily_limit_hit = daily_limit_hit
+        self._in_cooldown = in_cooldown
+        self._open_succeeds = open_succeeds
+        self.open_calls = []
+
+    def is_daily_limit_hit(self):
+        return self._daily_limit_hit
+
+    def is_in_cooldown(self, symbol):
+        return self._in_cooldown
+
+    def open_long(self, symbol, risk):
+        self.open_calls.append((symbol, risk))
+        if self._open_succeeds:
+            self.positions[symbol] = object()
+
+    def has_position(self, symbol):
+        return symbol in self.positions
+
+
+def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
+    # Regressao: saldo desconhecido nao pode virar 0.0 silenciosamente --
+    # isso mandaria uma ordem de quantidade zero de verdade para a exchange.
+    monkeypatch.setattr(position_lifecycle, "TRADING_MODE", "live")
+    monkeypatch.setattr(
+        position_lifecycle, "fetch_balance",
+        lambda: (_ for _ in ()).throw(RuntimeError("timeout")),
+    )
+    manager = _FakeEntryManager()
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "saldo indisponivel" in row["blockers"]
+
+
+def test_handle_entry_candidate_opens_when_balance_known(monkeypatch):
+    monkeypatch.setattr(
+        position_lifecycle, "fetch_ohlcv",
+        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
+    )
+    manager = _FakeEntryManager(balance=1000.0)
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is True
+    assert len(manager.open_calls) == 1
+
+
 def test_attempt_close_uses_real_balance_in_live_mode(monkeypatch):
     monkeypatch.setattr(position_lifecycle, "TRADING_MODE", "live")
     monkeypatch.setattr(position_lifecycle, "fetch_balance", lambda: {"USDT": 4242.0})

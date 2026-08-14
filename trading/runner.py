@@ -37,7 +37,7 @@ from utils.display import (
     trade_result,
     waiting,
 )
-from utils.logger import get_logger, log_event
+from utils.logger import get_logger, log_event, safe_step
 from utils.notifier import send_telegram
 
 log = get_logger("bot")
@@ -52,43 +52,41 @@ def _run_reconciliation(manager: OrderManager, tracked_symbols):
     try:
         result = reconcile(manager, tracked_symbols=tracked_symbols)
     except Exception as exc:
-        log.error(f"Reconciliacao falhou: {exc}")
-        log_event("reconciliation_error", mode=TRADING_MODE, error=str(exc))
-        try:
-            manager.record_reconciliation("error", datetime.now().isoformat(), [str(exc)])
-        except Exception as persist_exc:
-            log.error(f"Falha ao persistir status de erro de reconciliacao: {persist_exc}")
+        error_message = str(exc)  # captura antes de qualquer lambda/closure
+        log.error(f"Reconciliacao falhou: {error_message}")
+        safe_step(log, "Falha ao publicar evento de erro de reconciliacao",
+                  lambda: log_event("reconciliation_error", mode=TRADING_MODE, error=error_message))
+        safe_step(log, "Falha ao persistir status de erro de reconciliacao", lambda: manager.record_reconciliation(
+            "error", datetime.now().isoformat(), [error_message]
+        ))
         return
 
     if result is None:
         return
 
-    # O alerta de uma divergencia real vem ANTES de tentar persistir o
-    # resultado, e cada passo e isolado no seu proprio try/except: uma falha
-    # ao persistir (I/O) nao pode engolir o alerta de uma divergencia
-    # genuina -- isso derrotaria o proposito da reconciliacao.
+    # O alerta de uma divergencia real vem ANTES de persistir o resultado, e
+    # cada passo e isolado (safe_step): uma falha ao persistir (I/O) nao pode
+    # engolir o alerta de uma divergencia genuina -- isso derrotaria o
+    # proposito da reconciliacao.
     if result.status == "mismatch":
         log.warning(f"Divergencia de reconciliacao: {result.diffs}")
-        try:
-            log_event(
-                "reconciliation_mismatch",
-                mode=TRADING_MODE,
-                diffs=result.diffs,
-                checked_at=result.checked_at.isoformat(),
-            )
-        except Exception as exc:
-            log.error(f"Falha ao registrar evento de divergencia: {exc}")
-        try:
-            send_telegram("Divergencia de reconciliacao detectada:\n" + "\n".join(result.diffs))
-        except Exception as exc:
-            log.error(f"Falha ao enviar alerta de divergencia: {exc}")
+        safe_step(log, "Falha ao registrar evento de divergencia", lambda: log_event(
+            "reconciliation_mismatch",
+            mode=TRADING_MODE,
+            diffs=result.diffs,
+            checked_at=result.checked_at.isoformat(),
+        ))
+        safe_step(log, "Falha ao enviar alerta de divergencia",
+                  lambda: send_telegram("Divergencia de reconciliacao detectada:\n" + "\n".join(result.diffs)))
     else:
         log.info("Reconciliacao ok")
 
-    try:
-        manager.record_reconciliation(result.status, result.checked_at.isoformat(), result.diffs)
-    except Exception as exc:
-        log.error(f"Falha ao persistir resultado de reconciliacao: {exc}")
+    # record_reconciliation ja usa _persist_state_with_retry internamente (nao
+    # deveria propagar falha), mas ainda isolado aqui por seguranca -- este
+    # runner nao pode assumir esse invariante de qualquer `manager` que receba.
+    safe_step(log, "Falha ao persistir resultado de reconciliacao", lambda: manager.record_reconciliation(
+        result.status, result.checked_at.isoformat(), result.diffs
+    ))
 
 
 def _round_price(price: float) -> float:

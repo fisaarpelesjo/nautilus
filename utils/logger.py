@@ -35,3 +35,18 @@ def log_event(event: str, **fields):
     path = f"{LOG_DIR}/events-{datetime.now().strftime('%Y-%m-%d')}.jsonl"
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+
+
+def safe_step(logger: logging.Logger, log_prefix: str, fn):
+    """Roda fn(); se falhar, loga e engole em vez de propagar.
+
+    Usado para acoes de observabilidade (log estruturado, alerta Telegram)
+    que rodam depois que a parte critica de uma operacao (ordem executada,
+    posicao/contadores atualizados, reconciliacao concluida) ja aconteceu --
+    uma falha aqui nao pode reaparecer como se a operacao critica tivesse
+    falhado, nem derrubar o ciclo do bot.
+    """
+    try:
+        fn()
+    except Exception as e:
+        logger.error(f"{log_prefix}: {e}")

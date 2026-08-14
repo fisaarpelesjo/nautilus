@@ -181,6 +181,28 @@ def test_live_sell_error_alert_still_sent_when_log_event_fails(monkeypatch):
     assert any("ERRO ao vender" in m for m in sent_messages)
 
 
+def test_live_buy_error_alert_still_sent_when_log_event_fails(monkeypatch):
+    # Espelha test_live_sell_error_alert_still_sent_when_log_event_fails: o
+    # mesmo isolamento no ramo de erro se aplica a _live_buy.
+    class _FailingExchange:
+        def create_market_buy_order(self, symbol, quantity, params=None):
+            raise RuntimeError("network timeout")
+
+    sent_messages = []
+    manager = _live_manager(monkeypatch, _FailingExchange())
+    monkeypatch.setattr(order_manager, "send_telegram", lambda msg: sent_messages.append(msg))
+    monkeypatch.setattr(
+        order_manager, "log_event",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)  # nao deve levantar
+
+    assert not manager.has_position("BTC/USDT")
+    assert any("ERRO ao comprar" in m for m in sent_messages)
+
+
 def _live_manager(monkeypatch, exchange, log_trade=None):
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)

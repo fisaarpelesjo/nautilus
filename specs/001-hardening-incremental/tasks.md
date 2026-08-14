@@ -408,6 +408,50 @@ Não corrigidos (avaliados e descartados):
 
 83 testes passando (4 novos desde o commit `ce4d5a1`), ruff/mypy limpos.
 
+Commitado (`a247176`) e enviado ao `origin/main` antes de continuar.
+
+Décima rodada de `/code-review high` (sobre o commit `a247176`) encontrou mais 7 problemas — os
+achados começaram a ficar mais sutis/de menor severidade, sinal de que a implementação está
+convergindo. 5 corrigidos, 2 avaliados e descartados:
+
+39. **O mais grave**: `available = (_current_balance(manager) or 0.0) / slots_left` em
+    `handle_entry_candidate` reintroduzia exatamente o problema que o achado #37 (rodada 9) tinha
+    corrigido em `_attempt_close` — saldo desconhecido virava `0.0` silenciosamente, e uma ordem de
+    **quantidade zero de verdade** seguia para `calculate_risk` → `_live_buy` →
+    `create_market_buy_order(symbol, 0.0, ...)`, uma chamada real à Binance fadada a ser rejeitada
+    (filtro MIN_NOTIONAL/LOT_SIZE), gastando uma tentativa de `pending_open_client_order_ids` e
+    escondendo a causa real (saldo indisponível) atrás de um "erro ao comprar" genérico. Corrigido:
+    saldo desconhecido agora vira um bloqueio explícito (`"saldo indisponivel"`) antes de calcular
+    `available`, no mesmo lugar que os outros bloqueios (`sem slot`, `cooldown`, etc.) — e só busca o
+    saldo se nenhum bloqueio mais barato já descartou a entrada, preservando o short-circuit
+    original.
+40. `_run_reconciliation` (`trading/runner.py`) ainda reimplementava à mão o mesmo padrão que
+    `_safe_step` foi criado para substituir em `execution/order_manager.py`, na rodada anterior.
+    Extraído `safe_step(logger, prefixo, fn)` para `utils/logger.py` (módulo compartilhado, já que
+    `_safe_step` era privado de `order_manager.py`), usado agora pelos dois módulos.
+41. O trio `msg = ...` / `def _notify(): ...` / `_safe_step(...)` estava duplicado nos 4 métodos de
+    ordem, mesmo já existindo o `_safe_step`. Extraído `_notify_safe(prefix, msg)` em
+    `execution/order_manager.py`, reduzindo cada ponto de chamada a uma linha.
+42. `handle_entry_candidate` não tinha nenhum teste (nem antes nem depois desta spec) — o gap que
+    permitiu o achado #39 passar despercebido. Adicionados testes cobrindo bloqueio por saldo
+    desconhecido e abertura normal com saldo conhecido.
+43. Só existia teste de isolamento do ramo de erro (achado #34, rodada 9) para `_live_sell`, não para
+    `_live_buy`, apesar do fix ter sido aplicado aos dois. Adicionado o teste espelhado.
+
+Não corrigidos (avaliados e descartados):
+- `time.sleep(0.2)` dentro do retry de `_persist_state_with_retry` bloqueia a thread única do bot
+  durante uma falha de persistência. Pior caso realista: todas as `MAX_POSITIONS=5` posições
+  falhando persistência no mesmo ciclo, ~1 segundo de atraso total dentro de um orçamento de 60s por
+  ciclo — desprezível, e o sleep existe justamente para servir o propósito do retry (achado #36,
+  rodada 9). Mantido.
+- `_current_balance` faz uma chamada de rede (`fetch_balance`) não cacheada por chamada, podendo
+  somar algumas chamadas no mesmo ciclo (um fechamento + uma abertura, por exemplo). Mesma categoria
+  de trade-off já aceito para `_estimate_value_usdt`/`fetch_ticker` na reconciliação (rodadas 3, 5,
+  8): custo de rede real, mas baixo e dentro do orçamento de 60s por ciclo — não justifica uma
+  camada de cache só para isso no escopo desta spec.
+
+86 testes passando (3 novos desde o commit `a247176`), ruff/mypy limpos.
+
 ---
 
 ## Phase 4: User Story 2 - Circuit breaker além do limite diário de drawdown (Priority: P2)

@@ -17,7 +17,7 @@ from data.fetcher import get_exchange
 from data.state_store import load_state, save_state
 from data.trade_store import log_trade
 from risk.manager import RiskLevels
-from utils.logger import get_logger, log_event
+from utils.logger import get_logger, log_event, safe_step
 from utils.notifier import send_telegram
 
 log = get_logger("orders")
@@ -29,18 +29,17 @@ def _generate_client_order_id() -> str:
 
 
 def _safe_step(log_prefix: str, fn):
-    """Roda fn(); se falhar, loga e engole em vez de propagar.
+    safe_step(log, log_prefix, fn)
 
-    Usado para acoes de observabilidade (log estruturado, alerta Telegram)
-    que rodam depois que a parte critica de uma ordem (executada na
-    exchange, posicao/contadores atualizados) ja aconteceu -- uma falha
-    aqui nao pode reaparecer como se a ordem tivesse falhado, nem derrubar
-    o ciclo do bot.
-    """
-    try:
-        fn()
-    except Exception as e:
-        log.error(f"{log_prefix}: {e}")
+
+def _notify_safe(prefix: str, msg: str):
+    """Loga e envia `msg` via Telegram, isolado (nao propaga falha) -- usado
+    depois de uma ordem confirmada, onde uma falha de notificacao nao pode
+    reaparecer como erro da ordem em si."""
+    def _notify():
+        log.info(msg)
+        send_telegram(msg)
+    _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
 
 
 @dataclass
@@ -267,11 +266,7 @@ class OrderManager:
 
         msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
 
-        def _notify():
-            log.info(msg)
-            send_telegram(msg)
-
-        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
+        _notify_safe(prefix, msg)
 
     def _paper_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         pos = self.positions[symbol]
@@ -328,11 +323,7 @@ class OrderManager:
 
         msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
 
-        def _notify():
-            log.info(msg)
-            send_telegram(msg)
-
-        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
+        _notify_safe(prefix, msg)
 
     def _live_buy(self, symbol: str, risk: RiskLevels):
         if self.exchange is None:
@@ -402,11 +393,7 @@ class OrderManager:
 
         msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
 
-        def _notify():
-            log.info(msg)
-            send_telegram(msg)
-
-        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
+        _notify_safe(prefix, msg)
 
     def _live_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         if self.exchange is None:
@@ -504,8 +491,4 @@ class OrderManager:
 
         msg = f"[LIVE] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | ID={order['id']}"
 
-        def _notify():
-            log.info(msg)
-            send_telegram(msg)
-
-        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
+        _notify_safe(prefix, msg)
