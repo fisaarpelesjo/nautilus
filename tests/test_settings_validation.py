@@ -28,6 +28,13 @@ def test_validate_config_rejects_max_consecutive_losses_below_one(monkeypatch):
         settings.validate_config()
 
 
+def test_validate_config_rejects_edge_min_trades_below_one(monkeypatch):
+    monkeypatch.setattr(settings, "EDGE_MIN_TRADES", 0)
+
+    with pytest.raises(ValueError, match="EDGE_MIN_TRADES"):
+        settings.validate_config()
+
+
 def test_validate_config_requires_confirmation_for_live(monkeypatch):
     monkeypatch.setattr(settings, "TRADING_MODE", "live")
     monkeypatch.setattr(settings, "LIVE_TRADING_CONFIRMATION", "")

@@ -43,6 +43,10 @@ ENTRY_COOLDOWN_CYCLES = int(os.getenv("ENTRY_COOLDOWN_CYCLES", "3"))
 DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do saldo inicial
 MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "3"))
 
+# Numero minimo de trades para o veredito de aprovacao de backtest (edge/multibacktest/scan/
+# backtest --validate) ser conclusivo -- amostra abaixo disso vira "inconclusivo".
+EDGE_MIN_TRADES = int(os.getenv("EDGE_MIN_TRADES", "10"))
+
 DAILY_REPORT_HOUR = int(os.getenv("DAILY_REPORT_HOUR", "0"))  # hora do relatório (0 = meia-noite)
 
 
@@ -119,6 +123,8 @@ def validate_config():
         errors.append("DAILY_DRAWDOWN_LIMIT deve estar entre 0 e 1.")
     if MAX_CONSECUTIVE_LOSSES < 1:
         errors.append("MAX_CONSECUTIVE_LOSSES deve ser pelo menos 1.")
+    if EDGE_MIN_TRADES < 1:
+        errors.append("EDGE_MIN_TRADES deve ser pelo menos 1.")
     if not 0 <= DAILY_REPORT_HOUR <= 23:
         errors.append("DAILY_REPORT_HOUR deve estar entre 0 e 23.")
     if BB_PERIOD < 1 or BB_STD <= 0:

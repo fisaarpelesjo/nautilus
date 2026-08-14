@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 import pandas as pd
 
+from backtesting.approval import ApprovalVerdict, evaluate_approval
 from backtesting.engine import BacktestResult, print_report, precompute_signals, simulate_backtest
 from data.fetcher import fetch_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
@@ -17,11 +17,11 @@ log = get_logger("backtest")
 MIN_WINDOW_CANDLES = 150
 DEFAULT_VALIDATION_RATIO = 0.3
 
-# Criterios de aprovacao automatica (ROADMAP.md, esbocado na Fase 1), aplicados
-# sobre a janela de validacao out-of-sample, nunca sobre a de treino.
-MIN_TRADES_FOR_APPROVAL = 10
-MIN_PROFIT_FACTOR_FOR_APPROVAL = 1.2
-MAX_ACCEPTABLE_DRAWDOWN_PCT = 10.0
+# Alias de compatibilidade -- a logica de veredito foi generalizada e movida para
+# backtesting/approval.py (spec 002), reusada por multibacktest/scan/edge alem do
+# fluxo out-of-sample daqui.
+ValidationVerdict = ApprovalVerdict
+evaluate_validation = evaluate_approval
 
 
 def split_train_validation(
@@ -43,44 +43,6 @@ def split_train_validation(
         return df, None
 
     return train, validation
-
-
-@dataclass
-class ValidationVerdict:
-    status: str  # "aprovado" | "reprovado" | "inconclusivo"
-    reasons: List[str]
-
-
-def evaluate_validation(
-    result: Optional[BacktestResult],
-    min_trades: int = MIN_TRADES_FOR_APPROVAL,
-    min_profit_factor: float = MIN_PROFIT_FACTOR_FOR_APPROVAL,
-    max_drawdown_pct: float = MAX_ACCEPTABLE_DRAWDOWN_PCT,
-) -> ValidationVerdict:
-    """Aplica os criterios de aprovacao automatica sobre a janela de validacao
-    out-of-sample (nunca sobre a de treino -- SC-005/spec US3)."""
-    if result is None:
-        return ValidationVerdict(
-            status="inconclusivo",
-            reasons=["dados insuficientes para uma janela de validacao out-of-sample"],
-        )
-
-    reasons: List[str] = []
-    if result.total_trades < min_trades:
-        reasons.append(f"apenas {result.total_trades} trades na validacao (minimo {min_trades})")
-    if result.total_return_pct <= result.buy_hold_return_pct:
-        reasons.append(
-            f"retorno {result.total_return_pct:+.2f}% nao supera buy-and-hold "
-            f"{result.buy_hold_return_pct:+.2f}%"
-        )
-    if result.profit_factor <= min_profit_factor:
-        reasons.append(f"profit factor {result.profit_factor:.2f} abaixo do minimo {min_profit_factor}")
-    if result.max_drawdown_pct > max_drawdown_pct:
-        reasons.append(f"drawdown {result.max_drawdown_pct:.2f}% acima do aceitavel {max_drawdown_pct:.0f}%")
-
-    if reasons:
-        return ValidationVerdict(status="reprovado", reasons=reasons)
-    return ValidationVerdict(status="aprovado", reasons=[])
 
 
 def run_backtest_with_validation(

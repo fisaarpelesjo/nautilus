@@ -1,7 +1,7 @@
 import pandas as pd
 
-from backtesting.engine import BacktestResult, precompute_signals
-from backtesting.validation import evaluate_validation, split_train_validation
+from backtesting.engine import precompute_signals
+from backtesting.validation import split_train_validation
 from strategy.base import Signal
 from strategy.ema_rsi import EmaRsiParams, EmaRsiStrategy
 
@@ -61,84 +61,6 @@ def test_signals_sliced_after_full_df_precompute_detect_boundary_crossover():
     assert recomputed_from_slice.iloc[0] == Signal.HOLD  # o bug que a correcao evita
 
 
-def _result(total_trades, total_return_pct, buy_hold_return_pct, profit_factor, max_drawdown_pct):
-    return BacktestResult(
-        trades=[],
-        initial_capital=1000.0,
-        final_capital=1000.0 * (1 + total_return_pct / 100),
-        total_return_pct=total_return_pct,
-        win_rate=0.0,
-        total_trades=total_trades,
-        max_drawdown_pct=max_drawdown_pct,
-        profit_factor=profit_factor,
-        expectancy=0.0,
-        average_win=0.0,
-        average_loss=0.0,
-        largest_win=0.0,
-        largest_loss=0.0,
-        max_losing_streak=0,
-        exposure_pct=0.0,
-        sharpe=0.0,
-        expectancy_pct=0.0,
-        payoff_ratio=0.0,
-        buy_hold_return_pct=buy_hold_return_pct,
-        edge_return_pct=total_return_pct - buy_hold_return_pct,
-        edge_score=0.0,
-    )
-
-
-def test_evaluate_validation_approves_when_all_criteria_pass_out_of_sample():
-    result = _result(total_trades=15, total_return_pct=20.0, buy_hold_return_pct=5.0,
-                      profit_factor=1.5, max_drawdown_pct=8.0)
-
-    verdict = evaluate_validation(result)
-
-    assert verdict.status == "aprovado"
-    assert verdict.reasons == []
-
-
-def test_evaluate_validation_rejects_when_profit_factor_below_minimum():
-    result = _result(total_trades=15, total_return_pct=20.0, buy_hold_return_pct=5.0,
-                      profit_factor=1.1, max_drawdown_pct=8.0)
-
-    verdict = evaluate_validation(result)
-
-    assert verdict.status == "reprovado"
-    assert any("profit factor" in r for r in verdict.reasons)
-
-
-def test_evaluate_validation_rejects_when_return_does_not_beat_buy_and_hold():
-    result = _result(total_trades=15, total_return_pct=4.0, buy_hold_return_pct=5.0,
-                      profit_factor=1.5, max_drawdown_pct=8.0)
-
-    verdict = evaluate_validation(result)
-
-    assert verdict.status == "reprovado"
-    assert any("buy-and-hold" in r for r in verdict.reasons)
-
-
-def test_evaluate_validation_rejects_when_drawdown_too_high():
-    result = _result(total_trades=15, total_return_pct=20.0, buy_hold_return_pct=5.0,
-                      profit_factor=1.5, max_drawdown_pct=15.0)
-
-    verdict = evaluate_validation(result)
-
-    assert verdict.status == "reprovado"
-    assert any("drawdown" in r for r in verdict.reasons)
-
-
-def test_evaluate_validation_rejects_when_too_few_trades():
-    result = _result(total_trades=3, total_return_pct=20.0, buy_hold_return_pct=5.0,
-                      profit_factor=1.5, max_drawdown_pct=8.0)
-
-    verdict = evaluate_validation(result)
-
-    assert verdict.status == "reprovado"
-    assert any("trades" in r for r in verdict.reasons)
-
-
-def test_evaluate_validation_is_inconclusive_when_validation_window_missing():
-    verdict = evaluate_validation(None)
-
-    assert verdict.status == "inconclusivo"
-    assert verdict.reasons
+# Testes de evaluate_validation()/ValidationVerdict (veredito puro, sem split) migraram
+# para tests/test_backtesting_approval.py -- a logica foi generalizada para
+# backtesting/approval.py (spec 002); validation.py so reexporta os nomes antigos.
