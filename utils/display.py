@@ -10,7 +10,11 @@ from rich.rule import Rule
 from rich.table import Table
 
 _out = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
-console = Console(file=_out, highlight=False, force_terminal=True)
+# width fixo: sem terminal real (pipe, log redirecionado, CI), Rich cai para ~79
+# colunas e derruba silenciosamente as ultimas colunas de tabelas largas (achado de
+# /code-review high na spec 002, mesma causa raiz aqui no console compartilhado
+# usado por optimizer.py/engine.py/validation.py/robustness.py).
+console = Console(file=_out, highlight=False, force_terminal=True, width=150)
 
 C_DIAMOND = "bold cyan"
 C_PIPE = "dim"
