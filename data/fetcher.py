@@ -8,16 +8,23 @@ log = get_logger("fetcher")
 _cache: dict[str, pd.DataFrame] = {}
 
 def get_exchange(sandbox: bool = False) -> ccxt.binance:
-    exchange = ccxt.binance({
-        "apiKey": BINANCE_API_KEY,
-        "secret": BINANCE_API_SECRET,
+    config = {
         "enableRateLimit": True,
         "timeout": 10000,
         "options": {
             "defaultType": "spot",
             "fetchCurrencies": False,
         },
-    })
+    }
+    # So inclui apiKey/secret quando ambos existem de verdade: passar uma string
+    # vazia faz o ccxt tratar a conta como autenticada (self.apiKey is not None)
+    # e, em versoes recentes, isso dispara uma chamada privada extra dentro de
+    # fetch_markets() (sapiGetEquityMarketExchangeInfo) que falha sem credencial
+    # real -- quebrando ate endpoints publicos como fetch_ohlcv em paper mode.
+    if BINANCE_API_KEY and BINANCE_API_SECRET:
+        config["apiKey"] = BINANCE_API_KEY
+        config["secret"] = BINANCE_API_SECRET
+    exchange = ccxt.binance(config)
     if sandbox:
         exchange.set_sandbox_mode(True)
     return exchange
