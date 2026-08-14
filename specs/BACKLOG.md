@@ -19,7 +19,7 @@ Coluna **Autonomia**:
 | 002 | Decisão de aprovação multi-par | Sozinho | ✅ Concluída (`specs/002-multi-pair-approval/`) |
 | 003 | Otimização sem overfitting | Sozinho | ✅ Concluída (`specs/003-robust-optimization/`) |
 | 004 | Métricas de risco avançadas | Sozinho | ✅ Concluída (`specs/004-advanced-risk-metrics/`) |
-| 005 | Proteções finais para live | Sozinho | 🔲 Pendente |
+| 005 | Proteções finais para live | Sozinho | 🟡 Em andamento (`specs/005-live-protections/`, spec.md pronto, escopo completo confirmado) |
 | 006 | Evolução da estratégia | Parcial | 🔲 Pendente |
 | 007 | Observabilidade operacional / forward test | Parcial | 🔲 Pendente |
 | 008 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
