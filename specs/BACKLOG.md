@@ -18,7 +18,7 @@ Coluna **Autonomia**:
 | 001 | Hardening Incremental (idempotência/reconciliação, circuit breaker/kill switch, out-of-sample) | Sozinho | ✅ Concluída (`specs/001-hardening-incremental/`) |
 | 002 | Decisão de aprovação multi-par | Sozinho | ✅ Concluída (`specs/002-multi-pair-approval/`) |
 | 003 | Otimização sem overfitting | Sozinho | ✅ Concluída (`specs/003-robust-optimization/`) |
-| 004 | Métricas de risco avançadas | Sozinho | 🟡 Em andamento (`specs/004-advanced-risk-metrics/`, spec.md pronto) |
+| 004 | Métricas de risco avançadas | Sozinho | ✅ Concluída (`specs/004-advanced-risk-metrics/`) |
 | 005 | Proteções finais para live | Sozinho | 🔲 Pendente |
 | 006 | Evolução da estratégia | Parcial | 🔲 Pendente |
 | 007 | Observabilidade operacional / forward test | Parcial | 🔲 Pendente |

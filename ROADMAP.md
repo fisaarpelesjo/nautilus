@@ -147,21 +147,33 @@ Objetivo: separar o que funcionou por vantagem real do que funcionou por ajuste 
 
 Objetivo: medir qualidade do retorno, nao apenas retorno bruto.
 
-1. [ ] **Sortino Ratio no backtest e analise**
+1. [x] **Sortino Ratio no backtest e analise**
    - Calcular retorno ajustado apenas pela volatilidade negativa.
    - Por que melhora: Sharpe penaliza volatilidade positiva e negativa igualmente. Para trading, perdas e quedas importam mais.
+   - **Concluido** (`specs/004-advanced-risk-metrics`): `backtesting/engine.py` `_simplified_sortino()`
+     (mesma base do Sharpe, desvio so do downside), exibido em todo relatorio de backtest.
 
-2. [ ] **Calmar Ratio no backtest e analise**
+2. [x] **Calmar Ratio no backtest e analise**
    - Calcular retorno anualizado dividido pelo max drawdown.
    - Por que melhora: mostra se o retorno compensa o pior rebaixamento sofrido. E uma metrica pratica para estrategias com cauda de risco.
+   - **Concluido** (`specs/004-advanced-risk-metrics`): `annualized_return_pct / max_drawdown_pct`,
+     exibido em todo relatorio de backtest.
 
-3. [ ] **Tempo em posicao e retorno anualizado**
+3. [x] **Tempo em posicao e retorno anualizado**
    - Medir exposicao ao mercado, retorno anualizado e retorno por tempo exposto.
    - Por que melhora: uma estrategia que fica pouco tempo comprada precisa ser comparada de forma justa contra buy-and-hold e contra risco de ficar fora de grandes altas.
+   - **Concluido** (`specs/004-advanced-risk-metrics`): `annualized_return_pct` (juros compostos, base
+     365 dias) e `return_per_exposure_pct` (`None` explicito quando exposicao e zero), exibidos em
+     todo relatorio de backtest. Exposicao (`exposure_pct`) ja existia antes desta spec.
 
 4. [ ] **Analise automatica de `data/decisions.csv`**
    - Criar comando para resumir sinais, decisoes finais, bloqueios, filtros que mais impediram entrada e indicadores medios por decisao.
    - Por que melhora: mostra se o bot esta parado por excesso de filtro, entrando em contexto ruim ou bloqueando bons sinais por uma regra especifica.
+   - **Parcial** (`specs/004-advanced-risk-metrics`): `python main.py decisions` resume contagem de
+     sinais (BUY/SELL/HOLD) e bloqueios mais frequentes ranqueados via novo
+     `data/decisions_analysis.py`. "Indicadores medios por decisao" (ex: RSI medio em ciclos HOLD vs
+     BUY) nao foi escopado nesta spec — candidato para uma proxima iteracao. Validado só com fixture
+     sintética neste ambiente (sem `data/decisions.csv` real — bot nunca rodou continuamente aqui).
 
 ## Fase 4 - Validar e evoluir a estrategia atual
 

@@ -45,10 +45,10 @@ anualização nasce aqui, compartilhado pelas duas.
 
 **⚠️ CRITICAL**: Nenhuma tarefa de US1 (Calmar especificamente) deve começar antes de T002.
 
-- [ ] T001 [P] Teste: `_annualized_return_pct(total_return_pct, period_start, period_end)` calcula via
+- [x] T001 [P] Teste: `_annualized_return_pct(total_return_pct, period_start, period_end)` calcula via
       juros compostos (base 365 dias) e retorna `0.0` quando `period_days <= 0` — em
       `tests/test_backtesting_engine.py`
-- [ ] T002 Implementar `_annualized_return_pct()` em `backtesting/engine.py` (depende de T001 falhando)
+- [x] T002 Implementar `_annualized_return_pct()` em `backtesting/engine.py` (depende de T001 falhando)
 
 **Checkpoint**: Helper de anualização pronto, sem alterar `BacktestResult` ainda (US1/US2 fazem isso).
 
@@ -63,26 +63,26 @@ existente.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T003 [P] [US1] Teste: Sortino usa desvio padrão só dos retornos negativos (produz valor
+- [x] T003 [P] [US1] Teste: Sortino usa desvio padrão só dos retornos negativos (produz valor
       diferente do Sharpe quando há mistura de ganhos e perdas com volatilidades distintas) — em
       `tests/test_backtesting_engine.py`
-- [ ] T004 [P] [US1] Teste: Sortino `== float("inf")` quando não há trades com prejuízo e a média de
+- [x] T004 [P] [US1] Teste: Sortino `== float("inf")` quando não há trades com prejuízo e a média de
       retornos é positiva; `== 0.0` quando a média não é positiva — `tests/test_backtesting_engine.py`
-- [ ] T005 [P] [US1] Teste: Calmar `== annualized_return_pct / max_drawdown_pct`; `== float("inf")`
+- [x] T005 [P] [US1] Teste: Calmar `== annualized_return_pct / max_drawdown_pct`; `== float("inf")`
       quando `max_drawdown_pct == 0` e retorno anualizado positivo; `== 0.0` caso contrário —
       `tests/test_backtesting_engine.py`
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] `BacktestResult` ganha campos `sortino: float`, `calmar: float`
+- [x] T006 [US1] `BacktestResult` ganha campos `sortino: float`, `calmar: float`
       (`backtesting/engine.py`)
-- [ ] T007 [US1] `_calculate_advanced_metrics` calcula `sortino` (mesmo padrão de
+- [x] T007 [US1] `_calculate_advanced_metrics` calcula `sortino` (mesmo padrão de
       `_simplified_sharpe`, desvio só dos retornos negativos) (depende de T003 falhando, T004
       falhando, T006)
-- [ ] T008 [US1] `_calculate_advanced_metrics` calcula `calmar` usando `_annualized_return_pct()`
+- [x] T008 [US1] `_calculate_advanced_metrics` calcula `calmar` usando `_annualized_return_pct()`
       (Foundational) e `max_drawdown_pct` já recebido pela função (depende de T005 falhando, T002,
       T007)
-- [ ] T009 [US1] `print_report` exibe linhas "Sortino" e "Calmar" no bloco de métricas já existente
+- [x] T009 [US1] `print_report` exibe linhas "Sortino" e "Calmar" no bloco de métricas já existente
       (depende de T008)
 
 **Checkpoint**: US1 completa e testável de forma independente — todo backtest mostra Sortino/Calmar.
@@ -97,22 +97,22 @@ existente.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T010 [P] [US2] Teste: `BacktestResult.annualized_return_pct` bate com
+- [x] T010 [P] [US2] Teste: `BacktestResult.annualized_return_pct` bate com
       `_annualized_return_pct()` chamado com os mesmos parâmetros (mesmo helper da Foundational, não
       um segundo cálculo) — em `tests/test_backtesting_engine.py`
-- [ ] T011 [P] [US2] Teste: `return_per_exposure_pct == total_return_pct / (exposure_pct / 100)`
+- [x] T011 [P] [US2] Teste: `return_per_exposure_pct == total_return_pct / (exposure_pct / 100)`
       quando `exposure_pct > 0` — `tests/test_backtesting_engine.py`
-- [ ] T012 [P] [US2] Teste: `return_per_exposure_pct is None` (não `0.0` nem `inf`) quando
+- [x] T012 [P] [US2] Teste: `return_per_exposure_pct is None` (não `0.0` nem `inf`) quando
       `exposure_pct == 0` — `tests/test_backtesting_engine.py`
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] `BacktestResult` ganha campos `annualized_return_pct: float`,
+- [x] T013 [US2] `BacktestResult` ganha campos `annualized_return_pct: float`,
       `return_per_exposure_pct: Optional[float]` (`backtesting/engine.py`)
-- [ ] T014 [US2] `_calculate_advanced_metrics` expõe `annualized_return_pct` (reusa o valor já
+- [x] T014 [US2] `_calculate_advanced_metrics` expõe `annualized_return_pct` (reusa o valor já
       calculado internamente para Calmar em US1 — T008 — não recalcula) e calcula
       `return_per_exposure_pct` (depende de T010 falhando, T011 falhando, T012 falhando, T008, T013)
-- [ ] T015 [US2] `print_report` exibe linhas "Retorno anualizado" e "Retorno por exposição" (`"n/a"`
+- [x] T015 [US2] `print_report` exibe linhas "Retorno anualizado" e "Retorno por exposição" (`"n/a"`
       quando `None`) (depende de T014)
 
 **Checkpoint**: US1 e US2 completas. Nota: Calmar (US1, T008) e `annualized_return_pct` (US2, T013)
@@ -129,32 +129,45 @@ intencional e documentada, diferente do padrão usual de independência total en
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T016 [P] [US3] Teste: `analyze_decisions()` conta ciclos por `signal` e entradas bloqueadas a
+- [x] T016 [P] [US3] Teste: `analyze_decisions()` conta ciclos por `signal` e entradas bloqueadas a
       partir de uma fixture CSV sintética (este ambiente não tem `decisions.csv` real, ver
       `spec.md` → Assumptions) — novo `tests/test_decisions_analysis.py`
-- [ ] T017 [P] [US3] Teste: `blocker_counts` vem ranqueado por frequência decrescente —
+- [x] T017 [P] [US3] Teste: `blocker_counts` vem ranqueado por frequência decrescente —
       `tests/test_decisions_analysis.py`
-- [ ] T018 [P] [US3] Teste: arquivo ausente ou vazio retorna `status="sem_dados"`, sem lançar exceção
+- [x] T018 [P] [US3] Teste: arquivo ausente ou vazio retorna `status="sem_dados"`, sem lançar exceção
       — `tests/test_decisions_analysis.py`
-- [ ] T019 [P] [US3] Teste: linha com coluna ausente (schema antigo) não interrompe a análise das
+- [x] T019 [P] [US3] Teste: linha com coluna ausente (schema antigo) não interrompe a análise das
       demais linhas; conta em `total_cycles` mas não em agregações que dependem da coluna ausente —
       `tests/test_decisions_analysis.py`
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Novo `data/decisions_analysis.py`: dataclasses `DecisionRecord`/
+- [x] T020 [US3] Novo `data/decisions_analysis.py`: dataclasses `DecisionRecord`/
       `DecisionsAnalysisResult`, `_load_decisions()` via `csv.DictReader` (tolerante a coluna
       ausente) (depende de T016 falhando, T019 falhando)
-- [ ] T021 [US3] `analyze_decisions()`: `signal_counts`, `blocked_entries`, `blocker_counts`
+- [x] T021 [US3] `analyze_decisions()`: `signal_counts`, `blocked_entries`, `blocker_counts`
       ranqueado, `status="sem_dados"` quando vazio/ausente (depende de T017 falhando, T018 falhando,
       T020)
-- [ ] T022 [US3] `print_decisions_analysis()` + `run()`, mesmo padrão de
+- [x] T022 [US3] `print_decisions_analysis()` + `run()`, mesmo padrão de
       `backtesting/analysis.py` (depende de T021)
-- [ ] T023 [US3] Novo comando `decisions` (alias `decisoes`) em `main.py`: `COMMANDS` dict +
+- [x] T023 [US3] Novo comando `decisions` (alias `decisoes`) em `main.py`: `COMMANDS` dict +
       `cmd_decisions()` (depende de T022)
 
 **Checkpoint**: US1, US2 e US3 funcionam de forma independente (à parte da dependência documentada
 Calmar/anualizado da Foundational).
+
+Uma rodada de `/code-review medium` sobre o acumulado (Foundational + US1 + US2 + US3) — 1 achado,
+corrigido:
+
+1. **`_annualized_return_pct()` podia lançar `OverflowError` não capturado**: com período curto
+   (ex: `TIMEFRAME=1m`, poucas horas de histórico) e retorno acumulado grande (ex: >1000%, alcançável
+   compondo vários trades vencedores num par volátil), `growth_factor ** (365/period_days)` estoura o
+   range de `float`, derrubando `python main.py backtest` inteiro (sem `try/except` no caminho
+   principal de `main.py`/`optimizer.py`). Corrigido: `try/except OverflowError` retornando `inf`
+   explícito, mesma convenção já usada para outros denominadores extremos no arquivo. Teste de
+   regressão reproduzindo o cenário exato (`TIMEFRAME=1m`, ~1900 minutos, retorno 1300%) adicionado.
+
+167 testes passando (19 novos desde a spec 003), ruff/mypy limpos. **Status: aprovada.**
 
 ---
 
@@ -162,10 +175,10 @@ Calmar/anualizado da Foundational).
 
 **Purpose**: Documentação — não altera comportamento do bot.
 
-- [ ] T024 [P] Atualizar `ROADMAP.md` marcando Fase 3 itens 1 (Sortino), 2 (Calmar), 3 (tempo em
+- [x] T024 [P] Atualizar `ROADMAP.md` marcando Fase 3 itens 1 (Sortino), 2 (Calmar), 3 (tempo em
       posição/anualizado) e 4 (análise de `decisions.csv`) como concluídos, com link para esta spec
-- [ ] T025 [P] Atualizar `specs/BACKLOG.md`: status da spec 004 para concluída
-- [ ] T026 Rodar `quickstart.md` (as três User Stories) — US1/US2 contra dados reais da Binance, US3
+- [x] T025 [P] Atualizar `specs/BACKLOG.md`: status da spec 004 para concluída
+- [x] T026 Rodar `quickstart.md` (as três User Stories) — US1/US2 contra dados reais da Binance, US3
       com a fixture sintética (e com dados reais se o operador já tiver `data/decisions.csv`) — e
       registrar resultado relevante em `STRATEGY_REVIEW.md`, seguindo o padrão das specs 001-003
 

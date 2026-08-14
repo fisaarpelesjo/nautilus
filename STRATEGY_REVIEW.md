@@ -190,6 +190,37 @@ menos divergiram (candidatos #3/#5, retorno de validação -0.54/-0.55%, os "men
 se `SOL/USDT` deveria sair da lista `OPTIMIZE_PAIRS` dado seu desempenho consistentemente fraco nas 3
 janelas.
 
+## Métricas de Risco Avançadas (2026-08-14, spec 004-advanced-risk-metrics)
+
+Primeira rodada real de `python main.py backtest` (Sortino/Calmar/anualizado/por-exposição — US1/US2
+da spec `004-advanced-risk-metrics`) sobre `LUNC/USDT` `4h` (`PAIRS[0]` do `.env` do operador):
+
+```text
+Retorno total       +0.06%
+Max drawdown         0.62%
+Exposicao             2.0%
+Retorno anualiz.     +0.15%
+Retorno/exposicao    +2.95%
+Sharpe simplif.       0.06
+Sortino               0.10
+Calmar                0.25
+```
+
+Leitura: Sortino (0.10) e Sharpe (0.06) próximos nesta amostra específica (3 trades, 1 prejuízo só) —
+esperado, já que com um único trade de prejuízo o desvio "downside" e o desvio geral não divergem
+muito. Calmar 0.25 (retorno anualizado bem menor que o drawdown máximo) confirma quantitativamente o
+mesmo diagnóstico "perfil defensivo" já visto na spec `002` para este par: a estratégia mal cobre o
+próprio drawdown quando anualizada. `Retorno/exposição +2.95%` mostra que, no tempo em que esteve
+de fato posicionada (2% do período), a eficiência de capital não é desprezível — mas isso não
+compensa ficar 98% do tempo fora do mercado durante um período de alta forte (buy-and-hold +26.75%
+no mesmo período). Nenhuma das quatro métricas novas produziu erro em nenhuma das execuções (SC-002
+confirmado com dados reais, não só nos testes sintéticos de fronteira).
+
+`python main.py decisions` (US3): validado só com fixture sintética nesta sessão — este ambiente não
+tem `data/decisions.csv` real, já que o bot nunca rodou continuamente aqui (mesma limitação documentada
+no `Assumptions` da spec). Fica pendente do operador rodar `python main.py bot` por um período e então
+`python main.py decisions` para um diagnóstico real de bloqueios mais frequentes.
+
 ## Experimentos Recomendados
 
 - Benchmark formal contra buy-and-hold por par e timeframe.
