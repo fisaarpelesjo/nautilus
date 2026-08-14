@@ -483,8 +483,10 @@ Décima segunda rodada de `/code-review high` encontrou só 1 problema: um comen
 
 **Status da User Story 1**: 12 rodadas de `/code-review high`, ~45 achados corrigidos, curva de
 achados por rodada caindo de forma consistente (4 → 8 → 3 → 2 → 4 → 8 → 7 → 5 → 4 → 2 → 1) até
-"nenhum bug de correção sobrevive ao escrutínio" nas duas últimas rodadas. Rodando uma 13ª rodada
-final só para confirmar zero achados antes de considerar aprovada e seguir para a User Story 2.
+"nenhum bug de correção sobrevive ao escrutínio" nas duas últimas rodadas.
+
+**Rodada 13 (confirmação final, sobre o commit `83886bb`): 0 achados.** O review reportou
+explicitamente que não há mais superfície de lógica nova para revisar. **User Story 1 aprovada.**
 
 ---
 
