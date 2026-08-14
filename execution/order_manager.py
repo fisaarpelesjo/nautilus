@@ -453,7 +453,7 @@ class OrderManager:
 
         # A venda ja esta confirmada, a posicao ja foi removida e o PnL ja foi
         # contabilizado acima -- daqui pra baixo sao 3 acoes de observabilidade
-        # independentes entre si. Cada uma isolada via _safe_step para que uma
+        # independentes entre si. Cada uma isolada via safe_step para que uma
         # falhar (ex: trades.csv sem espaco em disco) nao impeca as outras
         # duas de rodar nem reapareca como se a venda tivesse falhado.
         prefix = f"Venda de {symbol} confirmada"
