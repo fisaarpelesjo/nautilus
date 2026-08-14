@@ -629,16 +629,51 @@ aprovada.**
 
 **Purpose**: Documentação e checklist de go-live — não altera comportamento do bot.
 
-- [ ] T034 [P] Atualizar `ROADMAP.md` marcando os itens de reconciliação/circuit breaker/split
-      treino-teste como concluídos, com link para esta spec
+- [x] T034 [P] Atualizar `ROADMAP.md` marcando os itens de reconciliação/circuit breaker/split
+      treino-teste como concluídos, com link para esta spec. Nenhum dos três itens do `ROADMAP.md`
+      batia 1:1 com o escopo entregue (cada um bundlava mais coisa do que esta spec cobriu) — marcado
+      **[x]** só o que corresponde exatamente ao escopo original (Fase 6 item 2, "Kill switch
+      operacional"); os outros três (Fase 1 item 2 "Critérios automáticos de aprovação", Fase 2 item 1
+      "Split treino/teste no otimizador", Fase 6 itens 4/5) ficaram **[ ]** com uma nota "Parcial"
+      listando o que esta spec entregou e o que continua de fora (ex: split ainda não integrado ao
+      `optimizer.py`; ordens limit/stop e partial fill continuam não implementados) — marcar como
+      concluído algo maior do que o que foi construído seria enganoso para quem ler o roadmap depois.
 - [ ] T035 [P] Atualizar `STRATEGY_REVIEW.md` com o primeiro resultado real de validação
-      out-of-sample rodado
-- [ ] T036 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novos comandos `kill`/`resume`,
-      variável `MAX_CONSECUTIVE_LOSSES`, comportamento de reconciliação
-- [ ] T037 Checklist de go-live antes de qualquer uso em `TRADING_MODE=live` desta feature:
-      confirmar API key sem permissão de saque, rodar em paper mode por período mínimo definido pelo
-      usuário, testar kill switch manualmente, documentar processo de rollback (`git revert` +
-      restaurar backup de `state.json`)
+      out-of-sample rodado — **bloqueado**: este ambiente de desenvolvimento não tem `.env`/API key da
+      Binance configurada (`python main.py backtest --validate` falha em
+      `ccxt.base.errors.AuthenticationError: binance requires "apiKey" credential` só para carregar o
+      catálogo público de mercados). Não faz sentido documentar em `STRATEGY_REVIEW.md` um resultado
+      sintético como se fosse real. Fica pendente de o operador rodar `python main.py backtest
+      --validate` localmente (com `.env` configurado) sobre `PAIRS[0]`/`TIMEFRAME` e colar o resultado
+      em `STRATEGY_REVIEW.md`.
+- [x] T036 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novos comandos `backtest
+      --validate`/`kill`/`resume`, variável `MAX_CONSECUTIVE_LOSSES`, nova seção "Proteções
+      operacionais" (reconciliação, circuit breaker, kill switch). `AGENTS.md` já tinha algumas seções
+      extras (Coding Style, Testing Guidelines, PR Guidelines) que não existem em `CLAUDE.md` desde
+      antes desta spec — drift pré-existente fora do escopo deste commit, não mexido.
+- [x] T037 Checklist de go-live antes de qualquer uso em `TRADING_MODE=live` desta feature:
+
+      - [ ] API key da Binance criada só com permissões de Leitura + Trading Spot — **sem** permissão
+            de saque (ver `CLAUDE.md` → Avisos importantes)
+      - [ ] Bot rodado em `TRADING_MODE=paper` por um período mínimo definido pelo operador (semanas,
+            conforme `CLAUDE.md`), com pelo menos um ciclo completo de: entrada, stop loss, take
+            profit e trailing stop observados em `data/trades.csv`
+      - [ ] `python main.py backtest --validate` rodado sobre `PAIRS[0]`/`TIMEFRAME` com veredito
+            **aprovado** na janela de validação out-of-sample (não só na de treino) — ver T035
+      - [ ] Kill switch testado manualmente em paper mode: `python main.py kill` bloqueia novas
+            entradas no próximo ciclo (confirmar via `python main.py status`), `python main.py resume`
+            libera de novo
+      - [ ] Circuit breaker testado (ou ao menos revisado o comportamento em `tasks.md` Fase 4):
+            confirmar que `MAX_CONSECUTIVE_LOSSES` está configurado com um valor deliberado (não só o
+            default `3`) para o apetite de risco do operador
+      - [ ] Reconciliação executada ao menos uma vez contra a Binance Testnet (ou conta real com saldo
+            mínimo) confirmando que `python main.py status` mostra `reconciliação: ok`
+      - [ ] Processo de rollback documentado e testado: `git revert <commit>` para reverter código;
+            backup de `data/state.json` (cópia manual antes de ligar live) para restaurar posições e
+            contadores em caso de corrupção — restaurar o backup e confirmar que `python main.py
+            status` reflete o estado esperado antes de religar o bot
+      - [ ] `DAILY_DRAWDOWN_LIMIT`, `MAX_ORDER_SIZE_USDT` e `MAX_POSITIONS` revisados para o capital
+            real que vai ser exposto (os defaults do `.env.example` assumem paper/teste)
 
 ---
 

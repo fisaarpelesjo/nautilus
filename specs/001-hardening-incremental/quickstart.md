@@ -19,8 +19,10 @@ Pré-requisitos: ambiente Python configurado (`.venv`), dependências instaladas
 
 ## US2 — Circuit breaker e kill switch
 
-1. Rodar `pytest tests/test_risk_manager.py -v` e confirmar que os testes de perdas consecutivas
-   passam.
+1. Rodar `pytest tests/test_order_manager_safety.py tests/test_killswitch_store.py
+   tests/test_position_lifecycle.py -v` e confirmar que os testes de perdas consecutivas e kill
+   switch passam (contador de perdas fica em `OrderManager`/`state.json`; kill switch em arquivo
+   próprio, `data/killswitch.json` — ver nota de design em `tasks.md` Fase 4).
 2. Em paper mode, forçar N trades consecutivos com prejuízo (via backtest de um cenário conhecido
    ruim, ou editando `state.json` para simular o histórico) e confirmar que `circuit_breaker_active`
    vira `true` e que o bot para de abrir novas posições no próximo ciclo.
@@ -30,14 +32,15 @@ Pré-requisitos: ambiente Python configurado (`.venv`), dependências instaladas
 
 ## US3 — Validação out-of-sample
 
-1. Rodar `pytest tests/test_backtesting_engine.py -v` e confirmar que os testes de split
-   in-sample/out-of-sample passam.
-2. Rodar `python main.py backtest` (ou o novo flag/subcomando definido em `tasks.md`) com validação
-   out-of-sample habilitada, sobre um par com histórico suficiente, e confirmar que o relatório no
-   terminal mostra métricas de treino e de validação lado a lado, com um veredito
-   aprovado/reprovado/inconclusivo.
+1. Rodar `pytest tests/test_backtesting_validation.py tests/test_main_backtest.py -v` e confirmar
+   que os testes de split treino/validação e do dispatch do CLI passam.
+2. Rodar `python main.py backtest --validate` sobre um par com histórico suficiente (pelo menos ~500
+   candles no timeframe configurado, para que as duas fatias passem de `MIN_WINDOW_CANDLES=150`) e
+   confirmar que o relatório no terminal mostra métricas de treino e de validação lado a lado, com um
+   veredito aprovado/reprovado/inconclusivo. `python main.py backtest` sem a flag deve continuar
+   idêntico ao comportamento anterior a esta spec (FR-009).
 
 ## Checklist final antes de qualquer go-live
 
 Ver `plan.md` → Constitution Check (princípio I) e `specs/001-hardening-incremental/tasks.md` →
-Fase de Polish para o checklist completo de go-live.
+Fase de Polish (T037) para o checklist completo de go-live.

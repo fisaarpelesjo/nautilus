@@ -51,16 +51,19 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 ## Comandos
 
 ```bash
-python main.py backtest         # backtest no par principal (PAIRS[0])
-python main.py edge             # relatório de vantagem contra buy-and-hold
-python main.py multibacktest    # backtest em lista fixa de pares
-python main.py scan             # backtest nos top 30 pares por volume na Binance
-python main.py optimize         # grid search dos melhores parâmetros
-python main.py analyze          # resumo do data/trades.csv
-python main.py select           # ranqueia candidatos de pares dinâmicos
-python main.py chart [PAR] [TF] # gráfico interativo no browser (Dash/Plotly)
-python main.py bot              # inicia o bot multi-par
-python main.py status           # preço atual e saldo
+python main.py backtest             # backtest no par principal (PAIRS[0])
+python main.py backtest --validate  # backtest com split treino/validação out-of-sample + veredito
+python main.py edge                 # relatório de vantagem contra buy-and-hold
+python main.py multibacktest        # backtest em lista fixa de pares
+python main.py scan                 # backtest nos top 30 pares por volume na Binance
+python main.py optimize             # grid search dos melhores parâmetros
+python main.py analyze              # resumo do data/trades.csv
+python main.py select               # ranqueia candidatos de pares dinâmicos
+python main.py chart [PAR] [TF]     # gráfico interativo no browser (Dash/Plotly)
+python main.py bot                  # inicia o bot multi-par
+python main.py status               # preço atual, saldo, circuit breaker e kill switch
+python main.py kill                 # suspende novas entradas (kill switch manual)
+python main.py resume               # retoma novas entradas (kill switch manual)
 ```
 
 ---
@@ -115,6 +118,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Horas de bloqueio de reentrada após stop loss |
 | `DAILY_DRAWDOWN_LIMIT` | `0.05` | Limite de perda diária (5% do saldo inicial = $50) |
+| `MAX_CONSECUTIVE_LOSSES` | `3` | Perdas seguidas (`pnl < 0`) até ativar o circuit breaker; reseta em trade com `pnl > 0` |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
 | `BB_PERIOD` | `20` | Período das Bollinger Bands |
 | `BB_STD` | `2.0` | Desvios padrão das Bollinger Bands |
@@ -161,6 +165,25 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - Fallback (se ATR = 0): SL fixo em `STOP_LOSS_PCT` (1.5%), TP fixo em `TAKE_PROFIT_PCT` (6%)
 - SL mínimo: nunca abaixo de 50% do preço de entrada
 - Risk/reward ratio padrão com ATR: 1:2 (1.5× ATR de risco, 3× ATR de alvo)
+
+---
+
+## Proteções operacionais — reconciliação, circuit breaker e kill switch
+
+- **Reconciliação** (`execution/reconciliation.py`): em `TRADING_MODE=live`, compara `state.json`
+  com o saldo real via `fetch_balance()` na inicialização e a cada ~30min
+  (`RECONCILIATION_INTERVAL_CYCLES=30` ciclos). Divergência gera evento
+  `reconciliation_mismatch`/`reconciliation_error` (JSONL) e alerta Telegram — nunca corrige
+  automaticamente. Resultado visível em `python main.py status`. No-op em `paper` (sem conta real
+  para comparar).
+- **Circuit breaker** (`execution/order_manager.py`): contador global `consecutive_losses` de trades
+  fechados com `pnl < 0`, reseta só em `pnl > 0`. Ao atingir `MAX_CONSECUTIVE_LOSSES`,
+  `circuit_breaker_active=true` bloqueia novas entradas (posições abertas continuam geridas
+  normalmente). Independente e cumulativo com `DAILY_DRAWDOWN_LIMIT`.
+- **Kill switch** (`data/killswitch_store.py`): flag manual em `data/killswitch.json` — arquivo
+  próprio, não em `state.json`, para que uma escrita normal do bot em execução não sobrescreva uma
+  ativação externa via `python main.py kill`. Ativa/desativa via `kill`/`resume`; o bot lê o arquivo
+  do disco uma vez por ciclo.
 
 ---
 

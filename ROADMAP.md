@@ -25,6 +25,11 @@ Objetivo: evitar otimizar no escuro. Antes de mexer muito na estrategia, o bot p
    - Criar uma funcao de avaliacao que marque estrategia/par como aprovado, reprovado ou inconclusivo.
    - Criterios iniciais: retorno acima do buy-and-hold, profit factor > 1.2, expectativa positiva, drawdown maximo aceitavel e numero minimo de trades.
    - Por que melhora: reduz decisao subjetiva e evita escolher parametros por impressao visual ou por um unico backtest bom.
+   - **Parcial** (`specs/001-hardening-incremental`, US3): `backtesting/validation.py`
+     `evaluate_validation()` implementa exatamente esses criterios (retorno > buy-hold, profit
+     factor > 1.2, drawdown <= 10%, minimo 10 trades) com veredito aprovado/reprovado/inconclusivo,
+     mas so dentro de `python main.py backtest --validate` (item 5 desta fase, "Edge por par e
+     timeframe", ainda nao integrado ao `edge`/`multibacktest`/`scan`).
 
 3. [ ] **Ranking de pares por qualidade**
    - Ordenar pares por profit factor, expectativa, drawdown, numero de trades, consistencia e diferenca contra buy-and-hold.
@@ -86,6 +91,12 @@ Objetivo: separar o que funcionou por vantagem real do que funcionou por ajuste 
    - Otimizar parametros em uma parte dos candles e validar o resultado em periodo posterior nao usado na escolha.
    - Mostrar metricas separadas de treino e teste.
    - Por que melhora: parametros podem parecer otimos porque foram escolhidos para aquele recorte historico. O teste fora da amostra mede se eles sobrevivem em dados novos.
+   - **Parcial** (`specs/001-hardening-incremental`, US3): `backtesting/validation.py`
+     `split_train_validation()` faz o split contiguo 70/30 e `python main.py backtest --validate`
+     mostra metricas de treino e validacao lado a lado -- mas so para um backtest simples com
+     parametros fixos, nao integrado ao `backtesting/optimizer.py` (grid search continua escolhendo
+     parametros sobre o historico inteiro, sem validar fora da amostra). Integrar ao otimizador fica
+     como proxima iteracao.
 
 2. [ ] **Walk-forward validation**
    - Substituir ou complementar o split unico por janelas deslizantes com no minimo 3 periodos out-of-sample.
@@ -196,10 +207,15 @@ Objetivo: se um dia o bot for para dinheiro real, reduzir a chance de erro opera
    - Mostrar pares, saldo, tamanho maximo por ordem, maximo de posicoes e limite de drawdown antes de operar.
    - Por que melhora: impede ligar live por engano ou com `.env` mal configurado.
 
-2. [ ] **Kill switch operacional**
+2. [x] **Kill switch operacional**
    - Criar mecanismo para suspender novas entradas e/ou fechar posicoes conforme configuracao.
    - Pode ser arquivo local, variavel de ambiente ou comando dedicado.
    - Por que melhora: em falha de mercado, bug ou comportamento inesperado, a resposta precisa ser simples e rapida.
+   - **Concluido** (`specs/001-hardening-incremental`, US2): `python main.py kill`/`resume`,
+     persistido em `data/killswitch.json` (arquivo proprio, ver nota de design em `tasks.md` sobre por
+     que nao mora em `state.json`). Suspende novas entradas; posicoes abertas continuam geridas
+     normalmente (fechar posicoes automaticamente nao foi implementado -- decisao consciente de
+     escopo, ver `spec.md` Edge Cases).
 
 3. [ ] **Checagem de liquidez e spread antes da ordem**
    - Validar order book, spread maximo, volume minimo e tamanho da ordem antes de comprar.
@@ -208,10 +224,20 @@ Objetivo: se um dia o bot for para dinheiro real, reduzir a chance de erro opera
 4. [ ] **Execucao inteligente de ordens**
    - Adicionar ordens limit/stop, reconciliacao de ordens, rastreamento de preenchimento parcial e verificacao de estado na corretora.
    - Por que melhora: ordem a mercado e estado local simples sao suficientes para paper, mas live exige reconciliar o que a corretora realmente executou.
+   - **Parcial** (`specs/001-hardening-incremental`, US1): `execution/reconciliation.py` compara
+     `state.json` com o saldo real via `fetch_balance()` na inicializacao e a cada ~30min, com alerta
+     (nao correcao automatica) em divergencia; `clientOrderId` idempotente em toda ordem (paper e
+     live). Ordens limit/stop e rastreamento de preenchimento parcial continuam nao implementados.
+   - Item relacionado nao antecipado no ROADMAP original: `_generate_client_order_id()` idempotente
+     tambem fecha o gap de retry-duplica-ordem em rede instavel (ver achados #7/#26 em `tasks.md`).
 
 5. [ ] **Limites de perda por dia, semana e mes**
    - Expandir o limite diario atual para limites semanais/mensais e bloqueio automatico apos sequencia ruim.
    - Por que melhora: protege contra degradacao gradual da estrategia e contra periodos em que o mercado deixou de favorecer o modelo.
+   - **Parcial** (`specs/001-hardening-incremental`, US2): "bloqueio automatico apos sequencia ruim"
+     implementado via `MAX_CONSECUTIVE_LOSSES` (circuit breaker, contador global de perdas seguidas,
+     reseta so em trade com `pnl > 0`). Limites semanais/mensais (alem do `DAILY_DRAWDOWN_LIMIT` ja
+     existente) continuam nao implementados.
 
 ## Fase 7 - Avancado
 

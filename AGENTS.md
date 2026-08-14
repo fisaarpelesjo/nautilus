@@ -53,16 +53,19 @@ Runtime artifacts (`data/signals.csv`, `data/trades.csv`, `data/state.json`, `da
 ## Commands
 
 ```bash
-python main.py backtest         # backtest on main pair (PAIRS[0])
-python main.py edge             # profitability edge report vs buy-and-hold
-python main.py multibacktest    # backtest on fixed pair list
-python main.py scan             # backtest on top 30 Binance pairs by volume
-python main.py optimize         # grid search best EMA/RSI/ATR/volume/BB parameters
-python main.py analyze          # summarize data/trades.csv
-python main.py select           # rank dynamic pair candidates
-python main.py chart [PAIR] [TF]# interactive browser chart (Dash/Plotly)
-python main.py bot              # start multi-pair trading loop
-python main.py status           # current price and balance
+python main.py backtest             # backtest on main pair (PAIRS[0])
+python main.py backtest --validate  # backtest with train/out-of-sample split + verdict
+python main.py edge                 # profitability edge report vs buy-and-hold
+python main.py multibacktest        # backtest on fixed pair list
+python main.py scan                 # backtest on top 30 Binance pairs by volume
+python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
+python main.py analyze              # summarize data/trades.csv
+python main.py select               # rank dynamic pair candidates
+python main.py chart [PAIR] [TF]    # interactive browser chart (Dash/Plotly)
+python main.py bot                  # start multi-pair trading loop
+python main.py status               # current price, balance, circuit breaker and kill switch
+python main.py kill                 # suspend new entries (manual kill switch)
+python main.py resume               # resume new entries (manual kill switch)
 ```
 
 Default to `TRADING_MODE=paper` while developing.
@@ -101,6 +104,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `MTF_TIMEFRAME` | `1d` | Trend confirmation timeframe (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Re-entry block hours after stop loss |
 | `DAILY_DRAWDOWN_LIMIT` | `0.05` | Daily loss limit (5% of initial balance = $50) |
+| `MAX_CONSECUTIVE_LOSSES` | `3` | Consecutive losses (`pnl < 0`) before the circuit breaker trips; resets on a trade with `pnl > 0` |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
 | `BB_PERIOD` | `20` | Bollinger Bands period |
 | `BB_STD` | `2.0` | Bollinger Bands standard deviations |
@@ -147,6 +151,25 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 - Fallback (if ATR = 0): fixed SL at `STOP_LOSS_PCT` (1.5%), fixed TP at `TAKE_PROFIT_PCT` (6%)
 - Minimum SL: never below 50% of entry price
 - Default risk/reward ratio with ATR: 1:2 (1.5× ATR risk, 3× ATR target)
+
+---
+
+## Operational Safeguards — Reconciliation, Circuit Breaker, Kill Switch
+
+- **Reconciliation** (`execution/reconciliation.py`): in `TRADING_MODE=live`, compares `state.json`
+  against the real balance via `fetch_balance()` on startup and every ~30min
+  (`RECONCILIATION_INTERVAL_CYCLES=30` cycles). A mismatch emits a
+  `reconciliation_mismatch`/`reconciliation_error` event (JSONL) and a Telegram alert — never
+  auto-corrects. Result shown in `python main.py status`. No-op in `paper` mode (no real account to
+  compare against).
+- **Circuit breaker** (`execution/order_manager.py`): global `consecutive_losses` counter over
+  closed trades with `pnl < 0`, resets only on `pnl > 0`. Once `MAX_CONSECUTIVE_LOSSES` is reached,
+  `circuit_breaker_active=true` blocks new entries (open positions keep being managed normally).
+  Independent of and additive with `DAILY_DRAWDOWN_LIMIT`.
+- **Kill switch** (`data/killswitch_store.py`): manual flag in its own `data/killswitch.json` file,
+  not in `state.json` — keeps a normal write from the running bot from overwriting an external
+  activation via `python main.py kill`. Toggled via `kill`/`resume`; the bot reads the file from disk
+  once per cycle.
 
 ---
 
