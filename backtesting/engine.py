@@ -54,6 +54,10 @@ class BacktestResult:
     buy_hold_return_pct: float
     edge_return_pct: float
     edge_score: float
+    sortino: float
+    calmar: float
+    annualized_return_pct: float
+    return_per_exposure_pct: Optional[float]
 
 def run_backtest(symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000) -> BacktestResult:
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
@@ -202,6 +206,7 @@ def simulate_backtest(
         trades,
         total_return_pct=total_return,
         buy_hold_return_pct=buy_hold_return,
+        max_drawdown_pct=max_drawdown_pct,
         period_start=df.index[start_index] if len(df) > start_index else None,
         period_end=df.index[-1] if len(df) > 0 else None,
     )
@@ -226,6 +231,7 @@ def _calculate_advanced_metrics(
     trades: List[Trade],
     total_return_pct: float = 0.0,
     buy_hold_return_pct: float = 0.0,
+    max_drawdown_pct: float = 0.0,
     period_start=None,
     period_end=None,
 ) -> dict:
@@ -246,10 +252,17 @@ def _calculate_advanced_metrics(
     max_losing_streak = _max_losing_streak(trades)
     exposure_pct = _exposure_pct(trades, period_start, period_end)
     sharpe = _simplified_sharpe(trade_returns)
+    sortino = _simplified_sortino(trade_returns)
+    annualized_return = _annualized_return_pct(total_return_pct, period_start, period_end)
+    calmar = (
+        annualized_return / max_drawdown_pct if max_drawdown_pct > 0
+        else (float("inf") if annualized_return > 0 else 0.0)
+    )
     expectancy_pct = sum(trade_returns) / len(trade_returns) if trade_returns else 0.0
     avg_win_pct = sum(win_returns) / len(win_returns) if win_returns else 0.0
     avg_loss_pct = sum(loss_returns) / len(loss_returns) if loss_returns else 0.0
     payoff_ratio = avg_win_pct / abs(avg_loss_pct) if avg_loss_pct else (float("inf") if avg_win_pct > 0 else 0.0)
+    return_per_exposure_pct = total_return_pct / (exposure_pct / 100) if exposure_pct > 0 else None
     score = edge_score(
         total_return_pct=total_return_pct,
         buy_hold_return_pct=buy_hold_return_pct,
@@ -269,6 +282,10 @@ def _calculate_advanced_metrics(
         "max_losing_streak": max_losing_streak,
         "exposure_pct": exposure_pct,
         "sharpe": sharpe,
+        "sortino": sortino,
+        "calmar": calmar,
+        "annualized_return_pct": annualized_return,
+        "return_per_exposure_pct": return_per_exposure_pct,
         "expectancy_pct": expectancy_pct,
         "payoff_ratio": payoff_ratio,
         "edge_score": score,
@@ -375,6 +392,32 @@ def _exposure_pct(trades: List[Trade], period_start, period_end) -> float:
     return min(exposed_seconds / total_seconds * 100, 100.0) if total_seconds else 0.0
 
 
+def _annualized_return_pct(total_return_pct: float, period_start, period_end) -> float:
+    """Retorno anualizado via juros compostos, base 365 dias (cripto opera 24/7,
+    diferente do calendario de pregao de mercados tradicionais). Compartilhado
+    entre Calmar Ratio e o retorno anualizado exibido no relatorio -- calculado
+    uma unica vez, nao duas formulas divergentes."""
+    if period_start is None or period_end is None:
+        return 0.0
+    period_days = (period_end - period_start).total_seconds() / 86400
+    if period_days <= 0:
+        return 0.0
+    growth_factor = 1 + total_return_pct / 100
+    if growth_factor <= 0:
+        # perda total (>=100%) ou pior: potencia fracionaria de base negativa vira
+        # numero complexo silenciosamente em Python -- retorno anualizado nesse
+        # caso e perda total, nao um numero indefinido.
+        return -100.0
+    try:
+        return (growth_factor ** (365 / period_days) - 1) * 100
+    except OverflowError:
+        # periodo curto + retorno grande (ex: TIMEFRAME=1m, poucas horas de
+        # historico com retorno acumulado alto) faz o expoente estourar o range
+        # de float -- extrapolar isso para "1 ano" ja e instavel por natureza;
+        # inf explicito e mais honesto que deixar o comando inteiro crashar.
+        return float("inf")
+
+
 def _simplified_sharpe(trade_returns: List[float]) -> float:
     if len(trade_returns) < 2:
         return 0.0
@@ -383,6 +426,24 @@ def _simplified_sharpe(trade_returns: List[float]) -> float:
     if std == 0:
         return 0.0
     return float(series.mean() / std * sqrt(len(trade_returns)))
+
+
+def _simplified_sortino(trade_returns: List[float]) -> float:
+    """Mesma formula/convencao de _simplified_sharpe, trocando o desvio padrao
+    geral pelo desvio padrao so dos retornos negativos (downside). Precisa de
+    >=2 trades com prejuizo para o desvio ser calculavel -- com menos que isso
+    (ou nenhum prejuizo), cai no mesmo padrao ja usado por profit_factor/
+    payoff_ratio: inf se a media for positiva, 0.0 caso contrario."""
+    if not trade_returns:
+        return 0.0
+    mean = pd.Series(trade_returns).mean()
+    downside = [r for r in trade_returns if r < 0]
+    if len(downside) < 2:
+        return float("inf") if mean > 0 else 0.0
+    downside_std = pd.Series(downside).std(ddof=1)
+    if downside_std == 0:
+        return float("inf") if mean > 0 else 0.0
+    return float(mean / downside_std * sqrt(len(trade_returns)))
 
 
 def _close_trade(
@@ -430,7 +491,11 @@ def print_report(r: BacktestResult):
         ("Maior win/loss", f"${r.largest_win:+.2f} / ${r.largest_loss:+.2f}", C_CYAN, f"Maior win/loss:    ${r.largest_win:+.2f} / ${r.largest_loss:+.2f}"),
         ("Max perdas seg.", str(r.max_losing_streak), C_NEG if r.max_losing_streak >= 3 else C_CYAN, f"Max perdas seg.:   {r.max_losing_streak}"),
         ("Exposicao", f"{r.exposure_pct:.1f}%", C_CYAN, f"Exposicao:         {r.exposure_pct:.1f}%"),
+        ("Retorno anualiz.", f"{r.annualized_return_pct:+.2f}%", _value_color(r.annualized_return_pct), f"Retorno anualiz.:  {r.annualized_return_pct:+.2f}%"),
+        ("Retorno/exposicao", _fmt_exposure_return(r.return_per_exposure_pct), _value_color(r.return_per_exposure_pct or 0.0), f"Retorno/exposicao: {_fmt_exposure_return(r.return_per_exposure_pct)}"),
         ("Sharpe simplif.", f"{r.sharpe:.2f}", _value_color(r.sharpe), f"Sharpe simplif.:   {r.sharpe:.2f}"),
+        ("Sortino", _fmt_metric(r.sortino), C_POS if r.sortino > 0 else C_NEG, f"Sortino:           {_fmt_metric(r.sortino)}"),
+        ("Calmar", _fmt_metric(r.calmar), C_POS if r.calmar > 1 else C_NEG, f"Calmar:            {_fmt_metric(r.calmar)}"),
         ("Expectativa %", f"{r.expectancy_pct:+.2f}%/trade", _value_color(r.expectancy_pct), f"Expectativa %:     {r.expectancy_pct:+.2f}%/trade"),
         ("Payoff ratio", _fmt_metric(r.payoff_ratio), C_POS if r.payoff_ratio > 1 else C_NEG, f"Payoff ratio:      {_fmt_metric(r.payoff_ratio)}"),
         ("Buy & hold", f"{r.buy_hold_return_pct:+.2f}%", _value_color(r.buy_hold_return_pct), f"Buy & hold:        {r.buy_hold_return_pct:+.2f}%"),
@@ -488,3 +553,9 @@ def _fmt_metric(value: float) -> str:
     if value == float("inf"):
         return "inf"
     return f"{value:.2f}"
+
+
+def _fmt_exposure_return(value: Optional[float]) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:+.2f}%"

@@ -25,6 +25,10 @@ def _result(total_return, drawdown, trades=3, win_rate=50, profit_factor=1.5, lo
         buy_hold_return_pct=0.0,
         edge_return_pct=total_return,
         edge_score=0.0,
+        sortino=0.0,
+        calmar=0.0,
+        annualized_return_pct=0.0,
+        return_per_exposure_pct=None,
     )
 
 

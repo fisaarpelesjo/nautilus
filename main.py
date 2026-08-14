@@ -13,6 +13,7 @@ Uso:
   python main.py optimize --validate      -- grid search with train/validation split
   python main.py optimize --walk-forward  -- validate winner across sliding windows
   python main.py analyze       -- analyze backtest results
+  python main.py decisions     -- summarize data/decisions.csv (signals, blockers)
   python main.py select        -- select dynamic pairs
   python main.py chart [PAIR] [TF] [N]  -- terminal chart with EMAs and RSI
   python main.py bot           -- start the trading bot
@@ -49,6 +50,10 @@ def cmd_scan():
 
 def cmd_analisar():
     from backtesting.analysis import run
+    run()
+
+def cmd_decisions():
+    from data.decisions_analysis import run
     run()
 
 def cmd_otimizar():
@@ -174,6 +179,7 @@ COMMANDS = {
     "multibacktest": cmd_multibacktest,
     "scan":          cmd_scan,
     "analyze":       cmd_analisar,
+    "decisions":     cmd_decisions,
     "optimize":      cmd_otimizar,
     "select":        cmd_selecionar,
     "chart":         cmd_chart,
@@ -183,6 +189,7 @@ COMMANDS = {
     "resume":        cmd_resume,
     # aliases pt-br
     "analisar":      cmd_analisar,
+    "decisoes":      cmd_decisions,
     "otimizar":      cmd_otimizar,
     "selecionar":    cmd_selecionar,
 }

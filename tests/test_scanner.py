@@ -26,6 +26,10 @@ def _result(edge_score, profit_factor=1.5, total_trades=15, total_return_pct=20.
         buy_hold_return_pct=buy_hold_return_pct,
         edge_return_pct=total_return_pct - buy_hold_return_pct,
         edge_score=edge_score,
+        sortino=0.0,
+        calmar=0.0,
+        annualized_return_pct=0.0,
+        return_per_exposure_pct=None,
     )
 
 
