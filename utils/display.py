@@ -187,14 +187,15 @@ def buy_opened(symbol: str, price: float, qty: float, sl: float, tp: float):
     console.print()
 
 
-def trade_result(action: str, pnl: float, pnl_pct: float, balance: float):
+def trade_result(action: str, pnl: float, pnl_pct: float, balance):
     color = C_POS if pnl >= 0 else C_NEG
     title = "trade fechado com lucro" if pnl >= 0 else "trade fechado com perda"
+    balance_str = f"${balance:,.2f}" if balance is not None else "indisponível"
     console.print()
     console.print(Panel.fit(
         f"[bold white]{action}[/]\n"
         f"[{C_LABEL}]resultado[/] [{color}]{pnl:+.4f} USDT ({pnl_pct:+.2f}%)[/{color}]   "
-        f"[{C_LABEL}]saldo[/] [{C_PRICE}]${balance:,.2f}[/]",
+        f"[{C_LABEL}]saldo[/] [{C_PRICE}]{balance_str}[/]",
         title=f"[{color}]{title}[/{color}]",
         border_style=color,
         box=box.ROUNDED,

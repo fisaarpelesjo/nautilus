@@ -50,7 +50,7 @@ class _FakeManager:
 
 def test_attempt_close_uses_real_balance_in_live_mode(monkeypatch):
     monkeypatch.setattr(position_lifecycle, "TRADING_MODE", "live")
-    monkeypatch.setattr(position_lifecycle, "_get_usdt_balance", lambda: 4242.0)
+    monkeypatch.setattr(position_lifecycle, "fetch_balance", lambda: {"USDT": 4242.0})
     manager = _FakeManager(close_succeeds=True)
     manager.paper_balance_usdt = 1000.0  # nao deve ser usado em modo live
     pos = _FakePosition(stop_loss=99.0)
@@ -61,6 +61,25 @@ def test_attempt_close_uses_real_balance_in_live_mode(monkeypatch):
 
     balance_after = trade_events[0][4]
     assert balance_after == 4242.0
+
+
+def test_attempt_close_reports_unknown_balance_as_none_on_fetch_failure(monkeypatch):
+    # Regressao: saldo desconhecido (falha de rede) nao pode virar "$0.00" --
+    # isso pareceria uma conta zerada de verdade para o operador.
+    monkeypatch.setattr(position_lifecycle, "TRADING_MODE", "live")
+
+    def _failing_fetch_balance():
+        raise RuntimeError("timeout")
+
+    monkeypatch.setattr(position_lifecycle, "fetch_balance", _failing_fetch_balance)
+    manager = _FakeManager(close_succeeds=True)
+    pos = _FakePosition(stop_loss=99.0)
+    row = {}
+    trade_events = []
+
+    position_lifecycle.handle_open_position(manager, "BTC/USDT", pos, _FakeSignal(), 98.0, row, trade_events)
+
+    assert trade_events[0][4] is None
 
 
 def test_handle_open_position_trailing_stop_uses_persist_with_retry():

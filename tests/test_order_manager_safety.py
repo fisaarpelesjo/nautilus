@@ -147,6 +147,40 @@ def test_live_sell_keeps_local_position_when_exchange_call_fails(monkeypatch):
     assert manager.has_position("BTC/USDT")
 
 
+def test_live_sell_error_alert_still_sent_when_log_event_fails(monkeypatch):
+    # Regressao: no ramo de erro (a chamada a exchange falhou), log_event e
+    # send_telegram tambem precisam estar isolados um do outro -- nao so no
+    # caminho de sucesso.
+    class _FailingExchange:
+        def create_market_sell_order(self, symbol, quantity, params=None):
+            raise RuntimeError("network timeout")
+
+    sent_messages = []
+    monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
+    monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
+    monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
+    monkeypatch.setattr(order_manager, "load_state", lambda: {})
+    monkeypatch.setattr(order_manager, "save_state", lambda state: None)
+    monkeypatch.setattr(order_manager, "send_telegram", lambda msg: sent_messages.append(msg))
+    monkeypatch.setattr(order_manager, "get_exchange", lambda: _FailingExchange())
+    monkeypatch.setattr(
+        order_manager, "log_event",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    manager = OrderManager()
+    manager.positions["BTC/USDT"] = order_manager.Position(
+        symbol="BTC/USDT", side="long", entry_price=100.0, quantity=1.0,
+        stop_loss=95.0, take_profit=110.0,
+    )
+
+    manager.close_position("BTC/USDT", "stop_loss")  # nao deve levantar
+
+    assert manager.has_position("BTC/USDT")
+    assert any("ERRO ao vender" in m for m in sent_messages)
+
+
 def _live_manager(monkeypatch, exchange, log_trade=None):
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)

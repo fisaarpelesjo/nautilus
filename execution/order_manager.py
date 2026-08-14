@@ -1,3 +1,4 @@
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -25,6 +26,21 @@ log = get_logger("orders")
 def _generate_client_order_id() -> str:
     """ID unico por ordem (paper e live) para idempotencia -- ver constitution P6."""
     return f"bot-{uuid.uuid4().hex[:8]}-{int(datetime.now().timestamp())}"
+
+
+def _safe_step(log_prefix: str, fn):
+    """Roda fn(); se falhar, loga e engole em vez de propagar.
+
+    Usado para acoes de observabilidade (log estruturado, alerta Telegram)
+    que rodam depois que a parte critica de uma ordem (executada na
+    exchange, posicao/contadores atualizados) ja aconteceu -- uma falha
+    aqui nao pode reaparecer como se a ordem tivesse falhado, nem derrubar
+    o ciclo do bot.
+    """
+    try:
+        fn()
+    except Exception as e:
+        log.error(f"{log_prefix}: {e}")
 
 
 @dataclass
@@ -156,6 +172,7 @@ class OrderManager:
             except Exception as e:
                 if attempt < attempts:
                     log.warning(f"Falha ao persistir estado {context} (tentativa {attempt}): {e}")
+                    time.sleep(0.2)  # da uma chance real de um lock transitorio (ex: sync do OneDrive) liberar
                 else:
                     log.error(f"Falha ao persistir estado {context} apos {attempts} tentativas: {e}")
 
@@ -234,28 +251,27 @@ class OrderManager:
         )
         self._persist_state_with_retry(f"apos comprar (paper) {symbol}")
 
-        try:
-            log_event(
-                "paper_order_opened",
-                mode=TRADING_MODE,
-                symbol=symbol,
-                side="long",
-                entry_price=risk.entry_price,
-                quantity=risk.quantity,
-                stop_loss=risk.stop_loss,
-                take_profit=risk.take_profit,
-                balance_after=self.paper_balance_usdt,
-                client_order_id=client_order_id,
-            )
-        except Exception as e:
-            log.error(f"Compra paper de {symbol} confirmada, mas falha ao registrar evento: {e}")
+        prefix = f"Compra paper de {symbol} confirmada"
+        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+            "paper_order_opened",
+            mode=TRADING_MODE,
+            symbol=symbol,
+            side="long",
+            entry_price=risk.entry_price,
+            quantity=risk.quantity,
+            stop_loss=risk.stop_loss,
+            take_profit=risk.take_profit,
+            balance_after=self.paper_balance_usdt,
+            client_order_id=client_order_id,
+        ))
 
-        try:
-            msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
+        msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
+
+        def _notify():
             log.info(msg)
             send_telegram(msg)
-        except Exception as e:
-            log.error(f"Compra paper de {symbol} confirmada, mas falha ao enviar alerta: {e}")
+
+        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
 
     def _paper_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         pos = self.positions[symbol]
@@ -279,48 +295,44 @@ class OrderManager:
         del self.positions[symbol]
         self._persist_state_with_retry(f"apos vender (paper) {symbol}")
 
-        try:
-            log_trade({
-                "opened_at":     pos.opened_at,
-                "closed_at":     datetime.now(),
-                "symbol":        pos.symbol,
-                "side":          pos.side,
-                "entry_price":   pos.entry_price,
-                "exit_price":    exit_price,
-                "quantity":      pos.quantity,
-                "pnl_usdt":      round(pnl, 6),
-                "pnl_pct":       round(pnl_pct, 4),
-                "exit_reason":   reason,
-                "balance_after": round(self.paper_balance_usdt, 4),
-                "client_order_id": pos.client_order_id,
-            })
-        except Exception as e:
-            log.error(f"Venda paper de {symbol} confirmada, mas falha ao registrar trade: {e}")
+        prefix = f"Venda paper de {symbol} confirmada"
+        _safe_step(f"{prefix}, mas falha ao registrar trade", lambda: log_trade({
+            "opened_at":     pos.opened_at,
+            "closed_at":     datetime.now(),
+            "symbol":        pos.symbol,
+            "side":          pos.side,
+            "entry_price":   pos.entry_price,
+            "exit_price":    exit_price,
+            "quantity":      pos.quantity,
+            "pnl_usdt":      round(pnl, 6),
+            "pnl_pct":       round(pnl_pct, 4),
+            "exit_reason":   reason,
+            "balance_after": round(self.paper_balance_usdt, 4),
+            "client_order_id": pos.client_order_id,
+        }))
 
-        try:
-            log_event(
-                "paper_order_closed",
-                mode=TRADING_MODE,
-                symbol=pos.symbol,
-                side=pos.side,
-                entry_price=pos.entry_price,
-                exit_price=exit_price,
-                quantity=pos.quantity,
-                pnl_usdt=round(pnl, 6),
-                pnl_pct=round(pnl_pct, 4),
-                exit_reason=reason,
-                balance_after=round(self.paper_balance_usdt, 4),
-                daily_pnl=round(self.daily_pnl, 6),
-            )
-        except Exception as e:
-            log.error(f"Venda paper de {symbol} confirmada, mas falha ao registrar evento: {e}")
+        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+            "paper_order_closed",
+            mode=TRADING_MODE,
+            symbol=pos.symbol,
+            side=pos.side,
+            entry_price=pos.entry_price,
+            exit_price=exit_price,
+            quantity=pos.quantity,
+            pnl_usdt=round(pnl, 6),
+            pnl_pct=round(pnl_pct, 4),
+            exit_reason=reason,
+            balance_after=round(self.paper_balance_usdt, 4),
+            daily_pnl=round(self.daily_pnl, 6),
+        ))
 
-        try:
-            msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
+        msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
+
+        def _notify():
             log.info(msg)
             send_telegram(msg)
-        except Exception as e:
-            log.error(f"Venda paper de {symbol} confirmada, mas falha ao enviar alerta: {e}")
+
+        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
 
     def _live_buy(self, symbol: str, risk: RiskLevels):
         if self.exchange is None:
@@ -348,12 +360,15 @@ class OrderManager:
             # ter sido aceita pela exchange apesar do erro (timeout, etc.).
             # pending_open_client_order_ids mantem o mesmo ID salvo para o
             # proximo retry. Reconciliacao e quem flagra divergencia real.
-            log.error(f"Erro ao comprar {symbol}: {e}")
-            log_event(
+            error_message = str(e)  # 'e' some ao sair do except; captura antes das lambdas
+            log.error(f"Erro ao comprar {symbol}: {error_message}")
+            error_prefix = f"Erro ao comprar {symbol} ja registrado no log"
+            _safe_step(f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
                 "live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy",
-                error=str(e), client_order_id=client_order_id,
-            )
-            send_telegram(f"[LIVE] ERRO ao comprar {symbol}: {e}")
+                error=error_message, client_order_id=client_order_id,
+            ))
+            _safe_step(f"{error_prefix}, mas falha ao enviar alerta",
+                       lambda: send_telegram(f"[LIVE] ERRO ao comprar {symbol}: {error_message}"))
             return
 
         # A partir daqui a compra foi aceita pela exchange -- a posicao MUST
@@ -371,28 +386,27 @@ class OrderManager:
         )
         self._persist_state_with_retry(f"apos comprar {symbol}")
 
-        try:
-            log_event(
-                "live_order_opened",
-                mode=TRADING_MODE,
-                symbol=symbol,
-                side="long",
-                entry_price=risk.entry_price,
-                quantity=risk.quantity,
-                stop_loss=risk.stop_loss,
-                take_profit=risk.take_profit,
-                order_id=order["id"],
-                client_order_id=client_order_id,
-            )
-        except Exception as e:
-            log.error(f"Compra de {symbol} confirmada, mas falha ao registrar evento: {e}")
+        prefix = f"Compra de {symbol} confirmada"
+        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+            "live_order_opened",
+            mode=TRADING_MODE,
+            symbol=symbol,
+            side="long",
+            entry_price=risk.entry_price,
+            quantity=risk.quantity,
+            stop_loss=risk.stop_loss,
+            take_profit=risk.take_profit,
+            order_id=order["id"],
+            client_order_id=client_order_id,
+        ))
 
-        try:
-            msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
+        msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
+
+        def _notify():
             log.info(msg)
             send_telegram(msg)
-        except Exception as e:
-            log.error(f"Compra de {symbol} confirmada, mas falha ao enviar alerta: {e}")
+
+        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)
 
     def _live_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         if self.exchange is None:
@@ -422,12 +436,19 @@ class OrderManager:
             # pending_close_client_order_id fica salvo para o proximo retry
             # reusar o mesmo ID. Reconciliacao e quem flagra divergencia real
             # para revisao manual.
-            log.error(f"Erro ao vender {symbol}: {e}")
-            log_event(
+            error_message = str(e)  # 'e' some ao sair do except; captura antes das lambdas
+            log.error(f"Erro ao vender {symbol}: {error_message}")
+            error_prefix = f"Erro ao vender {symbol} ja registrado no log"
+            _safe_step(f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
                 "live_order_error", mode=TRADING_MODE, symbol=symbol, side="sell",
-                error=str(e), client_order_id=client_order_id,
+                error=error_message, client_order_id=client_order_id,
+            ))
+            _safe_step(
+                f"{error_prefix}, mas falha ao enviar alerta",
+                lambda: send_telegram(
+                    f"[LIVE] ERRO ao vender {symbol}: {error_message} | posicao mantida localmente para revisao"
+                ),
             )
-            send_telegram(f"[LIVE] ERRO ao vender {symbol}: {e} | posicao mantida localmente para revisao")
             return
 
         # A partir daqui a venda foi aceita pela exchange -- a posicao MUST
@@ -448,47 +469,43 @@ class OrderManager:
 
         # A venda ja esta confirmada, a posicao ja foi removida e o PnL ja foi
         # contabilizado acima -- daqui pra baixo sao 3 acoes de observabilidade
-        # independentes entre si. Cada uma isolada no seu proprio try/except
-        # para que uma falhar (ex: trades.csv sem espaco em disco) nao impeca
-        # as outras duas de rodar.
-        try:
-            log_trade({
-                "opened_at":     pos.opened_at,
-                "closed_at":     datetime.now(),
-                "symbol":        pos.symbol,
-                "side":          pos.side,
-                "entry_price":   pos.entry_price,
-                "exit_price":    exit_price,
-                "quantity":      pos.quantity,
-                "pnl_usdt":      round(pnl, 6),
-                "pnl_pct":       round(pnl_pct, 4),
-                "exit_reason":   reason,
-                "client_order_id": pos.client_order_id,
-                "close_client_order_id": client_order_id,
-            })
-        except Exception as e:
-            log.error(f"Venda de {symbol} confirmada, mas falha ao registrar trade: {e}")
+        # independentes entre si. Cada uma isolada via _safe_step para que uma
+        # falhar (ex: trades.csv sem espaco em disco) nao impeca as outras
+        # duas de rodar nem reapareca como se a venda tivesse falhado.
+        prefix = f"Venda de {symbol} confirmada"
+        _safe_step(f"{prefix}, mas falha ao registrar trade", lambda: log_trade({
+            "opened_at":     pos.opened_at,
+            "closed_at":     datetime.now(),
+            "symbol":        pos.symbol,
+            "side":          pos.side,
+            "entry_price":   pos.entry_price,
+            "exit_price":    exit_price,
+            "quantity":      pos.quantity,
+            "pnl_usdt":      round(pnl, 6),
+            "pnl_pct":       round(pnl_pct, 4),
+            "exit_reason":   reason,
+            "client_order_id": pos.client_order_id,
+            "close_client_order_id": client_order_id,
+        }))
 
-        try:
-            log_event(
-                "live_order_closed",
-                mode=TRADING_MODE,
-                symbol=symbol,
-                side=pos.side,
-                quantity=pos.quantity,
-                exit_reason=reason,
-                order_id=order["id"],
-                client_order_id=client_order_id,
-                pnl_usdt=round(pnl, 6),
-                pnl_pct=round(pnl_pct, 4),
-                daily_pnl=round(self.daily_pnl, 6),
-            )
-        except Exception as e:
-            log.error(f"Venda de {symbol} confirmada, mas falha ao registrar evento: {e}")
+        _safe_step(f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+            "live_order_closed",
+            mode=TRADING_MODE,
+            symbol=symbol,
+            side=pos.side,
+            quantity=pos.quantity,
+            exit_reason=reason,
+            order_id=order["id"],
+            client_order_id=client_order_id,
+            pnl_usdt=round(pnl, 6),
+            pnl_pct=round(pnl_pct, 4),
+            daily_pnl=round(self.daily_pnl, 6),
+        ))
 
-        try:
-            msg = f"[LIVE] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | ID={order['id']}"
+        msg = f"[LIVE] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | ID={order['id']}"
+
+        def _notify():
             log.info(msg)
             send_telegram(msg)
-        except Exception as e:
-            log.error(f"Venda de {symbol} confirmada, mas falha ao enviar alerta: {e}")
+
+        _safe_step(f"{prefix}, mas falha ao enviar alerta", _notify)

@@ -35,8 +35,7 @@ def _attempt_close(manager, symbol, pos, current_price, reason, label, row, trad
         manager.set_cooldown(symbol)
     row["in_pos"] = False
     row["decision"] = f"fechou: {label}"
-    balance_after = manager.paper_balance_usdt if TRADING_MODE == "paper" else _get_usdt_balance()
-    trade_events.append(("result", f"{label}  {symbol}", pnl, pnl_pct_val, balance_after))
+    trade_events.append(("result", f"{label}  {symbol}", pnl, pnl_pct_val, _current_balance(manager)))
 
 
 def handle_entry_candidate(
@@ -76,7 +75,7 @@ def handle_entry_candidate(
         row["decision"] = "compra bloqueada: " + ", ".join(blockers)
         return False
 
-    available = manager.paper_balance_usdt / slots_left if TRADING_MODE == "paper" else _get_usdt_balance() / slots_left
+    available = (_current_balance(manager) or 0.0) / slots_left
     atr = float(indicators.get("atr", 0) or 0)
     risk = calculate_risk(current_price, available, atr)
     manager.open_long(symbol, risk)
@@ -104,9 +103,14 @@ def mtf_confirmed(symbol: str, price: float, strategy) -> bool:
         return True
 
 
-def _get_usdt_balance() -> float:
+def _current_balance(manager: OrderManager):
+    """Saldo atual em USDT, paper ou live. Retorna None (nao 0.0) quando o
+    saldo real nao pode ser obtido -- um saldo desconhecido nao pode ser
+    exibido como "$0.00", que pareceria uma conta zerada de verdade."""
+    if TRADING_MODE == "paper":
+        return manager.paper_balance_usdt
     try:
         balance = fetch_balance()
         return float(balance.get("USDT", 0))
     except Exception:
-        return 0.0
+        return None

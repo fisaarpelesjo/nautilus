@@ -356,7 +356,57 @@ Não corrigidos (avaliados e descartados):
 
 79 testes passando (7 novos desde o commit `f00d0cb`), ruff/mypy limpos.
 
-72 testes passando (5 novos desde a rodada 6), ruff/mypy limpos.
+Commitado (`ce4d5a1`) e enviado ao `origin/main` antes de continuar.
+
+Nona rodada de `/code-review high` (sobre o commit `ce4d5a1`) encontrou mais 7 problemas — 6
+corrigidos, 1 avaliado e descartado. A essa altura o review já cruzava achados novos com o histórico
+de decisões deste `tasks.md`, o que ajudou a não reabrir pontos já resolvidos.
+
+34. `_live_buy` tinha o mesmo problema do achado #2 (rodada 6): o ramo de **erro** (chamada à
+    exchange falhou) tinha `log_event`/`send_telegram` no mesmo bloco lógico sem isolamento entre
+    si — igual no `_live_sell`. Como esse tipo de gap já tinha se repetido 3 vezes em métodos
+    diferentes (achados #2, #20, #21, #27), extraí um helper `_safe_step(prefixo, fn)` e apliquei
+    nos 4 métodos (`_paper_buy`, `_paper_sell`, `_live_buy`, `_live_sell`), sucesso e erro, ~12
+    pontos de chamada — resolve este achado e o achado #7 da mesma rodada (duplicação do padrão
+    try/except) ao mesmo tempo.
+35. Achado pelo próprio `ruff` ao aplicar o `_safe_step`: usar a variável `e` de
+    `except Exception as e:` dentro de uma lambda é um anti-padrão real — Python remove `e` do
+    escopo ao sair do bloco `except` (para evitar ciclo de referência com o traceback). Como as
+    lambdas rodam de forma síncrona all `_safe_step` (antes do `e` sumir), não haveria bug em
+    runtime aqui, mas o `ruff` marcou `F821` corretamente como código frágil. Corrigido: captura
+    `str(e)` numa variável local antes de construir as lambdas.
+36. `_persist_state_with_retry` tentava de novo sem nenhuma pausa entre tentativas — se o motivo for
+    um lock transitório (ex: o cliente de sincronização do OneDrive segurando o arquivo, achado #31
+    da rodada 8), duas tentativas em sequência imediata têm quase a mesma chance de falhar que uma
+    só. Adicionado `time.sleep(0.2)` entre tentativas.
+37. `_attempt_close` exibia `manager.paper_balance_usdt` ou, em live, o resultado de
+    `_get_usdt_balance()` — que retorna `0.0` em caso de falha ao buscar o saldo real. Isso é seguro
+    para dimensionar uma nova ordem (`handle_entry_candidate`, onde "saldo desconhecido" e "saldo
+    zero" levam à mesma decisão conservadora), mas era enganoso para *exibir*: um trade fechado com
+    sucesso podia aparecer com "saldo $0,00" só porque a chamada de rede subsequente falhou.
+    Corrigido: novo `_current_balance(manager)` retorna `None` (não `0.0`) quando o saldo real não
+    pode ser obtido; `utils/display.py` `trade_result` passou a aceitar `None` e mostrar
+    "indisponível" em vez de formatar como dinheiro.
+38. A lógica de bifurcar saldo por `TRADING_MODE` estava duplicada entre `handle_entry_candidate` e
+    `_attempt_close` — unificada em `_current_balance`, usado pelos dois (com `or 0.0` em
+    `handle_entry_candidate`, onde um fallback numérico é a escolha certa).
+
+Não corrigidos (avaliados e descartados):
+- `_persist_state_with_retry` ainda pode esgotar as duas tentativas e nunca persistir — nesse caso
+  (falha dupla + crash antes de qualquer persistência futura bem-sucedida), o `pending_open_client_order_ids`/
+  `pending_close_client_order_id` recém-gerado pode se perder, e um restart geraria um ID novo,
+  reabrindo o risco que esse mecanismo existe para fechar. Isso é uma limitação inerente a qualquer
+  retry com número finito de tentativas — não existe fix que elimine o risco por completo sem
+  persistência garantida (fora do alcance de um `state.json` em disco local). A reconciliação
+  periódica continua sendo a rede de segurança final para esse caso, como já documentado desde a
+  rodada 5.
+- **Processo, de novo**: terceira vez que o review aponta granularidade de commit (rodadas 2, 7, 9).
+  A partir daqui, a política adotada é: um commit por rodada de review (o que já vinha acontecendo
+  desde a rodada 8), não um commit por achado individual — dividir mais que isso não é proporcional
+  para correções descobertas em conjunto na mesma revisão. Não reabrir este ponto salvo mudança real
+  de contexto.
+
+83 testes passando (4 novos desde o commit `ce4d5a1`), ruff/mypy limpos.
 
 ---
 
