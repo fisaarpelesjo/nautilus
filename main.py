@@ -13,6 +13,8 @@ Uso:
   python main.py chart [PAIR] [TF] [N]  -- terminal chart with EMAs and RSI
   python main.py bot           -- start the trading bot
   python main.py status        -- show balance and open positions
+  python main.py kill          -- suspend new entries (kill switch)
+  python main.py resume        -- resume new entries (kill switch)
 """
 import sys
 from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
@@ -58,8 +60,30 @@ def cmd_bot():
     from trading.runner import run
     run()
 
+def _toggle_killswitch(active: bool):
+    from datetime import datetime
+    from data.killswitch_store import save_killswitch
+    from utils.logger import log_event, safe_step, get_logger
+    from utils.notifier import send_telegram
+
+    log = get_logger("cli")
+    save_killswitch(active)
+    label = "ativado" if active else "desativado"
+    safe_step(log, f"Kill switch {label}, mas falha ao publicar evento",
+              lambda: log_event("killswitch_toggled", active=active))
+    safe_step(log, f"Kill switch {label}, mas falha ao enviar alerta",
+              lambda: send_telegram(f"Kill switch {label.upper()} via CLI — novas entradas {'suspensas' if active else 'liberadas'}."))
+    print(f"Kill switch {label} em {datetime.now().isoformat()}")
+
+def cmd_kill():
+    _toggle_killswitch(True)
+
+def cmd_resume():
+    _toggle_killswitch(False)
+
 def cmd_status():
     from data.fetcher import fetch_ticker
+    from data.killswitch_store import load_killswitch
     from data.state_store import load_state
     from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price
 
@@ -72,6 +96,9 @@ def cmd_status():
     wins        = state.get("winning_trades", 0) if state else 0
     positions   = state.get("positions", {}) if state else {}
     win_rate    = (wins / total * 100) if total else 0
+    consecutive_losses    = state.get("consecutive_losses", 0) if state else 0
+    circuit_breaker_active = state.get("circuit_breaker_active", False) if state else False
+    killswitch_active = load_killswitch()
     pc          = C_POS if pnl >= 0 else C_NEG
     wc          = C_POS if win_rate >= 50 else C_NEG
 
@@ -80,6 +107,15 @@ def cmd_status():
                   f"   [{C_LABEL}]trades[/{C_LABEL}] [white]{total}[/white]"
                   f"   [{C_LABEL}]win rate[/{C_LABEL}] [{wc}]{win_rate:.0f}%[/{wc}]")
     console.print()
+
+    if killswitch_active or circuit_breaker_active:
+        if killswitch_active:
+            console.print(f"  [{C_NEG}]kill switch ATIVADO[/{C_NEG}] — novas entradas suspensas manualmente")
+        if circuit_breaker_active:
+            console.print(
+                f"  [{C_NEG}]circuit breaker ATIVADO[/{C_NEG}] — {consecutive_losses} perdas seguidas, novas entradas suspensas"
+            )
+        console.print()
 
     if positions:
         console.print(f"  [{C_LABEL}]posições abertas ({len(positions)}):[/{C_LABEL}]")
@@ -128,6 +164,8 @@ COMMANDS = {
     "chart":         cmd_chart,
     "bot":           cmd_bot,
     "status":        cmd_status,
+    "kill":          cmd_kill,
+    "resume":        cmd_resume,
     # aliases pt-br
     "analisar":      cmd_analisar,
     "otimizar":      cmd_otimizar,

@@ -21,6 +21,13 @@ def test_validate_config_rejects_invalid_pair(monkeypatch):
         settings.validate_config()
 
 
+def test_validate_config_rejects_max_consecutive_losses_below_one(monkeypatch):
+    monkeypatch.setattr(settings, "MAX_CONSECUTIVE_LOSSES", 0)
+
+    with pytest.raises(ValueError, match="MAX_CONSECUTIVE_LOSSES"):
+        settings.validate_config()
+
+
 def test_validate_config_requires_confirmation_for_live(monkeypatch):
     monkeypatch.setattr(settings, "TRADING_MODE", "live")
     monkeypatch.setattr(settings, "LIVE_TRADING_CONFIRMATION", "")

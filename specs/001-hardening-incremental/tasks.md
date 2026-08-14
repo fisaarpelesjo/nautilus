@@ -499,31 +499,48 @@ suspender/retomar novas entradas manualmente via CLI a qualquer momento.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T018 [P] [US2] Teste: `consecutive_losses` incrementa em trade com prejuízo e reseta em trade
-      com lucro em `tests/test_risk_manager.py`
-- [ ] T019 [P] [US2] Teste: `circuit_breaker_active` vira `true` ao atingir `MAX_CONSECUTIVE_LOSSES`
-      e bloqueia novas entradas em `tests/test_risk_manager.py`
-- [ ] T020 [P] [US2] Teste: `killswitch_active` bloqueia novas entradas e persiste entre reinícios
-      simulados (recarregar `state.json`) em `tests/test_order_manager_safety.py` ou novo arquivo
+- [x] T018 [P] [US2] Teste: `consecutive_losses` incrementa em trade com prejuízo e reseta em trade
+      com lucro (`tests/test_order_manager_safety.py` — ver nota de design abaixo, não
+      `tests/test_risk_manager.py`)
+- [x] T019 [P] [US2] Teste: `circuit_breaker_active` vira `true` ao atingir `MAX_CONSECUTIVE_LOSSES`
+      e bloqueia novas entradas (`tests/test_order_manager_safety.py` + `tests/test_position_lifecycle.py`)
+- [x] T020 [P] [US2] Teste: `killswitch_active` bloqueia novas entradas e persiste entre reinícios
+      simulados (`tests/test_killswitch_store.py` novo + `tests/test_position_lifecycle.py`)
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Nova variável `MAX_CONSECUTIVE_LOSSES` em `config/settings.py`, incluindo validação
-      em `validate_config()` (depende de T018 falhando)
-- [ ] T022 [US2] Campos `consecutive_losses` e `circuit_breaker_active` em `data/state_store.py`
-- [ ] T023 [US2] Lógica de incremento/reset do contador ao fechar um trade, em `risk/manager.py` ou
-      `trading/position_lifecycle.py` (depende de T021, T022)
-- [ ] T024 [US2] Bloquear abertura de novas posições em `trading/runner.py` quando
-      `circuit_breaker_active` (depende de T023)
-- [ ] T025 [US2] Campo `killswitch_active` em `data/state_store.py` (depende de T020 falhando)
-- [ ] T026 [US2] Subcomandos `kill` e `resume` em `main.py`, seguindo `contracts/cli.md`
-      (depende de T025)
-- [ ] T027 [US2] Bloquear abertura de novas posições em `trading/runner.py` quando
-      `killswitch_active` (depende de T026)
-- [ ] T028 [US2] Eventos `circuit_breaker_triggered` e `killswitch_toggled` em `utils/logger.py`
-      (JSONL) e `utils/notifier.py` (Telegram)
+Nota de design (desvio de `research.md`): o contador de perdas seguidas (`consecutive_losses`,
+`circuit_breaker_active`) ficou dentro do `OrderManager`/`state.json`, mas o **kill switch NÃO** —
+ficou num arquivo próprio (`data/killswitch.json`, novo `data/killswitch_store.py`). Motivo: o
+`OrderManager` reescreve `state.json` inteiro a cada `_persist_state()` (a cada trade, ajuste de
+trailing stop, etc.); se `killswitch_active` morasse lá, uma escrita normal do bot **enquanto
+rodando** sobrescreveria de volta o flag ativado externamente pelo comando `python main.py kill`
+rodado em outro processo — um risco real de corrida que `research.md` não tinha considerado (a
+razão registrada lá para rejeitar um arquivo separado foi só "evitar mais uma fonte de estado",
+sem essa análise). `python main.py status` já mostra os dois estados juntos, então a divisão em
+dois arquivos não perde visibilidade.
 
-**Checkpoint**: US1 e US2 funcionam de forma independente uma da outra.
+- [x] T021 [US2] `MAX_CONSECUTIVE_LOSSES` em `config/settings.py` (default 3), validação em
+      `validate_config()`
+- [x] T022 [US2] Campos `consecutive_losses` e `circuit_breaker_active` persistidos via
+      `OrderManager`/`state.json` (não em `data/state_store.py` diretamente — mesmo padrão de
+      `total_trades`/`realized_pnl`, que também não vivem em `state_store.py`)
+- [x] T023 [US2] `OrderManager._update_consecutive_losses(pnl)`, chamado por `_paper_sell` e
+      `_live_sell` ao fechar um trade — contador GLOBAL (não por par), consistente com
+      `MAX_ENTRIES_PER_CYCLE=1` já tratar entradas como recurso compartilhado
+- [x] T024 [US2] `handle_entry_candidate` (`trading/position_lifecycle.py`) bloqueia com
+      `"circuit breaker"` quando `manager.circuit_breaker_active`
+- [x] T025 [US2] `data/killswitch_store.py` novo (`load_killswitch`/`save_killswitch`, escrita
+      atômica via `data/atomic_io.py`) — não em `data/state_store.py` (ver nota de design acima)
+- [x] T026 [US2] Subcomandos `kill`/`resume` em `main.py`, seguindo `contracts/cli.md`
+- [x] T027 [US2] `trading/runner.py` lê `load_killswitch()` do disco uma vez por ciclo (não guarda em
+      memória — precisa refletir uma ativação externa no próximo ciclo, não só num restart) e passa
+      para `handle_entry_candidate`, que bloqueia com `"kill switch"`
+- [x] T028 [US2] Eventos `circuit_breaker_triggered` (em `OrderManager`) e `killswitch_toggled` (em
+      `main.py`), ambos via `safe_step` (JSONL + Telegram, isolados um do outro)
+
+**Checkpoint**: US1 e US2 funcionam de forma independente uma da outra. 100 testes passando,
+ruff/mypy limpos. Pendente: ciclo de `/code-review` antes do commit final.
 
 ---
 

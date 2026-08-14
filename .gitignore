@@ -16,6 +16,7 @@ data/signals.csv
 data/decisions.csv
 data/trades.csv
 data/state.json
+data/killswitch.json
 data/ohlcv/
 .coverage
 

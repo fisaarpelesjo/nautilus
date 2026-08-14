@@ -40,11 +40,12 @@ consecutive_losses = 0, circuit_breaker_active = false   (estado inicial)
   --[trade fecha com lucro, a qualquer momento]--> consecutive_losses = 0, circuit_breaker_active = false
 ```
 
-## Kill switch (novo, persistido em `state.json`)
+## Kill switch (novo, persistido em `data/killswitch.json` — não em `state.json`, ver `research.md`)
 
 | Campo | Tipo | Regras |
 |---|---|---|
-| `killswitch_active` | booleano | Setado por `python main.py kill`, limpo por `python main.py resume`. Bloqueia novas entradas quando `true`, independente de qualquer outro limite de risco. Não afeta gestão de posições já abertas. |
+| `active` | booleano | Setado por `python main.py kill`, limpo por `python main.py resume`. Bloqueia novas entradas quando `true`, independente de qualquer outro limite de risco. Não afeta gestão de posições já abertas. Lido do disco a cada ciclo de `trading/runner.py` (não fica em memória) para refletir uma ativação externa sem exigir restart. |
+| `toggled_at` | string (ISO) | Timestamp da última mudança, para auditoria/exibição em `python main.py status`. |
 
 ## Janela de validação out-of-sample (nova, transiente — só no relatório de backtest)
 

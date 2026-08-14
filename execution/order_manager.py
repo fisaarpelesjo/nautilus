@@ -12,6 +12,7 @@ from config.settings import (
     TRADING_MODE,
     COOLDOWN_HOURS,
     DAILY_DRAWDOWN_LIMIT,
+    MAX_CONSECUTIVE_LOSSES,
 )
 from data.fetcher import get_exchange
 from data.state_store import load_state, save_state
@@ -66,6 +67,8 @@ class OrderManager:
         self.daily_reset_date: str = ""
         self.last_reconciliation: Optional[dict] = None
         self.pending_open_client_order_ids: Dict[str, str] = {}
+        self.consecutive_losses: int = 0
+        self.circuit_breaker_active: bool = False
         if TRADING_MODE == "live":
             self._assert_live_trading_allowed()
             self.exchange = get_exchange()
@@ -90,6 +93,8 @@ class OrderManager:
         self.realized_pnl       = state.get("realized_pnl", 0.0)
         self.last_reconciliation = state.get("last_reconciliation")
         self.pending_open_client_order_ids = state.get("pending_open_client_order_ids", {})
+        self.consecutive_losses = state.get("consecutive_losses", 0)
+        self.circuit_breaker_active = state.get("circuit_breaker_active", False)
         for symbol, ts in state.get("cooldowns", {}).items():
             self.cooldowns[symbol] = datetime.fromisoformat(ts)
         today = datetime.now().strftime("%Y-%m-%d")
@@ -147,6 +152,8 @@ class OrderManager:
             "daily_reset_date":   self.daily_reset_date,
             "last_reconciliation": self.last_reconciliation,
             "pending_open_client_order_ids": self.pending_open_client_order_ids,
+            "consecutive_losses": self.consecutive_losses,
+            "circuit_breaker_active": self.circuit_breaker_active,
             "updated_at":         datetime.now().isoformat(),
         })
 
@@ -174,6 +181,32 @@ class OrderManager:
     def record_reconciliation(self, status: str, checked_at: str, diffs: list):
         self.last_reconciliation = {"status": status, "checked_at": checked_at, "diffs": diffs}
         self._persist_state_with_retry("ao registrar resultado de reconciliacao")
+
+    def _update_consecutive_losses(self, pnl: float):
+        """Atualiza o contador de perdas seguidas e o circuit breaker.
+
+        Contador GLOBAL (nao por par): perdas seguidas em pares diferentes ja
+        indicam que a estrategia/regime piorou de forma geral, nao so naquele
+        par -- consistente com MAX_ENTRIES_PER_CYCLE=1, que ja trata entradas
+        como recurso compartilhado entre pares.
+        """
+        if pnl < 0:
+            self.consecutive_losses += 1
+            if self.consecutive_losses >= MAX_CONSECUTIVE_LOSSES:
+                if not self.circuit_breaker_active:
+                    self.circuit_breaker_active = True
+                    log.warning(f"Circuit breaker ativado: {self.consecutive_losses} perdas seguidas")
+                    safe_step(log, "Falha ao publicar evento de circuit breaker", lambda: log_event(
+                        "circuit_breaker_triggered", mode=TRADING_MODE, consecutive_losses=self.consecutive_losses,
+                    ))
+                    safe_step(log, "Falha ao enviar alerta de circuit breaker", lambda: send_telegram(
+                        f"Circuit breaker ATIVADO: {self.consecutive_losses} perdas seguidas. Novas entradas suspensas."
+                    ))
+        else:
+            if self.circuit_breaker_active:
+                log.info("Circuit breaker desativado (trade positivo resetou o contador)")
+            self.consecutive_losses = 0
+            self.circuit_breaker_active = False
 
     def _check_daily_reset(self):
         today = datetime.now().strftime("%Y-%m-%d")
@@ -278,6 +311,7 @@ class OrderManager:
         self.daily_pnl    += pnl
         if pnl > 0:
             self.winning_trades += 1
+        self._update_consecutive_losses(pnl)
 
         # Remove a posicao e persiste ANTES do log/alerta: se um desses passos
         # falhar (disco cheio, etc.), a posicao nao pode ficar presa em memoria
@@ -447,6 +481,7 @@ class OrderManager:
         self.daily_pnl    += pnl
         if pnl > 0:
             self.winning_trades += 1
+        self._update_consecutive_losses(pnl)
 
         del self.positions[symbol]
         self._persist_state_with_retry(f"apos vender {symbol}")

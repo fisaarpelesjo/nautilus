@@ -105,6 +105,50 @@ def test_paper_sell_removes_position_even_if_log_trade_fails(monkeypatch):
     assert manager.total_trades == 1
 
 
+def _open_and_close(manager, symbol, entry_price, exit_price, reason="stop_loss"):
+    risk = RiskLevels(entry_price=entry_price, stop_loss=entry_price * 0.9, take_profit=entry_price * 1.1,
+                       quantity=1.0, risk_usdt=5.0)
+    manager.open_long(symbol, risk)
+    manager.close_position(symbol, reason, current_price=exit_price)
+
+
+def test_consecutive_losses_increments_on_loss_and_resets_on_win(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)  # prejuizo
+    assert manager.consecutive_losses == 1
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)  # prejuizo
+    assert manager.consecutive_losses == 2
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 110.0)  # lucro
+    assert manager.consecutive_losses == 0
+
+
+def test_circuit_breaker_activates_at_max_consecutive_losses(monkeypatch):
+    monkeypatch.setattr(order_manager, "MAX_CONSECUTIVE_LOSSES", 2)
+    manager = _paper_manager(monkeypatch)
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
+    assert manager.circuit_breaker_active is False
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
+    assert manager.circuit_breaker_active is True
+
+
+def test_circuit_breaker_deactivates_when_counter_resets(monkeypatch):
+    monkeypatch.setattr(order_manager, "MAX_CONSECUTIVE_LOSSES", 2)
+    manager = _paper_manager(monkeypatch)
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
+    assert manager.circuit_breaker_active is True
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 110.0)  # lucro reseta
+    assert manager.circuit_breaker_active is False
+    assert manager.consecutive_losses == 0
+
+
 def test_record_reconciliation_persists_and_is_restored(monkeypatch):
     saved_states = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "paper")

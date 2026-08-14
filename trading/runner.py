@@ -13,6 +13,7 @@ from config.settings import (
     TRADING_MODE,
 )
 from data.fetcher import fetch_ohlcv
+from data.killswitch_store import load_killswitch
 from data.ohlcv_store import save_ohlcv
 from data.signal_store import log_signal
 from execution.order_manager import OrderManager
@@ -124,6 +125,10 @@ def run():
             new_entries = 0
             blocked_entries = 0
             max_entries_this_cycle = 0 if entry_cooldown > 0 else MAX_ENTRIES_PER_CYCLE
+            # Le do disco a cada ciclo (nao guarda em memoria): o kill switch
+            # e ativado por um comando de CLI separado enquanto o bot roda, e
+            # precisa refletir no proximo ciclo, nao so num restart.
+            killswitch_active = load_killswitch()
 
             cycle_start(cycle_id, active_pairs, len(manager.positions), manager.paper_balance_usdt, manager.daily_pnl)
             phase("coleta e avaliacao", "candles -> indicadores -> sinais -> risco")
@@ -153,7 +158,8 @@ def run():
                         else:
                             opened = handle_entry_candidate(
                                 manager, symbol, signal, indicators, current_price, strategy,
-                                row, trade_events, new_entries, max_entries_this_cycle
+                                row, trade_events, new_entries, max_entries_this_cycle,
+                                killswitch_active=killswitch_active,
                             )
                             if opened:
                                 new_entries += 1

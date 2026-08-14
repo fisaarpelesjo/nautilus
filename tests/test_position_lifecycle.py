@@ -49,12 +49,14 @@ class _FakeManager:
 
 
 class _FakeEntryManager:
-    def __init__(self, balance=1000.0, daily_limit_hit=False, in_cooldown=False, open_succeeds=True):
+    def __init__(self, balance=1000.0, daily_limit_hit=False, in_cooldown=False, open_succeeds=True,
+                 circuit_breaker_active=False):
         self.positions = {}
         self.paper_balance_usdt = balance
         self._daily_limit_hit = daily_limit_hit
         self._in_cooldown = in_cooldown
         self._open_succeeds = open_succeeds
+        self.circuit_breaker_active = circuit_breaker_active
         self.open_calls = []
 
     def is_daily_limit_hit(self):
@@ -118,6 +120,38 @@ def test_handle_entry_candidate_opens_when_balance_known(monkeypatch):
 
     assert opened is True
     assert len(manager.open_calls) == 1
+
+
+def test_handle_entry_candidate_blocks_when_circuit_breaker_active():
+    manager = _FakeEntryManager(circuit_breaker_active=True)
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "circuit breaker" in row["blockers"]
+
+
+def test_handle_entry_candidate_blocks_when_killswitch_active():
+    manager = _FakeEntryManager()
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1, killswitch_active=True,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "kill switch" in row["blockers"]
 
 
 def test_handle_entry_candidate_skips_balance_fetch_when_mtf_blocks(monkeypatch):

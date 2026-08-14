@@ -44,14 +44,21 @@ Story ainda precisavam de escolha e justificativa. Registradas abaixo.
 
 ## Kill switch (US2)
 
-- **Decision**: flag booleana persistida em `state.json` (reaproveita o arquivo de estado já
-  existente, em vez de um arquivo novo), lida a cada ciclo do `runner.py`. Dois novos subcomandos em
-  `main.py`: `kill` (seta a flag) e `resume` (limpa a flag).
-- **Rationale**: reaproveitar `state.json` evita mais um arquivo de estado para reconciliar/perder
-  sincronia; os subcomandos são consistentes com o padrão já existente de `main.py` (`bot`, `status`,
-  etc.).
-- **Alternatives considered**: arquivo de flag separado (`data/killswitch.flag`) — mais simples de
-  inspecionar manualmente, mas foi descartado por criar uma segunda fonte de estado.
+- **Decision (revisada na implementação)**: flag booleana em arquivo próprio,
+  `data/killswitch.json` (`data/killswitch_store.py`), lida do disco a cada ciclo do `runner.py`.
+  Dois novos subcomandos em `main.py`: `kill` (ativa) e `resume` (desativa).
+- **Rationale**: a decisão original (reaproveitar `state.json`) foi revertida ao implementar: o
+  `OrderManager` reescreve `state.json` **inteiro** a cada `_persist_state()` (todo trade, todo
+  ajuste de trailing stop). Como o kill switch é ativado por um comando de CLI rodando num processo
+  **separado** enquanto o bot roda, existe uma corrida real: o bot, com a cópia em memória
+  desatualizada, poderia sobrescrever de volta um `killswitch_active=true` setado externamente na
+  próxima vez que persistisse qualquer outra coisa. Um arquivo próprio, com um único escritor por
+  vez (o comando `kill`/`resume`, não o loop do bot), elimina essa classe de corrida.
+- **Alternatives considered**: `state.json` compartilhado — descartado pelo motivo acima (não fazia
+  parte da análise original); merge parcial no `_persist_state()` do `OrderManager` (reler a chave
+  do disco antes de sobrescrever) — mais complexo que justifica, dado que um arquivo dedicado
+  resolve o mesmo problema de forma mais simples e sem acoplar `OrderManager` a um conceito que ele
+  não precisa conhecer.
 
 ## Split out-of-sample no backtest (US3)
 

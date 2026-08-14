@@ -49,6 +49,7 @@ def handle_entry_candidate(
     trade_events: list,
     new_entries: int,
     max_entries_per_cycle: int,
+    killswitch_active: bool = False,
 ) -> bool:
     open_count = len(manager.positions)
     slots_left = MAX_POSITIONS - open_count
@@ -62,6 +63,10 @@ def handle_entry_candidate(
         blockers.append("limite ciclo")
     if manager.is_daily_limit_hit():
         blockers.append("drawdown diario")
+    if manager.circuit_breaker_active:
+        blockers.append("circuit breaker")
+    if killswitch_active:
+        blockers.append("kill switch")
     if manager.is_in_cooldown(symbol):
         blockers.append("cooldown")
 
