@@ -156,6 +156,40 @@ que mais se aproximaram do veredito aprovado (`UNI/USDT` scan, +18.5 Médio; `BN
 multibacktest) com um histórico mais longo, já que amostra insuficiente foi o motivo de reprovação
 mais comum nesta rodada.
 
+## Otimização Sem Overfitting (2026-08-14, spec 003-robust-optimization)
+
+Primeira rodada real de `python main.py optimize --walk-forward` (implica `--validate`) — grid search
+completo (648 combinações válidas × `OPTIMIZE_PAIRS`, 5 pares: BTC, ETH, BNB, SOL, XRP, `4h`) com
+split treino/validação (US1) e o vencedor testado em 3 janelas walk-forward por par (US2).
+
+**Achado central — a divergência treino vs validação que esta spec existe para expor**: o candidato
+#1 (`EMA 7/21, RSI<70, vol 1.2x, BB 2.0, ATR 2.0/2.4`) teve **retorno médio de treino +0.28%** (score
+5.77, o melhor da busca) mas **retorno de validação -0.87%** — sinal claro de que o conjunto que
+parecia melhor no histórico usado para escolher não se sustentou no período reservado. Todos os 5
+primeiros colocados do treino mostraram o mesmo padrão (treino sempre positivo ~+0.27-0.29%, validação
+sempre negativa entre -0.54% e -0.88%) — não é um caso isolado do #1, é sistemático nesta rodada.
+
+**Walk-forward do vencedor** (3 janelas de ~54 dias cada, por par): resultado consistente com o achado
+acima — **4 dos 5 pares fecharam a janela mais recente (jan. 3, 2026-06-23 a 2026-08-14) no negativo**
+(BTC -1.20%, BNB -0.54%, SOL -0.59%, XRP -1.68%; só ETH ficou positivo, +0.19% de média geral). `SOL`
+foi o pior par em quase todas as janelas (única exceção: janela 1, onde `BTC` foi pior). Média geral
+por par: BTC -0.17%, ETH +0.19%, BNB -0.06%, SOL -0.29%, XRP -0.55% — só `ETH` teve média positiva
+entre as 3 janelas.
+
+**`backtest --montecarlo`** (`PAIRS[0]` = `LUNC/USDT` `4h`, 1000 simulações sobre os 3 trades do
+backtest simples): drawdown máximo mediana 0.52%, p95 1.08%; maior sequência de perdas esperada
+(mediana) 2. Confiança marcada como baixa (3 trades, abaixo do mínimo de 10) — números direcionais,
+não conclusivos, exatamente o comportamento que FR-008/SC-004 pedem.
+
+Leitura: esta é a primeira evidência concreta e sistemática (não anedótica) de que a busca em grade
+estava overfitando ao histórico completo — exatamente o gap que motivou a spec `001` item parcial e a
+spec `003` inteira. O conjunto "vencedor" do treino não é confiável sem essa checagem; nenhum dos 5
+primeiros colocados bateria o critério de aprovação da spec `002` (`evaluate_approval`) se aplicado à
+validação. Próximo experimento natural: repetir com um grid mais restrito ao redor dos parâmetros que
+menos divergiram (candidatos #3/#5, retorno de validação -0.54/-0.55%, os "menos piores"), e considerar
+se `SOL/USDT` deveria sair da lista `OPTIMIZE_PAIRS` dado seu desempenho consistentemente fraco nas 3
+janelas.
+
 ## Experimentos Recomendados
 
 - Benchmark formal contra buy-and-hold por par e timeframe.

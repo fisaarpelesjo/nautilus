@@ -113,26 +113,35 @@ Objetivo: transformar o `python main.py edge` de um painel de metricas em uma de
 
 Objetivo: separar o que funcionou por vantagem real do que funcionou por ajuste excessivo ao passado.
 
-1. [ ] **Split treino/teste no otimizador**
+1. [x] **Split treino/teste no otimizador**
    - Otimizar parametros em uma parte dos candles e validar o resultado em periodo posterior nao usado na escolha.
    - Mostrar metricas separadas de treino e teste.
    - Por que melhora: parametros podem parecer otimos porque foram escolhidos para aquele recorte historico. O teste fora da amostra mede se eles sobrevivem em dados novos.
-   - **Parcial** (`specs/001-hardening-incremental`, US3): `backtesting/validation.py`
-     `split_train_validation()` faz o split contiguo 70/30 e `python main.py backtest --validate`
-     mostra metricas de treino e validacao lado a lado -- mas so para um backtest simples com
-     parametros fixos, nao integrado ao `backtesting/optimizer.py` (grid search continua escolhendo
-     parametros sobre o historico inteiro, sem validar fora da amostra). Integrar ao otimizador fica
-     como proxima iteracao.
+   - **Concluido** (`specs/003-robust-optimization`): `python main.py optimize --validate` reusa
+     `split_train_validation()` (spec 001) por simbolo, pontua/escolhe os candidatos so na fatia de
+     treino, e reavalia os `top_n` (nao so o #1) contra a fatia de validacao -- lado a lado no
+     relatorio. Simbolos sem historico suficiente entram em `validation_symbols_skipped`, sem
+     distorcer a media dos demais. `optimize` sem flag continua identico.
 
-2. [ ] **Walk-forward validation**
+2. [x] **Walk-forward validation**
    - Substituir ou complementar o split unico por janelas deslizantes com no minimo 3 periodos out-of-sample.
    - Agregar resultado medio e pior janela.
    - Por que melhora: mercado muda de regime. Uma unica divisao treino/teste pode esconder fragilidade em periodos laterais, quedas fortes ou euforia.
+   - **Concluido** (`specs/003-robust-optimization`): `python main.py optimize --walk-forward`
+     (implica `--validate`) avalia o conjunto de parametros JA ESCOLHIDO (nao reotimiza por janela --
+     decisao documentada em `research.md`, evita overfitting por regime) em >=3 janelas deslizantes
+     via `backtesting/robustness.py` `walk_forward_validate()`. Histórico insuficiente para o minimo
+     de janelas é reportado explicitamente, nunca roda com menos janelas silenciosamente.
 
-3. [ ] **Analise Monte Carlo**
+3. [x] **Analise Monte Carlo**
    - Reamostrar sequencias de trades e simular variacoes de ordem dos resultados.
    - Estimar probabilidade de drawdown extremo, sequencia de perdas e risco de ruina.
    - Por que melhora: mesmo uma estrategia lucrativa pode quebrar emocional ou financeiramente se a distribuicao de perdas for ruim.
+   - **Concluido** (`specs/003-robust-optimization`): `python main.py backtest --montecarlo`
+     reamostra (bootstrap com reposicao, 1000 simulacoes) a ordem dos trades via
+     `backtesting/robustness.py` `monte_carlo_resample()`, estimando mediana/p95 de drawdown maximo
+     e maior sequencia de perdas esperada; aviso de confianca baixa reusa `EDGE_MIN_TRADES`
+     (spec 002).
 
 ## Fase 3 - Melhorar metricas de risco
 

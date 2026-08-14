@@ -57,36 +57,36 @@ treino de cada símbolo, e reporta o desempenho de cada um também na fatia de v
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T001 [P] [US1] Teste: `_optimize_multi(..., validate=True)` escolhe/pontua candidatos usando só
+- [x] T001 [P] [US1] Teste: `_optimize_multi(..., validate=True)` escolhe/pontua candidatos usando só
       a fatia de treino de cada símbolo (não o histórico inteiro) — novo `tests/test_optimizer.py`
-- [ ] T002 [P] [US1] Teste: cada candidato retornado tem `validation_avg_return`/
+- [x] T002 [P] [US1] Teste: cada candidato retornado tem `validation_avg_return`/
       `validation_avg_drawdown`/`validation_total_trades` calculados contra a fatia de validação —
       `tests/test_optimizer.py`
-- [ ] T003 [P] [US1] Teste: símbolo sem histórico suficiente para validação aparece em
+- [x] T003 [P] [US1] Teste: símbolo sem histórico suficiente para validação aparece em
       `validation_symbols_skipped` e não distorce as médias de validação dos demais símbolos —
       `tests/test_optimizer.py`
-- [ ] T004 [P] [US1] Teste: `cmd_otimizar` (`main.py`) sem `--validate` continua chamando
+- [x] T004 [P] [US1] Teste: `cmd_otimizar` (`main.py`) sem `--validate` continua chamando
       `optimizer.run()` com `validate=False` (comportamento idêntico ao de antes desta spec) — em
       `tests/test_main_backtest.py`
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] `MultiOptResult` (`backtesting/optimizer.py`) ganha campos
+- [x] T005 [US1] `MultiOptResult` (`backtesting/optimizer.py`) ganha campos
       `validation_avg_return: Optional[float] = None`,
       `validation_avg_drawdown: Optional[float] = None`, `validation_total_trades: int = 0`,
       `validation_symbols_skipped: List[str] = field(default_factory=list)` (depende de T001 falhando)
-- [ ] T006 [US1] `_optimize_multi` ganha parâmetro `validate: bool = False`; quando `True`, cada
+- [x] T006 [US1] `_optimize_multi` ganha parâmetro `validate: bool = False`; quando `True`, cada
       símbolo é dividido via `split_train_validation()` (import de `backtesting.validation`) antes de
       montar `indicator_cache`; o grid search passa a pontuar/escolher usando só `train_df` de cada
       símbolo (depende de T005)
-- [ ] T007 [US1] Após escolher os `top_n`, cada candidato é reavaliado (`simulate_backtest`) contra a
+- [x] T007 [US1] Após escolher os `top_n`, cada candidato é reavaliado (`simulate_backtest`) contra a
       fatia de validação de cada símbolo onde ela existir; símbolos sem validação possível entram em
       `validation_symbols_skipped` e não contam nas médias (depende de T006, T002 falhando, T003
       falhando)
-- [ ] T008 [US1] `_print_results` exibe colunas de validação quando `validate=True` (retorno/drawdown
+- [x] T008 [US1] `_print_results` exibe colunas de validação quando `validate=True` (retorno/drawdown
       de validação ao lado dos de treino) e lista `validation_symbols_skipped` quando não vazia
       (depende de T007)
-- [ ] T009 [US1] `run()` (`backtesting/optimizer.py`) ganha parâmetro `validate: bool = False`,
+- [x] T009 [US1] `run()` (`backtesting/optimizer.py`) ganha parâmetro `validate: bool = False`,
       repassado a `_optimize_multi`; `cmd_otimizar` (`main.py`) lê `--validate` de `sys.argv` (mesmo
       padrão de `cmd_backtest --validate`, spec 001) e repassa (depende de T004 falhando, T008)
 
@@ -104,29 +104,29 @@ janelas deslizantes independentes, reportando cada janela e um resumo (média + 
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T010 [P] [US2] Teste: `split_walk_forward_windows(df, min_windows=3)` retorna N fatias
+- [x] T010 [P] [US2] Teste: `split_walk_forward_windows(df, min_windows=3)` retorna N fatias
       contíguas, não sobrepostas, cobrindo o df inteiro sem embaralhar — novo `tests/test_robustness.py`
-- [ ] T011 [P] [US2] Teste: `split_walk_forward_windows` retorna status "dados insuficientes" (não
+- [x] T011 [P] [US2] Teste: `split_walk_forward_windows` retorna status "dados insuficientes" (não
       um número menor de janelas) quando o histórico não cobre `min_windows` janelas de tamanho
       mínimo — `tests/test_robustness.py`
-- [ ] T012 [P] [US2] Teste: `walk_forward_validate(df, strategy_params, min_windows=3)` roda o MESMO
+- [x] T012 [P] [US2] Teste: `walk_forward_validate(df, strategy_params, min_windows=3)` roda o MESMO
       conjunto de parâmetros em cada janela (não reotimiza) e agrega `avg_return_pct`/`worst_window`
       — a pior janela nunca fica escondida atrás de uma média favorável — `tests/test_robustness.py`
-- [ ] T013 [P] [US2] Teste: `cmd_otimizar` com `--walk-forward` aciona `validate=True` implicitamente
+- [x] T013 [P] [US2] Teste: `cmd_otimizar` com `--walk-forward` aciona `validate=True` implicitamente
       e chama `walk_forward_validate` sobre o candidato vencedor — `tests/test_main_backtest.py`
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Novo `backtesting/robustness.py`: `split_walk_forward_windows(df, min_windows=3,
+- [x] T014 [US2] Novo `backtesting/robustness.py`: `split_walk_forward_windows(df, min_windows=3,
       min_window_candles=150)`, generalização do fatiamento contíguo de `split_train_validation`
       (spec 001) para N fatias (depende de T010 falhando, T011 falhando)
-- [ ] T015 [US2] `walk_forward_validate(df, strategy, min_windows=3)` em `robustness.py`: roda
+- [x] T015 [US2] `walk_forward_validate(df, strategy, min_windows=3)` em `robustness.py`: roda
       `simulate_backtest` (import de `backtesting.engine`) em cada janela com os mesmos parâmetros,
       agrega resultado médio e pior janela (depende de T012 falhando, T014)
-- [ ] T016 [US2] `backtesting/optimizer.py` ganha `walk_forward: bool = False` em `run()`/
+- [x] T016 [US2] `backtesting/optimizer.py` ganha `walk_forward: bool = False` em `run()`/
       `_optimize_multi`; quando `True`, força `validate=True` e chama `walk_forward_validate` sobre o
       df completo de cada símbolo usando os parâmetros do candidato #1 (depende de T015, T009)
-- [ ] T017 [US2] Nova seção "VALIDAÇÃO WALK-FORWARD" impressa após a tabela principal (janelas +
+- [x] T017 [US2] Nova seção "VALIDAÇÃO WALK-FORWARD" impressa após a tabela principal (janelas +
       resumo); `cmd_otimizar` (`main.py`) lê `--walk-forward` de `sys.argv` (depende de T013 falhando,
       T016)
 
@@ -144,30 +144,59 @@ com reposição) e estima a distribuição de drawdown máximo e maior sequênci
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T018 [P] [US3] Teste: `monte_carlo_resample(trades, n_simulations=1000, seed=42)` com seed fixo
+- [x] T018 [P] [US3] Teste: `monte_carlo_resample(trades, n_simulations=1000, seed=42)` com seed fixo
       produz resultado determinístico entre execuções repetidas — novo teste em
       `tests/test_robustness.py`
-- [ ] T019 [P] [US3] Teste: `monte_carlo_resample` sobre uma lista de trades sintética conhecida
+- [x] T019 [P] [US3] Teste: `monte_carlo_resample` sobre uma lista de trades sintética conhecida
       retorna `max_drawdown_median_pct`/`max_drawdown_p95_pct`/`worst_losing_streak_median` coerentes
       (p95 ≥ mediana) — `tests/test_robustness.py`
-- [ ] T020 [P] [US3] Teste: `low_confidence=True` quando `len(trades) < EDGE_MIN_TRADES`; `False`
+- [x] T020 [P] [US3] Teste: `low_confidence=True` quando `len(trades) < EDGE_MIN_TRADES`; `False`
       caso contrário — `tests/test_robustness.py`
-- [ ] T021 [P] [US3] Teste: `cmd_backtest` com `--montecarlo` aciona a análise sobre os trades do
+- [x] T021 [P] [US3] Teste: `cmd_backtest` com `--montecarlo` aciona a análise sobre os trades do
       backtest já rodado, sem alterar o dispatch de `--validate` — `tests/test_main_backtest.py`
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] `monte_carlo_resample(trades: List[Trade], n_simulations=1000, seed=None)` em
+- [x] T022 [US3] `monte_carlo_resample(trades: List[Trade], n_simulations=1000, seed=None)` em
       `backtesting/robustness.py`: bootstrap com reposição sobre os PnLs, reconstrói equity por
       simulação, calcula drawdown máximo e maior sequência de perdas por simulação, agrega percentis
       (depende de T018 falhando, T019 falhando)
-- [ ] T023 [US3] `low_confidence` calculado via `EDGE_MIN_TRADES` (import de `config.settings`, spec
+- [x] T023 [US3] `low_confidence` calculado via `EDGE_MIN_TRADES` (import de `config.settings`, spec
       002) (depende de T020 falhando, T022)
-- [ ] T024 [US3] Nova função de relatório em `robustness.py` imprime a seção "ANÁLISE MONTE CARLO"
+- [x] T024 [US3] Nova função de relatório em `robustness.py` imprime a seção "ANÁLISE MONTE CARLO"
       após o relatório de backtest padrão; `cmd_backtest` (`main.py`) lê `--montecarlo` de `sys.argv`
       e aciona sobre os trades do resultado já calculado (depende de T021 falhando, T023)
 
 **Checkpoint**: US1, US2 e US3 funcionam de forma independente.
+
+Nota de design descoberta na implementação (não antecipada em `research.md`): em
+`walk_forward_validate`, só a primeira janela usa `start_index=100` (pula o warmup de indicador que
+só existe no início do df completo); as demais janelas usam `start_index=0`, já que herdam histórico
+válido do mesmo df pré-computado — mesmo raciocínio já usado em `split_train_validation` (spec 001)
+para treino vs validação, generalizado aqui para N janelas.
+
+Duas rodadas de `/code-review medium` (seguindo a troca de `high` para `medium` combinada nesta
+sessão, para gastar menos tokens):
+
+Rodada 1 (US1+US2, antes de US3 existir): nenhum achado sobrevivente à verificação.
+
+Rodada 2 (acumulado completo, US1+US2+US3) — 1 achado, corrigido:
+1. `MIN_WINDOW_CANDLES=150` duplicado verbatim em `backtesting/robustness.py` em vez de importado de
+   `backtesting/validation.py` (onde a spec 001 já define o mesmo limiar) — comentário no código já
+   admitia que precisava ficar sincronizado manualmente, risco real de um ajuste futuro em um lugar
+   não refletir no outro. Corrigido: `robustness.py` importa a constante em vez de redefinir.
+
+148 testes passando (16 novos), ruff/mypy limpos. **Status: aprovada.**
+
+Achado adicional durante T027 (validação manual com dados reais, fora do escopo de código review):
+o console compartilhado em `utils/display.py` (usado por `optimizer.py`/`engine.py`/`validation.py`/
+`robustness.py`) tinha o mesmo bug de largura já corrigido nos consoles locais de `multi.py`/
+`scanner.py` na spec 002 — sem `width` fixo, cai para ~79 colunas em saída não-interativa e derruba
+silenciosamente colunas de tabelas largas. As colunas novas desta spec ("retorno valid", "dd valid")
+e até a coluna "parametros" sumiam da tabela de `optimize --validate` quando a saída era redirecionada
+(exatamente o cenário de uso real, ex: `python main.py optimize --validate > log.txt`). Corrigido em
+commit separado (`88586dc`), fora do fluxo normal de tasks.md por ter sido achado na validação final,
+não numa rodada de review.
 
 ---
 
@@ -175,10 +204,10 @@ com reposição) e estima a distribuição de drawdown máximo e maior sequênci
 
 **Purpose**: Documentação — não altera comportamento do bot.
 
-- [ ] T025 [P] Atualizar `ROADMAP.md` marcando Fase 2 itens 1 (split treino/teste no otimizador), 2
+- [x] T025 [P] Atualizar `ROADMAP.md` marcando Fase 2 itens 1 (split treino/teste no otimizador), 2
       (walk-forward validation) e 3 (análise Monte Carlo) como concluídos, com link para esta spec
-- [ ] T026 [P] Atualizar `specs/BACKLOG.md`: status da spec 003 para concluída
-- [ ] T027 Rodar `quickstart.md` (as três User Stories) manualmente contra dados reais da Binance
+- [x] T026 [P] Atualizar `specs/BACKLOG.md`: status da spec 003 para concluída
+- [x] T027 Rodar `quickstart.md` (as três User Stories) manualmente contra dados reais da Binance
       (`optimize --validate`, `optimize --walk-forward`, `backtest --montecarlo`) e registrar
       resultado relevante em `STRATEGY_REVIEW.md`, seguindo o padrão já usado nas specs 001/002
 
