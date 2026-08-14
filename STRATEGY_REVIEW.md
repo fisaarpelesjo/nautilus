@@ -74,6 +74,50 @@ O desenho anterior era conservador demais. A versao atual reduz restricoes com R
 
 O numero de trades por par ainda e baixo, entao a amostra nao e estatisticamente forte. Antes de operar live, a estrategia precisa ser validada em mais periodos, com taxas, slippage, comparacao contra buy-and-hold e separacao entre treino e teste.
 
+## Validacao Out-of-Sample (2026-08-14)
+
+Primeiro resultado real de `python main.py backtest --validate` (US3 de
+`specs/001-hardening-incremental`), rodado sobre `PAIRS[0]`/`TIMEFRAME` configurados no `.env` do
+operador: `LUNC/USDT` `4h` (demais parametros no default do `config/settings.py`:
+`RSI_OVERBOUGHT=70`, `VOLUME_MIN_RATIO=1.0`, `PULLBACK_ENTRY_ENABLED=true`; note que isso diverge do
+`TIMEFRAME=1h` citado em "Preset operacional atual" acima — o preset documentado nao corresponde ao
+default atual do codigo, vale revisar qual dos dois esta desatualizado). Split 70% treino / 30%
+validacao, `CANDLE_LIMIT=2000` candles buscados.
+
+```text
+                    TREINO         VALIDACAO (out-of-sample)
+retorno total       -0.44%         +0.00%
+total de trades      3              0
+win rate             33.3%          0.0%
+profit factor         0.58           0.00
+max drawdown          1.24%          0.00%
+buy & hold           +57.17%        -20.74%
+edge vs buy&hold     -57.61%        +20.74%
+
+VEREDITO: REPROVADO
+  - apenas 0 trades na validacao (minimo 10)
+  - profit factor 0.00 abaixo do minimo 1.2
+```
+
+Leitura: a janela de validacao nao gerou nenhuma entrada — filtros conservadores (RSI/volume/MTF/BB)
+bloquearam tudo naquele periodo, entao o veredito REPROVADO aqui e por falta total de amostra, nao por
+prejuizo. Na janela de treino a estrategia perdeu (3 trades, profit factor 0.58) enquanto
+buy-and-hold subiu forte (+57%) — o mesmo padrao ja visto no resultado local anterior (`## Resultado
+Local`): a estrategia preserva capital mas nao acompanha altas fortes.
+
+Confirmacao com um segundo par/execucao (mesma data, `ENSO/USDT` `4h`, config default do repositorio
+sem `.env`): treino 3 trades/-1.35%, validacao 9 trades/+1.38% (profit factor 1.76, mas ainda
+REPROVADO por ficar abaixo do minimo de 10 trades e nao superar buy-and-hold +27.63%). Os dois pares
+reprovaram, mas por motivos diferentes (amostra zero vs amostra insuficiente) — nenhum dos dois chegou
+perto de um veredito aprovado.
+
+Amostra pequena demais em ambos os pares para qualquer conclusao estatistica sobre a estrategia em si
+— o resultado principal desta rodada e confirmar que o pipeline de validacao (split, criterios,
+veredito) funciona ponta a ponta com dados reais, nao decidir se a estrategia tem vantagem. Proximo
+passo antes de repetir esse experimento com mais confianca: rodar sobre um periodo mais longo
+(`candle_limit` maior) e/ou `multibacktest`/`scan` para varios pares de uma vez, ja que o split 70/30
+exige pelo menos ~500 candles totais para cada janela passar de `MIN_WINDOW_CANDLES=150`.
+
 ## Experimentos Recomendados
 
 - Benchmark formal contra buy-and-hold por par e timeframe.

@@ -638,14 +638,18 @@ aprovada.**
       listando o que esta spec entregou e o que continua de fora (ex: split ainda não integrado ao
       `optimizer.py`; ordens limit/stop e partial fill continuam não implementados) — marcar como
       concluído algo maior do que o que foi construído seria enganoso para quem ler o roadmap depois.
-- [ ] T035 [P] Atualizar `STRATEGY_REVIEW.md` com o primeiro resultado real de validação
-      out-of-sample rodado — **bloqueado**: este ambiente de desenvolvimento não tem `.env`/API key da
-      Binance configurada (`python main.py backtest --validate` falha em
-      `ccxt.base.errors.AuthenticationError: binance requires "apiKey" credential` só para carregar o
-      catálogo público de mercados). Não faz sentido documentar em `STRATEGY_REVIEW.md` um resultado
-      sintético como se fosse real. Fica pendente de o operador rodar `python main.py backtest
-      --validate` localmente (com `.env` configurado) sobre `PAIRS[0]`/`TIMEFRAME` e colar o resultado
-      em `STRATEGY_REVIEW.md`.
+- [x] T035 [P] Atualizar `STRATEGY_REVIEW.md` com o primeiro resultado real de validação
+      out-of-sample rodado. Estava bloqueado por falta de `.env`/API key neste ambiente
+      (`ccxt.base.errors.AuthenticationError: binance requires "apiKey" credential` só para carregar
+      o catálogo público de mercados) — investigando a causa raiz descobri que o bug não era falta de
+      key, e sim `data/fetcher.py` `get_exchange()` sempre passar `apiKey`/`secret` (default `""`)
+      para o `ccxt.binance()`; o ccxt 4.5.73 trata `apiKey` não-`None` como conta autenticada e tenta
+      um endpoint privado extra dentro de `fetch_markets()` que falha sem credencial real — quebrando
+      **qualquer** backtest sem `.env`, não só esta spec (corrigido, ver commit `c980820`, fora do
+      escopo de US1/US2/US3 mas achado ao investigar este bloqueio). Depois do fix e do operador
+      configurar `.env` real, rodei `python main.py backtest --validate` duas vezes (`LUNC/USDT` via
+      `.env` do operador e `ENSO/USDT` via default do repo) — ambos resultados registrados em
+      `STRATEGY_REVIEW.md` → "Validação Out-of-Sample (2026-08-14)".
 - [x] T036 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novos comandos `backtest
       --validate`/`kill`/`resume`, variável `MAX_CONSECUTIVE_LOSSES`, nova seção "Proteções
       operacionais" (reconciliação, circuit breaker, kill switch). `AGENTS.md` já tinha algumas seções
