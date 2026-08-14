@@ -118,6 +118,44 @@ passo antes de repetir esse experimento com mais confianca: rodar sobre um perio
 (`candle_limit` maior) e/ou `multibacktest`/`scan` para varios pares de uma vez, ja que o split 70/30
 exige pelo menos ~500 candles totais para cada janela passar de `MIN_WINDOW_CANDLES=150`.
 
+## Decisão Multi-Par (2026-08-14, spec 002-multi-pair-approval)
+
+Primeira rodada real de `python main.py multibacktest`, `scan` e `edge` com veredito/ranking
+agregado (US1-US3 da spec `002-multi-pair-approval`), sobre a config real do `.env` do operador
+(`LUNC/USDT` como `PAIRS[0]`) e o scan padrão (top 30 pares por volume, `4h`).
+
+**`multibacktest`** (5 pares fixos × 3 timeframes = 15 combinações): 2/15 resultados positivos
+(`BNB/USDT` `1d` +0.73%, 1 trade; `BNB/USDT` `4h` +0.08%, 9 trades). **Nenhum aprovado** — todos os
+15 reprovados, a maioria por amostra insuficiente (a maior parte das combinações tem menos de 10
+trades no período testado) ou por não superar buy-and-hold. Confirma visualmente o que a proteção de
+`MIN_TRADES_FOR_RANKING=3` faz: no grupo `1d`, três pares com 0-2 trades mostraram `edge_score`
+positivo alto (SOL +16.3, XRP +22.0, BNB +72.2) mas ficaram no fim do ranking do grupo mesmo assim,
+por trás de pares com amostra maior — o número bruto não domina a ordenação quando a amostra é
+minúscula.
+
+**`scan`** (top 30 pares por volume 24h): 7/30 resultados positivos. **Primeiro veredito APROVADO
+real encontrado**: `DOGE/USDT` `4h` — 11 trades, win rate 45%, retorno +0.58%, drawdown 1.11%,
+`edge_score +28.3 (Forte)`. Passou nos quatro critérios simultaneamente (amostra ≥ 10, retorno >
+buy-and-hold, profit factor > 1.2, drawdown ≤ 10%) — o primeiro caso, entre todas as execuções
+registradas neste documento, em que a estratégia bate a régua completa num par real. Achado
+qualitativo interessante: `TUT/USDT` teve o maior retorno bruto da lista (+3.35%) mas o pior
+`edge_score` (-210.7, Reprovado) — o ativo subiu tanto no período que bater buy-and-hold ficou muito
+mais difícil ali, ilustrando por que `edge_score` (retorno relativo) é o critério certo para ranquear,
+não retorno absoluto.
+
+**`edge`** (`PAIRS[0]` = `LUNC/USDT` `4h`): reprovado — 3 trades (abaixo do mínimo), retorno +0.06%
+não supera buy-and-hold +27.02%, profit factor 1.11 abaixo do mínimo. Diagnóstico "perfil defensivo"
+corretamente disparado (drawdown baixo, expectativa positiva, mas capturou pouco da alta) —
+`edge_score -40.92 (Reprovado)`.
+
+Leitura: com visão agregada (35 execuções entre os três comandos nesta rodada), a estratégia aprovou
+em 1 de 35 casos — não é evidência de vantagem consistente, mas é a primeira confirmação de que o
+critério de aprovação *consegue* aprovar um caso real quando os números realmente sustentam (não é um
+veredito sempre-reprovado por construção). Próximo experimento natural: revisitar os pares/timeframes
+que mais se aproximaram do veredito aprovado (`UNI/USDT` scan, +18.5 Médio; `BNB/USDT` 4h
+multibacktest) com um histórico mais longo, já que amostra insuficiente foi o motivo de reprovação
+mais comum nesta rodada.
+
 ## Experimentos Recomendados
 
 - Benchmark formal contra buy-and-hold por par e timeframe.

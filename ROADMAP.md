@@ -21,20 +21,28 @@ Objetivo: evitar otimizar no escuro. Antes de mexer muito na estrategia, o bot p
    - Exibir retorno da estrategia, retorno buy-and-hold, diferenca e vencedor.
    - Por que melhora: lucro isolado nao basta. Se a estrategia rende +5% enquanto buy-and-hold rende +25%, ela destruiu oportunidade apesar de parecer positiva.
 
-2. [ ] **Criterios automaticos de aprovacao**
+2. [x] **Criterios automaticos de aprovacao**
    - Criar uma funcao de avaliacao que marque estrategia/par como aprovado, reprovado ou inconclusivo.
    - Criterios iniciais: retorno acima do buy-and-hold, profit factor > 1.2, expectativa positiva, drawdown maximo aceitavel e numero minimo de trades.
    - Por que melhora: reduz decisao subjetiva e evita escolher parametros por impressao visual ou por um unico backtest bom.
-   - **Parcial** (`specs/001-hardening-incremental`, US3): `backtesting/validation.py`
-     `evaluate_validation()` implementa exatamente esses criterios (retorno > buy-hold, profit
-     factor > 1.2, drawdown <= 10%, minimo 10 trades) com veredito aprovado/reprovado/inconclusivo,
-     mas so dentro de `python main.py backtest --validate` (item 5 desta fase, "Edge por par e
-     timeframe", ainda nao integrado ao `edge`/`multibacktest`/`scan`).
+   - **Concluido** (`specs/002-multi-pair-approval`): `backtesting/approval.py`
+     `evaluate_approval()` (generalizado de `evaluate_validation()`, spec 001 US3) aplicado em
+     `edge`, `multibacktest` e `scan`, alem de `backtest --validate`.
 
-3. [ ] **Ranking de pares por qualidade**
+3. [x] **Ranking de pares por qualidade**
    - Ordenar pares por profit factor, expectativa, drawdown, numero de trades, consistencia e diferenca contra buy-and-hold.
    - Integrar o ranking aos comandos de backtest multipar e scanner.
    - Por que melhora: em cripto, a estrategia pode funcionar em alguns ativos e falhar em outros. O ranking ajuda a escolher onde operar e onde bloquear.
+   - **Concluido** (`specs/002-multi-pair-approval`): `backtesting/approval.py` `ranking_key()`
+     reusa o `edge_score` (que ja combina esses criterios) para ordenar `multibacktest` e `scan`;
+     amostra abaixo de `MIN_TRADES_FOR_RANKING=3` nunca domina o topo do ranking (achado de
+     `/code-review high` — protecao que o `.score` ad hoc antigo do `scanner.py` tinha e a migracao
+     inicial para `edge_score` quase perdeu).
+   - Debito tecnico registrado (nao corrigido nesta spec, achado de `/code-review high`):
+     `MultiResult` (`multi.py`) e `ScanResult` (`scanner.py`) sao dataclasses quase-duplicadas, com
+     tratamento de erro que ja diverge entre os dois (linha de erro inline vs secao separada).
+     Unificar ficaria fora do escopo desta spec — candidato para uma proxima iteracao de "Qualidade
+     de Codigo".
 
 4. [ ] **Exportacao de relatorios em `reports/`**
    - Salvar resultados de backtest, scan, otimizacao e analise nos formatos JSON, CSV e Markdown.
@@ -45,30 +53,44 @@ Objetivo: evitar otimizar no escuro. Antes de mexer muito na estrategia, o bot p
 
 Objetivo: transformar o `python main.py edge` de um painel de metricas em uma decisao operacional clara. O comando ja mostra retorno, expectativa, payoff, buy-and-hold, edge vs benchmark e score inicial; agora precisa explicar a qualidade desses numeros e onde eles devem ser usados.
 
-1. [ ] **Classificacao automatica do edge**
+1. [x] **Classificacao automatica do edge**
    - Mostrar status final como `APROVADO`, `REPROVADO` ou `INCONCLUSIVO`.
    - Usar criterios como minimo de trades, profit factor > 1.2, expectativa positiva, edge vs buy-and-hold positivo e drawdown aceitavel.
    - Por que melhora: evita interpretar numeros manualmente toda vez e reduz risco de operar uma estrategia que parece boa em uma metrica isolada.
+   - **Concluido** (`specs/002-multi-pair-approval`): `python main.py edge` (antes um alias literal
+     de `backtest`) agora mostra `VEREDITO: APROVADO/REPROVADO/INCONCLUSIVO` via
+     `backtesting/validation.py` `run_edge_report()`.
 
-2. [ ] **Motivos da classificacao**
+2. [x] **Motivos da classificacao**
    - Exibir lista curta com os principais motivos do status.
    - Exemplo: `Reprovado: perdeu para buy-and-hold por -70.76%`, `Amostra baixa: 7 trades`, `Ponto positivo: drawdown baixo`.
    - Por que melhora: explica a decisao e mostra exatamente qual gargalo precisa ser atacado.
+   - **Concluido** (`specs/002-multi-pair-approval`): `ApprovalVerdict.reasons` lista os motivos
+     especificos (amostra, profit factor, drawdown, retorno vs buy-hold).
 
-3. [ ] **Alerta de amostra insuficiente**
+3. [x] **Alerta de amostra insuficiente**
    - Destacar quando o numero de trades for baixo demais para conclusao confiavel.
    - Comecar com minimo configuravel, por exemplo 30 trades.
    - Por que melhora: 5 ou 10 trades podem gerar profit factor alto por acaso. O relatorio precisa impedir conclusoes fortes com pouca evidencia.
+   - **Concluido** (`specs/002-multi-pair-approval`): `EDGE_MIN_TRADES` configuravel via `.env`
+     (default `10`, nao `30` como o exemplo original sugeria -- mesmo valor ja usado desde a spec
+     001 para nao mudar comportamento default; ajustar para 30 e so trocar a variavel).
 
 4. [ ] **Diagnostico defensivo vs agressivo**
    - Classificar casos em que a estrategia tem baixo drawdown e expectativa positiva, mas perde muito para buy-and-hold.
    - Exemplo: `Perfil defensivo: preservou capital, mas capturou pouco da alta`.
    - Por que melhora: diferencia uma estrategia ruim de uma estrategia conservadora que talvez sirva para mercados laterais ou de queda, mas nao para bull market.
+   - **Parcial** (`specs/002-multi-pair-approval`): `backtesting/approval.py` `diagnose_profile()`
+     implementa so o lado "defensivo" (o unico exemplo citado aqui). O lado "agressivo" (ex: alto
+     drawdown mas retorno muito acima do buy-hold) nao foi escopado nesta spec.
 
-5. [ ] **Edge por par e timeframe**
+5. [x] **Edge por par e timeframe**
    - Levar as metricas de edge para `multibacktest`, `scan` e selecao dinamica.
    - Mostrar quais pares/timeframes passam, falham ou ficam inconclusivos.
    - Por que melhora: um unico par pode enganar. A chance de lucro real depende de consistencia em varios ativos e janelas.
+   - **Concluido para `multibacktest`/`scan`** (`specs/002-multi-pair-approval`): veredito + ranking
+     por qualidade nos dois comandos. Selecao dinamica (`market/selector.py`) nao foi tocada nesta
+     spec.
 
 6. [ ] **Edge anualizado e retorno por exposicao**
    - Calcular retorno anualizado da estrategia, buy-and-hold anualizado e retorno por tempo exposto.
@@ -78,10 +100,14 @@ Objetivo: transformar o `python main.py edge` de um painel de metricas em uma de
    - Mostrar edge separado entre periodo de treino e periodo de teste quando o backtest vier do otimizador ou de validacao walk-forward.
    - Por que melhora: edge em dados usados para escolher parametros pode ser overfitting. O dado fora da amostra e o que mais importa.
 
-8. [ ] **Refinar o `edge_score`**
+8. [x] **Refinar o `edge_score`**
    - Transformar o score atual em escala interpretavel, por exemplo 0-100 ou faixas `Forte`, `Medio`, `Fraco`, `Reprovado`.
    - Documentar pesos e penalidades: benchmark, profit factor, expectativa, drawdown, amostra e exposicao.
    - Por que melhora: o score atual e util como primeira heuristica, mas ainda nao e facil de comparar entre pares, timeframes e versoes da estrategia.
+   - **Concluido** (`specs/002-multi-pair-approval`): `backtesting/engine.py` `edge_score_band()`
+     mapeia o score para Forte/Medio/Fraco/Reprovado (limiares fixos, nao 0-100 normalizado --
+     decisao documentada em `specs/002-multi-pair-approval/research.md`), exibido em
+     `edge`/`multibacktest`/`scan`.
 
 ## Fase 2 - Reduzir overfitting
 

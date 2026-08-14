@@ -16,7 +16,7 @@ Coluna **Autonomia**:
 | # | Spec candidata | Autonomia | Status |
 |---|---|---|---|
 | 001 | Hardening Incremental (idempotência/reconciliação, circuit breaker/kill switch, out-of-sample) | Sozinho | ✅ Concluída (`specs/001-hardening-incremental/`) |
-| 002 | Decisão de aprovação multi-par | Sozinho | 🟡 Em andamento (`specs/002-multi-pair-approval/`, spec.md pronto) |
+| 002 | Decisão de aprovação multi-par | Sozinho | ✅ Concluída (`specs/002-multi-pair-approval/`) |
 | 003 | Otimização sem overfitting | Sozinho | 🔲 Pendente |
 | 004 | Métricas de risco avançadas | Sozinho | 🔲 Pendente |
 | 005 | Proteções finais para live | Sozinho | 🔲 Pendente |
