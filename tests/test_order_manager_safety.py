@@ -125,6 +125,17 @@ def test_consecutive_losses_increments_on_loss_and_resets_on_win(monkeypatch):
     assert manager.consecutive_losses == 0
 
 
+def test_consecutive_losses_unaffected_by_breakeven_trade(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)  # prejuizo
+    assert manager.consecutive_losses == 1
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 100.0)  # pnl == 0, nao e vitoria
+    assert manager.consecutive_losses == 1
+    assert manager.circuit_breaker_active is False
+
+
 def test_circuit_breaker_activates_at_max_consecutive_losses(monkeypatch):
     monkeypatch.setattr(order_manager, "MAX_CONSECUTIVE_LOSSES", 2)
     manager = _paper_manager(monkeypatch)

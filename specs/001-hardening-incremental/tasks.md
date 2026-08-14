@@ -540,7 +540,24 @@ dois arquivos não perde visibilidade.
       `main.py`), ambos via `safe_step` (JSONL + Telegram, isolados um do outro)
 
 **Checkpoint**: US1 e US2 funcionam de forma independente uma da outra. 100 testes passando,
-ruff/mypy limpos. Pendente: ciclo de `/code-review` antes do commit final.
+ruff/mypy limpos.
+
+Primeira rodada de `/code-review high` (sobre o commit `c0f68ac`) encontrou 1 problema, corrigido:
+
+46. `_update_consecutive_losses` (`execution/order_manager.py`) tratava um trade fechado com
+    `pnl == 0` (breakeven, ex: saída por sinal de venda exatamente no preço de entrada) como vitória
+    — o `else` do `if pnl < 0` cobria `pnl >= 0`, resetando `consecutive_losses` e
+    `circuit_breaker_active` — contradizendo `data-model.md` (linha 31: reset só em `pnl > 0`).
+    Isso permitia burlar o circuit breaker: uma sequência de perdas intercalada com trades de
+    breakeven nunca acumulava o contador até `MAX_CONSECUTIVE_LOSSES`. Corrigido: `else` trocado por
+    `elif pnl > 0`; `pnl == 0` agora não altera o contador nem o estado do circuit breaker. Teste
+    `test_consecutive_losses_unaffected_by_breakeven_trade` adicionado — nenhum teste existente
+    cobria `pnl == 0`.
+
+101 testes passando (1 novo), ruff/mypy limpos.
+
+**Status da User Story 2**: 1 rodada de `/code-review high`, 1 achado corrigido. **User Story 2
+aprovada.**
 
 ---
 

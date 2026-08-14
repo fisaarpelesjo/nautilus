@@ -202,7 +202,7 @@ class OrderManager:
                     safe_step(log, "Falha ao enviar alerta de circuit breaker", lambda: send_telegram(
                         f"Circuit breaker ATIVADO: {self.consecutive_losses} perdas seguidas. Novas entradas suspensas."
                     ))
-        else:
+        elif pnl > 0:
             if self.circuit_breaker_active:
                 log.info("Circuit breaker desativado (trade positivo resetou o contador)")
             self.consecutive_losses = 0
