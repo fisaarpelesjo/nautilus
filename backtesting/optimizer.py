@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from itertools import product
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from rich import box
 from rich.table import Table
 
 from backtesting.engine import BacktestResult, precompute_signals, simulate_backtest
+from backtesting.validation import split_train_validation
 from config.settings import (
     ATR_SL_MULTIPLIER,
     ATR_TP_MULTIPLIER,
@@ -55,9 +56,14 @@ class MultiOptResult:
     avg_drawdown: float
     total_trades: int
     per_pair: Dict[str, float] = field(default_factory=dict)
+    validation_avg_return: Optional[float] = None
+    validation_avg_drawdown: Optional[float] = None
+    validation_total_trades: int = 0
+    validation_symbols_skipped: List[str] = field(default_factory=list)
 
 
-def run(symbols: list = None, timeframe: str = TIMEFRAME, candle_limit: int = 2000):
+def run(symbols: list = None, timeframe: str = TIMEFRAME, candle_limit: int = 2000,
+        validate: bool = False, walk_forward: bool = False):
     symbols = symbols or OPTIMIZE_PAIRS
     header()
     console.print(f"  [{C_DIM}]otimizando parametros em {len(symbols)} pares · {timeframe} · {candle_limit} candles[/{C_DIM}]")
@@ -74,8 +80,12 @@ def run(symbols: list = None, timeframe: str = TIMEFRAME, candle_limit: int = 20
     console.print(f"  [{C_DIM}]testando {total_combos} combinacoes × {len(symbols)} pares...[/{C_DIM}]")
     console.print()
 
-    results = _optimize_multi(dfs)
-    _print_results(results, symbols)
+    results = _optimize_multi(dfs, validate=validate or walk_forward)
+    _print_results(results, symbols, validate=validate or walk_forward)
+
+    if walk_forward and results:
+        from backtesting.robustness import run_walk_forward_report
+        run_walk_forward_report(dfs, results[0].params)
 
 
 def _indicator_key(params: EmaRsiParams) -> tuple:
@@ -89,9 +99,11 @@ def _optimize_multi(
     grid: dict = None,
     top_n: int = 15,
     min_trades_per_pair: int = 2,
+    validate: bool = False,
 ) -> List[MultiOptResult]:
     results = []
     indicator_cache: Dict[tuple, Dict[str, pd.DataFrame]] = {}
+    split_cache: Dict[tuple, Dict[str, Tuple[pd.DataFrame, Optional[pd.DataFrame]]]] = {}
 
     for params in _iter_param_sets(grid or DEFAULT_GRID):
         strategy = EmaRsiStrategy(params.strategy)
@@ -102,6 +114,11 @@ def _optimize_multi(
                 sym: strategy.calculate_indicators(raw_df)
                 for sym, raw_df in dfs.items()
             }
+        if validate and ikey not in split_cache:
+            split_cache[ikey] = {
+                sym: split_train_validation(prepared)
+                for sym, prepared in indicator_cache[ikey].items()
+            }
 
         pair_scores, pair_returns, pair_winrates, pair_drawdowns = [], [], [], []
         per_pair: Dict[str, float] = {}
@@ -110,14 +127,20 @@ def _optimize_multi(
         for sym, prepared in indicator_cache[ikey].items():
             try:
                 signals = precompute_signals(prepared, strategy)
+                if validate:
+                    eval_df, _validation_df = split_cache[ikey][sym]
+                    eval_signals = signals.loc[eval_df.index]
+                else:
+                    eval_df = prepared
+                    eval_signals = signals
                 r = simulate_backtest(
-                    prepared,
+                    eval_df,
                     strategy,
                     atr_sl_multiplier=params.atr_sl_multiplier,
                     atr_tp_multiplier=params.atr_tp_multiplier,
                     stop_loss_pct=params.stop_loss_pct,
                     take_profit_pct=params.take_profit_pct,
-                    precomputed_signals=signals,
+                    precomputed_signals=eval_signals,
                 )
                 score = _score(r, min_trades=min_trades_per_pair)
                 pair_scores.append(score)
@@ -143,7 +166,57 @@ def _optimize_multi(
             per_pair=per_pair,
         ))
 
-    return sorted(results, key=lambda r: r.avg_score, reverse=True)[:top_n]
+    top = sorted(results, key=lambda r: r.avg_score, reverse=True)[:top_n]
+
+    if validate:
+        for item in top:
+            _apply_validation(item, indicator_cache, split_cache)
+
+    return top
+
+
+def _apply_validation(
+    item: MultiOptResult,
+    indicator_cache: Dict[tuple, Dict[str, pd.DataFrame]],
+    split_cache: Dict[tuple, Dict[str, Tuple[pd.DataFrame, Optional[pd.DataFrame]]]],
+) -> None:
+    """Reavalia um candidato ja escolhido (via fatia de treino) contra a fatia de
+    validacao de cada simbolo. Muta `item` in-place -- so os top_n candidatos
+    finais passam por aqui, nao a busca em grade inteira (custo desprezivel)."""
+    strategy = EmaRsiStrategy(item.params.strategy)
+    ikey = _indicator_key(item.params.strategy)
+
+    returns, drawdowns = [], []
+    total_trades = 0
+    skipped: List[str] = []
+
+    for sym, prepared in indicator_cache[ikey].items():
+        _train_df, validation_df = split_cache[ikey][sym]
+        if validation_df is None:
+            skipped.append(sym)
+            continue
+        try:
+            signals = precompute_signals(prepared, strategy)
+            r = simulate_backtest(
+                validation_df,
+                strategy,
+                atr_sl_multiplier=item.params.atr_sl_multiplier,
+                atr_tp_multiplier=item.params.atr_tp_multiplier,
+                stop_loss_pct=item.params.stop_loss_pct,
+                take_profit_pct=item.params.take_profit_pct,
+                start_index=0,
+                precomputed_signals=signals.loc[validation_df.index],
+            )
+            returns.append(r.total_return_pct)
+            drawdowns.append(r.max_drawdown_pct)
+            total_trades += r.total_trades
+        except Exception:
+            skipped.append(sym)
+
+    item.validation_avg_return = sum(returns) / len(returns) if returns else None
+    item.validation_avg_drawdown = sum(drawdowns) / len(drawdowns) if drawdowns else None
+    item.validation_total_trades = total_trades
+    item.validation_symbols_skipped = skipped
 
 
 def _iter_param_sets(grid: dict):
@@ -178,7 +251,7 @@ def _score(r: BacktestResult, min_trades: int = 2) -> float:
     )
 
 
-def _print_results(results: List[MultiOptResult], symbols: list):
+def _print_results(results: List[MultiOptResult], symbols: list, validate: bool = False):
     if not results:
         console.print(f"  [{C_DIM}]nenhum resultado valido encontrado[/{C_DIM}]")
         console.print()
@@ -191,6 +264,9 @@ def _print_results(results: List[MultiOptResult], symbols: list):
     table.add_column("dd med",      justify="right",  min_width=8)
     table.add_column("trades",      justify="right",  min_width=7)
     table.add_column("score",       justify="right",  min_width=8)
+    if validate:
+        table.add_column("retorno valid", justify="right", min_width=13)
+        table.add_column("dd valid",      justify="right", min_width=9)
     table.add_column("parametros",  style="white",    min_width=52)
 
     for idx, item in enumerate(results, 1):
@@ -208,16 +284,31 @@ def _print_results(results: List[MultiOptResult], symbols: list):
             f"BB {p.strategy.bb_std:.1f}  "
             f"ATR {p.atr_sl_multiplier:.1f}/{p.atr_tp_multiplier:.1f}"
         )
-        table.add_row(
+        row = [
             f"  {idx}",
             f"[{ret_color}]{item.avg_return:+.2f}%[/{ret_color}]",
             f"[{wr_color}]{item.avg_winrate:.0f}%[/{wr_color}]",
             f"{item.avg_drawdown:.2f}%",
             str(item.total_trades),
             f"{item.avg_score:.2f}",
-            param_text,
-        )
-        table.add_row("", "", "", "", "", "", per_pair_str)
+        ]
+        if validate:
+            if item.validation_avg_return is None:
+                row.append(f"[{C_DIM}]sem dados[/{C_DIM}]")
+                row.append(f"[{C_DIM}]-[/{C_DIM}]")
+            else:
+                vret_color = C_POS if item.validation_avg_return >= 0 else C_NEG
+                row.append(f"[{vret_color}]{item.validation_avg_return:+.2f}%[/{vret_color}]")
+                row.append(f"{item.validation_avg_drawdown:.2f}%")
+        row.append(param_text)
+        table.add_row(*row)
+
+        empty_cols = 8 if validate else 6
+        extra = [""] * empty_cols + [per_pair_str]
+        table.add_row(*extra)
+        if validate and item.validation_symbols_skipped:
+            skipped_str = f"  [{C_DIM}]sem validacao: {', '.join(item.validation_symbols_skipped)}[/{C_DIM}]"
+            table.add_row(*([""] * empty_cols + [skipped_str]))
 
     console.print(table)
 

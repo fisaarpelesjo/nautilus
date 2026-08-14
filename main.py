@@ -5,10 +5,13 @@ Ponto de entrada principal.
 Uso:
   python main.py backtest      -- run single-pair backtest
   python main.py backtest --validate  -- backtest with train/out-of-sample split + verdict
+  python main.py backtest --montecarlo  -- backtest with Monte Carlo drawdown/ruin estimate
   python main.py edge          -- run profitability edge report
   python main.py multibacktest -- run backtest on fixed pair list
   python main.py scan          -- backtest top 30 pairs by volume
   python main.py optimize      -- grid search best parameters
+  python main.py optimize --validate      -- grid search with train/validation split
+  python main.py optimize --walk-forward  -- validate winner across sliding windows
   python main.py analyze       -- analyze backtest results
   python main.py select        -- select dynamic pairs
   python main.py chart [PAIR] [TF] [N]  -- terminal chart with EMAs and RSI
@@ -21,12 +24,16 @@ import sys
 from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
 
 def cmd_backtest():
-    if "--validate" in sys.argv[2:]:
+    args = sys.argv[2:]
+    if "--validate" in args:
         from backtesting.validation import run_backtest_with_validation
         run_backtest_with_validation(SYMBOL, TIMEFRAME)
         return
     from backtesting.engine import run_backtest
-    run_backtest(SYMBOL, TIMEFRAME)
+    result = run_backtest(SYMBOL, TIMEFRAME)
+    if "--montecarlo" in args:
+        from backtesting.robustness import run_monte_carlo_report
+        run_monte_carlo_report(result.trades)
 
 def cmd_edge():
     from backtesting.validation import run_edge_report
@@ -46,7 +53,10 @@ def cmd_analisar():
 
 def cmd_otimizar():
     from backtesting.optimizer import run
-    run()
+    args = sys.argv[2:]
+    walk_forward = "--walk-forward" in args
+    validate = walk_forward or "--validate" in args
+    run(validate=validate, walk_forward=walk_forward)
 
 def cmd_selecionar():
     from market.commands import run
