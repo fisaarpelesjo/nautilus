@@ -1,7 +1,8 @@
+import numpy as np
 import pandas as pd
 
-from backtesting.engine import precompute_signals
-from backtesting.validation import split_train_validation
+from backtesting.engine import precompute_signals, simulate_backtest
+from backtesting.validation import run_edge_report, split_train_validation
 from strategy.base import Signal
 from strategy.ema_rsi import EmaRsiParams, EmaRsiStrategy
 
@@ -64,3 +65,32 @@ def test_signals_sliced_after_full_df_precompute_detect_boundary_crossover():
 # Testes de evaluate_validation()/ValidationVerdict (veredito puro, sem split) migraram
 # para tests/test_backtesting_approval.py -- a logica foi generalizada para
 # backtesting/approval.py (spec 002); validation.py so reexporta os nomes antigos.
+
+
+def _synthetic_ohlcv_df(n, seed=1):
+    rng = np.random.default_rng(seed)
+    index = pd.date_range("2026-01-01", periods=n, freq="4h")
+    price = 100 + np.cumsum(rng.normal(size=n))
+    return pd.DataFrame({
+        "open": price, "high": price + np.abs(rng.normal(size=n)),
+        "low": price - np.abs(rng.normal(size=n)), "close": price + rng.normal(size=n) * 0.1,
+        "volume": rng.random(n) * 100 + 10,
+    }, index=index)
+
+
+def test_run_edge_report_runs_single_window_backtest_without_split(monkeypatch):
+    df = _synthetic_ohlcv_df(300)
+    monkeypatch.setattr(
+        "backtesting.validation.fetch_ohlcv",
+        lambda symbol, timeframe, limit: df,
+    )
+
+    result, verdict = run_edge_report("FAKE/USDT", "4h")
+
+    strategy = EmaRsiStrategy()
+    expected_df = strategy.calculate_indicators(df.copy())
+    expected = simulate_backtest(expected_df, strategy)
+
+    assert result.total_trades == expected.total_trades
+    assert result.total_return_pct == expected.total_return_pct
+    assert verdict.status in {"aprovado", "reprovado", "inconclusivo"}

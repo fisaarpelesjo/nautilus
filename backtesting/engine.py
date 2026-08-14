@@ -250,7 +250,7 @@ def _calculate_advanced_metrics(
     avg_win_pct = sum(win_returns) / len(win_returns) if win_returns else 0.0
     avg_loss_pct = sum(loss_returns) / len(loss_returns) if loss_returns else 0.0
     payoff_ratio = avg_win_pct / abs(avg_loss_pct) if avg_loss_pct else (float("inf") if avg_win_pct > 0 else 0.0)
-    edge_score = _edge_score(
+    score = edge_score(
         total_return_pct=total_return_pct,
         buy_hold_return_pct=buy_hold_return_pct,
         profit_factor=profit_factor,
@@ -271,7 +271,7 @@ def _calculate_advanced_metrics(
         "sharpe": sharpe,
         "expectancy_pct": expectancy_pct,
         "payoff_ratio": payoff_ratio,
-        "edge_score": edge_score,
+        "edge_score": score,
     }
 
 
@@ -300,7 +300,7 @@ def _buy_hold_return_pct(
     return (final_capital - invested) / invested * 100
 
 
-def _edge_score(
+def edge_score(
     total_return_pct: float,
     buy_hold_return_pct: float,
     profit_factor: float,
@@ -317,6 +317,27 @@ def _edge_score(
         - max_losing_streak
         - sample_penalty
     )
+
+
+def edge_score_band(score: float) -> str:
+    """Faixa legivel do edge_score, para comparar pares/timeframes sem decorar a
+    escala numerica. Limiares derivados da propria composicao do edge_score: um
+    profit factor de 1.5 sozinho ja contribui +5 pontos, entao uma faixa de 20
+    pontos representa uma combinacao real de varios fatores positivos, nao um
+    unico indicador isolado.
+
+        score >= 20            -> "Forte"
+        0 <= score < 20         -> "Medio"
+        -20 <= score < 0        -> "Fraco"
+        score < -20             -> "Reprovado"
+    """
+    if score >= 20:
+        return "Forte"
+    if score >= 0:
+        return "Médio"
+    if score >= -20:
+        return "Fraco"
+    return "Reprovado"
 
 
 def _stop_price(entry_price: float, atr: float, stop_loss_pct: float, atr_sl_multiplier: float) -> float:

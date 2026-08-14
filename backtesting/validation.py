@@ -2,8 +2,8 @@ from typing import Optional, Tuple
 
 import pandas as pd
 
-from backtesting.approval import ApprovalVerdict, evaluate_approval
-from backtesting.engine import BacktestResult, print_report, precompute_signals, simulate_backtest
+from backtesting.approval import ApprovalVerdict, diagnose_profile, evaluate_approval
+from backtesting.engine import BacktestResult, edge_score_band, print_report, precompute_signals, simulate_backtest
 from data.fetcher import fetch_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
 from utils.display import C_CYAN, C_NEG, C_POS, console
@@ -104,6 +104,38 @@ def _print_validation_report(
     else:
         print_report(validation_result)
 
+    edge_score = validation_result.edge_score if validation_result is not None else None
+    _print_verdict(verdict, edge_score=edge_score)
+
+
+def run_edge_report(
+    symbol: str,
+    timeframe: str,
+    initial_capital: float = 1000.0,
+    candle_limit: int = 2000,
+) -> Tuple[BacktestResult, ApprovalVerdict]:
+    """Roda um backtest de janela unica (sem split treino/validacao -- isso e
+    `backtest --validate`) e calcula o veredito de aprovacao sobre o resultado
+    inteiro. Usado por `python main.py edge`, que ate esta spec era um alias
+    literal de `backtest`."""
+    df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
+    strategy = EmaRsiStrategy()
+    df = strategy.calculate_indicators(df)
+
+    result = simulate_backtest(df, strategy, initial_capital=initial_capital)
+    verdict = evaluate_approval(result)
+    diagnosis = diagnose_profile(result) if verdict.status == "reprovado" else None
+
+    print_report(result)
+    _print_verdict(verdict, diagnosis, edge_score=result.edge_score)
+    return result, verdict
+
+
+def _print_verdict(
+    verdict: ApprovalVerdict,
+    diagnosis: Optional[str] = None,
+    edge_score: Optional[float] = None,
+) -> None:
     console.print()
     verdict_color = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_CYAN}[verdict.status]
     console.print(f"[bold {verdict_color}]VEREDITO: {verdict.status.upper()}[/]")
@@ -111,3 +143,10 @@ def _print_validation_report(
     for reason in verdict.reasons:
         console.print(f"[{C_NEG}]  - {reason}[/]")
         log.info(f"  - {reason}")
+    if diagnosis:
+        console.print(f"[{C_CYAN}]  {diagnosis}[/]")
+        log.info(f"  {diagnosis}")
+    if edge_score is not None:
+        band = edge_score_band(edge_score)
+        console.print(f"[{C_CYAN}]  edge score: {edge_score:+.2f} ({band})[/]")
+        log.info(f"  edge score: {edge_score:+.2f} ({band})")

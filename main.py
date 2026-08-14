@@ -29,8 +29,8 @@ def cmd_backtest():
     run_backtest(SYMBOL, TIMEFRAME)
 
 def cmd_edge():
-    from backtesting.engine import run_backtest
-    run_backtest(SYMBOL, TIMEFRAME)
+    from backtesting.validation import run_edge_report
+    run_edge_report(SYMBOL, TIMEFRAME)
 
 def cmd_multibacktest():
     from backtesting.multi import run

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Protocol, Tuple
 
 from backtesting.engine import BacktestResult
 from config.settings import EDGE_MIN_TRADES
@@ -10,6 +10,12 @@ from config.settings import EDGE_MIN_TRADES
 # o resultado de edge/multibacktest/scan, que nunca fazem split).
 MIN_PROFIT_FACTOR_FOR_APPROVAL = 1.2
 MAX_ACCEPTABLE_DRAWDOWN_PCT = 10.0
+
+# Amostra abaixo disso nunca deve dominar o ranking por qualidade, mesmo com
+# edge_score alto (ex: 1 trade sortudo com retorno grande) -- mesma protecao que o
+# ScanResult.score antigo tinha (`trades < 3` => exclusao dura), perdida quando o
+# ranking migrou para edge_score (achado de /code-review high nesta spec).
+MIN_TRADES_FOR_RANKING = 3
 
 
 @dataclass
@@ -49,3 +55,46 @@ def evaluate_approval(
     if reasons:
         return ApprovalVerdict(status="reprovado", reasons=reasons)
     return ApprovalVerdict(status="aprovado", reasons=[])
+
+
+def diagnose_profile(result: BacktestResult) -> Optional[str]:
+    """Diagnostico complementar ao veredito (ROADMAP.md Fase 1.1 item 4): identifica
+    o caso de uma estrategia que preserva capital (drawdown baixo, expectativa
+    positiva) mas nao acompanha uma alta forte -- diferente de uma estrategia
+    simplesmente ruim. So retorna algo quando o padrao "defensivo" e detectado;
+    reusa os mesmos limiares ja definidos em evaluate_approval() (nao inventa
+    novos numeros "baixo drawdown" divergentes no mesmo relatorio)."""
+    is_defensive = (
+        result.max_drawdown_pct <= MAX_ACCEPTABLE_DRAWDOWN_PCT
+        and result.expectancy > 0
+        and result.total_return_pct <= result.buy_hold_return_pct
+    )
+    if is_defensive:
+        return "perfil defensivo: preservou capital, mas capturou pouco da alta"
+    return None
+
+
+class _Rankable(Protocol):
+    edge_score: float
+    profit_factor: float
+    trades: int
+
+
+def ranking_key(r: _Rankable) -> Tuple[float, float, int]:
+    """Chave de ordenacao por qualidade compartilhada entre `multibacktest` e
+    `scan` (`.sort(key=ranking_key, reverse=True)`): edge_score desc, desempate
+    por profit_factor e depois por numero de trades. Amostra abaixo de
+    `MIN_TRADES_FOR_RANKING` usa `-inf` no lugar do edge_score real, garantindo
+    que nunca apareça no topo do ranking só por ter tido sorte numa amostra
+    minuscula."""
+    effective_score = r.edge_score if r.trades >= MIN_TRADES_FOR_RANKING else float("-inf")
+    return (effective_score, r.profit_factor, r.trades)
+
+
+def verdict_markup(verdict: Optional[ApprovalVerdict]) -> str:
+    """Markup Rich para exibir o veredito numa tabela (`multibacktest`/`scan`),
+    compartilhado para os dois nao divergirem na cor/texto de cada status."""
+    if verdict is None:
+        return "-"
+    color = {"aprovado": "bright_green", "reprovado": "bright_red", "inconclusivo": "dim cyan"}[verdict.status]
+    return f"[{color}]{verdict.status}[/{color}]"

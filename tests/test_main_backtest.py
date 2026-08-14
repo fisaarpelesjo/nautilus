@@ -23,3 +23,13 @@ def test_cmd_backtest_runs_validation_split_with_flag(monkeypatch):
     main.cmd_backtest()
 
     assert calls == [("validate", (main.SYMBOL, main.TIMEFRAME), {})]
+
+
+def test_cmd_edge_runs_edge_report_not_plain_backtest(monkeypatch):
+    calls = []
+    monkeypatch.setattr(backtesting.validation, "run_edge_report", lambda *a, **k: calls.append(("edge", a, k)))
+    monkeypatch.setattr(backtesting.engine, "run_backtest", lambda *a, **k: calls.append(("plain", a, k)))
+
+    main.cmd_edge()
+
+    assert calls == [("edge", (main.SYMBOL, main.TIMEFRAME), {})]

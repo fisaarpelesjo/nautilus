@@ -1,6 +1,6 @@
 import pandas as pd
 
-from backtesting.engine import print_report, simulate_backtest
+from backtesting.engine import edge_score_band, print_report, simulate_backtest
 from utils.display import _fmt_price
 from strategy.base import Signal, TradeSignal
 
@@ -128,3 +128,14 @@ def test_print_report_records_edge_metrics(caplog):
 
 def test_price_formatter_keeps_small_crypto_prices_visible():
     assert _fmt_price(0.00234567) == "$0.00234567"
+
+
+def test_edge_score_band_matches_documented_thresholds():
+    assert edge_score_band(20.0) == "Forte"
+    assert edge_score_band(50.0) == "Forte"
+    assert edge_score_band(19.99) == "Médio"
+    assert edge_score_band(0.0) == "Médio"
+    assert edge_score_band(-0.01) == "Fraco"
+    assert edge_score_band(-20.0) == "Fraco"
+    assert edge_score_band(-20.01) == "Reprovado"
+    assert edge_score_band(-100.0) == "Reprovado"
