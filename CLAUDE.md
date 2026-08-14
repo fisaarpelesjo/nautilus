@@ -111,7 +111,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `MAX_POSITIONS` | `5` | Máximo de posições abertas simultaneamente |
 | `STOP_LOSS_PCT` | `0.015` | Stop loss fixo (fallback sem ATR) |
 | `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo (fallback sem ATR) |
-| `ATR_SL_MULTIPLIER` | `2.0` | Multiplicador ATR para stop loss |
+| `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
 | `VOLUME_MA_PERIOD` | `20` | Janela da média de volume para filtro |
 | `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |

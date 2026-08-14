@@ -97,7 +97,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `MAX_POSITIONS` | `5` | Max simultaneous open positions |
 | `STOP_LOSS_PCT` | `0.015` | Fixed stop loss (fallback without ATR) |
 | `TAKE_PROFIT_PCT` | `0.06` | Fixed take profit (fallback without ATR) |
-| `ATR_SL_MULTIPLIER` | `2.0` | ATR multiplier for stop loss |
+| `ATR_SL_MULTIPLIER` | `1.5` | ATR multiplier for stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | ATR multiplier for take profit |
 | `VOLUME_MA_PERIOD` | `20` | Volume moving average window for filter |
 | `VOLUME_MIN_RATIO` | `1.2` | Minimum volume = average × ratio for BUY |
