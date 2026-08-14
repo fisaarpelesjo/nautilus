@@ -61,7 +61,7 @@ def run_backtest(symbol: str, timeframe: str, initial_capital: float = 1000.0, c
     df = strategy.calculate_indicators(df)
 
     result = simulate_backtest(df, strategy, initial_capital=initial_capital)
-    _print_report(result)
+    print_report(result)
     return result
 
 
@@ -395,7 +395,7 @@ def _close_trade(
         exit_reason=exit_reason,
     )
 
-def _print_report(r: BacktestResult):
+def print_report(r: BacktestResult):
     metric_rows = [
         ("Capital inicial", f"${r.initial_capital:.2f}", C_PRICE, f"Capital inicial:   ${r.initial_capital:.2f}"),
         ("Capital final", f"${r.final_capital:.2f}", _money_color(r.final_capital - r.initial_capital), f"Capital final:     ${r.final_capital:.2f}"),

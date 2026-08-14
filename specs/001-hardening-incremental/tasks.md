@@ -570,21 +570,56 @@ a janela de validação out-of-sample, com veredito de aprovação automática b
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T029 [P] [US3] Teste: split treino/validação divide o histórico em janelas contíguas e não
-      sobrepostas em `tests/test_backtesting_engine.py`
-- [ ] T030 [P] [US3] Teste: critérios de aprovação automática (retorno > buy-hold, profit factor >
+- [x] T029 [P] [US3] Teste: split treino/validação divide o histórico em janelas contíguas e não
+      sobrepostas em `tests/test_backtesting_validation.py` (novo arquivo — ver nota de design)
+- [x] T030 [P] [US3] Teste: critérios de aprovação automática (retorno > buy-hold, profit factor >
       1.2, drawdown aceitável, nº mínimo de trades) avaliados sobre `validation_metrics`, não
-      `train_metrics`, em `tests/test_backtesting_engine.py`
+      `train_metrics`, em `tests/test_backtesting_validation.py`
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Função de split treino/validação sobre o DataFrame de candles em
-      `backtesting/engine.py` (ou novo `backtesting/validation.py` se o escopo justificar um arquivo
-      separado — decisão na hora da implementação) (depende de T029 falhando)
-- [ ] T032 [US3] Formalizar função de aprovação automática (já esboçada como item do `ROADMAP.md`
-      Fase 1) aplicada à janela de validação (depende de T030 falhando, T031)
-- [ ] T033 [US3] Exibir métricas in-sample vs out-of-sample lado a lado no relatório de backtest
-      (`backtesting/engine.py` / `utils/display.py`) (depende de T031, T032)
+Nota de design (escolha explicitamente deixada em aberto por `plan.md`/`research.md`): a lógica de
+split + veredito ficou em `backtesting/validation.py` (novo arquivo), não em `backtesting/engine.py`
+— escopo suficiente (split, critérios de aprovação, orquestração de duas simulações, relatório duplo)
+para justificar separação, e mantém `engine.py` sem crescer para um caso de uso que não é o padrão
+(backtest único). `tests/test_backtesting_validation.py` segue a mesma divisão.
+
+- [x] T031 [US3] `split_train_validation(df, validation_ratio=0.3, min_window_candles=150)` em
+      `backtesting/validation.py` — divide por índice (não embaralha, dado é série temporal); se
+      qualquer fatia ficar menor que `min_window_candles`, retorna `(df, None)` (sem janela de
+      validação possível)
+- [x] T032 [US3] `evaluate_validation(result, min_trades=10, min_profit_factor=1.2,
+      max_drawdown_pct=10.0) -> ValidationVerdict` (`status` "aprovado"/"reprovado"/"inconclusivo" +
+      `reasons`), aplicada só sobre o resultado da janela de validação — `result=None` (janela
+      impossível) vira "inconclusivo" em vez de um número enganoso (edge case do `spec.md`)
+- [x] T033 [US3] `run_backtest_with_validation()` (orquestra fetch + indicadores + split + duas
+      simulações + veredito) e `_print_validation_report()` (relatório treino + validação + veredito
+      lado a lado); exposto via `python main.py backtest --validate` (`main.py`, flag opcional —
+      `python main.py backtest` sem a flag mantém o comportamento atual, FR-009); documentado em
+      `contracts/cli.md`
+
+`/code-review high` rodado sobre o diff antes do commit encontrou 2 problemas, os dois corrigidos:
+
+47. **O mais grave**: `run_backtest_with_validation` chamava `precompute_signals` separadamente em
+    cada fatia (treino e validação) — no primeiro candle da fatia de validação, o `.shift(1)` usado
+    para detectar cruzamento de EMA fica sem a linha anterior (que ficou do lado do treino), vira
+    `NaN`, e um cruzamento real que caísse exatamente na fronteira do split era silenciosamente
+    perdido (viraria HOLD em vez de BUY/SELL). Corrigido: sinais calculados uma única vez sobre o df
+    inteiro (`precompute_signals(df, strategy)`, antes do split) e só então fatiados
+    (`signals.loc[train_df.index]` / `signals.loc[validation_df.index]`) — o `.shift(1)` da fatia de
+    validação passa a enxergar a última linha do treino como contexto. Teste
+    `test_signals_sliced_after_full_df_precompute_detect_boundary_crossover` adicionado, provando o
+    bug old-vs-fix lado a lado.
+48. `backtesting/validation.py` importava `_print_report` (função privada, prefixo `_`) de
+    `backtesting/engine.py` através da fronteira do módulo — acoplamento a um detalhe interno não
+    declarado como API pública. Corrigido: renomeado para `print_report` (público) em `engine.py` e
+    em todos os chamadores (`engine.py`, `validation.py`, `tests/test_backtesting_engine.py`).
+
+112 testes passando (12 novos: 9 em `test_backtesting_validation.py`, 2 em `test_main_backtest.py`
+para o dispatch do CLI, 1 ajuste de nome em `test_backtesting_engine.py`), ruff/mypy limpos.
+
+**Status da User Story 3**: 1 rodada de `/code-review high`, 2 achados corrigidos. **User Story 3
+aprovada.**
 
 **Checkpoint**: US1, US2 e US3 funcionam de forma independente.
 

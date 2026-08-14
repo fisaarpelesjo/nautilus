@@ -4,6 +4,7 @@ Ponto de entrada principal.
 
 Uso:
   python main.py backtest      -- run single-pair backtest
+  python main.py backtest --validate  -- backtest with train/out-of-sample split + verdict
   python main.py edge          -- run profitability edge report
   python main.py multibacktest -- run backtest on fixed pair list
   python main.py scan          -- backtest top 30 pairs by volume
@@ -20,6 +21,10 @@ import sys
 from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
 
 def cmd_backtest():
+    if "--validate" in sys.argv[2:]:
+        from backtesting.validation import run_backtest_with_validation
+        run_backtest_with_validation(SYMBOL, TIMEFRAME)
+        return
     from backtesting.engine import run_backtest
     run_backtest(SYMBOL, TIMEFRAME)
 

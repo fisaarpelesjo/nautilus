@@ -1,6 +1,6 @@
 import pandas as pd
 
-from backtesting.engine import _print_report, simulate_backtest
+from backtesting.engine import print_report, simulate_backtest
 from utils.display import _fmt_price
 from strategy.base import Signal, TradeSignal
 
@@ -116,7 +116,7 @@ def test_print_report_records_edge_metrics(caplog):
     ])
     result = simulate_backtest(data, SequenceStrategy([Signal.HOLD, Signal.HOLD]), start_index=1)
 
-    _print_report(result)
+    print_report(result)
 
     output = caplog.text
     assert "RESULTADO DO BACKTEST" in output
