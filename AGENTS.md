@@ -95,6 +95,10 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `TIMEFRAME` | `4h` | Candle timeframe |
 | `MAX_ORDER_SIZE_USDT` | `100.0` | Per-order cap in USDT |
 | `MAX_POSITIONS` | `5` | Max simultaneous open positions |
+| `MAX_SPREAD_PCT_ENTRY` | `0.005` | Max order book spread allowed to enter a position (distinct from `MAX_SPREAD_PCT`, used in dynamic pair selection) |
+| `MIN_ORDERBOOK_DEPTH_USDT` | `3 × MAX_ORDER_SIZE_USDT` | Minimum ask-side depth required to enter a position |
+| `USE_LIMIT_ORDERS` | `false` | When `true`, entries use a limit order instead of market |
+| `LIMIT_ORDER_TIMEOUT_CYCLES` | `3` | Cycles (60s each) before cancelling an unfilled limit order (or accepting the partial fill already obtained) |
 | `STOP_LOSS_PCT` | `0.015` | Fixed stop loss (fallback without ATR) |
 | `TAKE_PROFIT_PCT` | `0.06` | Fixed take profit (fallback without ATR) |
 | `ATR_SL_MULTIPLIER` | `1.5` | ATR multiplier for stop loss |
@@ -103,7 +107,9 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `VOLUME_MIN_RATIO` | `1.2` | Minimum volume = average × ratio for BUY |
 | `MTF_TIMEFRAME` | `1d` | Trend confirmation timeframe (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Re-entry block hours after stop loss |
-| `DAILY_DRAWDOWN_LIMIT` | `0.05` | Daily loss limit (5% of initial balance = $50) |
+| `DAILY_DRAWDOWN_LIMIT` | `0.05` | Daily loss limit (5% of the daily reference balance) |
+| `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Weekly loss limit (10% of the weekly reference balance); must be ≥ `DAILY_DRAWDOWN_LIMIT` |
+| `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Monthly loss limit (20% of the monthly reference balance); must be ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Consecutive losses (`pnl < 0`) before the circuit breaker trips; resets on a trade with `pnl > 0` |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
 | `BB_PERIOD` | `20` | Bollinger Bands period |
@@ -170,6 +176,29 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
   not in `state.json` — keeps a normal write from the running bot from overwriting an external
   activation via `python main.py kill`. Toggled via `kill`/`resume`; the bot reads the file from disk
   once per cycle.
+- **Live session confirmation** (`trading/runner.py`): before the main loop, in `TRADING_MODE=live`,
+  prints a summary (pairs, real balance, `MAX_ORDER_SIZE_USDT`, `MAX_POSITIONS`, daily/weekly/monthly/
+  consecutive-loss limits) and logs a `live_session_started` event. Does not block startup waiting
+  for interactive confirmation — informational only, in addition to the already-required
+  `LIVE_TRADING_CONFIRMATION`. Not shown in `paper`.
+- **Weekly and monthly loss limits** (`execution/order_manager.py`): same pattern as the daily limit,
+  each with its own real reference balance (`daily_reference_balance`/`weekly_reference_balance`/
+  `monthly_reference_balance`, captured on each period reset via `_reference_balance()`) and
+  independent reset (calendar day / ISO week / calendar month). `WEEKLY_DRAWDOWN_LIMIT` must be
+  ≥ `DAILY_DRAWDOWN_LIMIT`; `MONTHLY_DRAWDOWN_LIMIT` must be ≥ `WEEKLY_DRAWDOWN_LIMIT` (validated in
+  `validate_config()`). An unknown reference balance blocks conservatively instead of using a $0
+  limit.
+- **Liquidity check** (`execution/liquidity.py`): before each entry, `check_liquidity` queries the
+  real order book and blocks with a specific reason (`"liquidez: ..."`) when the spread exceeds
+  `MAX_SPREAD_PCT_ENTRY` or ask-side depth falls below `MIN_ORDERBOOK_DEPTH_USDT`. A failure to fetch
+  the order book also blocks (`"liquidez indisponivel"`) — never approval by omission.
+- **Limit orders with partial-fill tracking** (`execution/order_manager.py`): opt-in via
+  `USE_LIMIT_ORDERS` (default `false`, preserves the market-order behavior). When enabled, the entry
+  uses the best ask already fetched by the liquidity check as the limit price; the order sits in
+  `pending_limit_orders` until `check_pending_limit_orders()` (called once per cycle) confirms the
+  fill — a full fill opens the position, a partial fill after `LIMIT_ORDER_TIMEOUT_CYCLES` cancels
+  the remainder and opens with only the filled quantity, zero fill after the timeout cancels and
+  discards.
 
 ---
 

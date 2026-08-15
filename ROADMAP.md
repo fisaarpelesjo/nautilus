@@ -249,10 +249,15 @@ Objetivo: aproximar o paper mode da realidade operacional antes de qualquer live
 
 Objetivo: se um dia o bot for para dinheiro real, reduzir a chance de erro operacional ou perda fora do planejado.
 
-1. [ ] **Confirmacao explicita para live**
+1. [x] **Confirmacao explicita para live**
    - Exigir confirmacao manual clara ao iniciar com `TRADING_MODE=live`.
    - Mostrar pares, saldo, tamanho maximo por ordem, maximo de posicoes e limite de drawdown antes de operar.
    - Por que melhora: impede ligar live por engano ou com `.env` mal configurado.
+   - **Concluido** (`specs/005-live-protections`, US1): `trading/runner.py`
+     `_print_live_confirmation_banner()` exibe pares, saldo real, `MAX_ORDER_SIZE_USDT`,
+     `MAX_POSITIONS` e os 4 limites de perda antes do loop principal em `TRADING_MODE=live`; grava
+     evento `live_session_started`. Nao bloqueia inicializacao nao-interativa (so informativo, alem
+     do `LIVE_TRADING_CONFIRMATION` ja existente). Nao aparece em `paper`.
 
 2. [x] **Kill switch operacional**
    - Criar mecanismo para suspender novas entradas e/ou fechar posicoes conforme configuracao.
@@ -264,27 +269,44 @@ Objetivo: se um dia o bot for para dinheiro real, reduzir a chance de erro opera
      normalmente (fechar posicoes automaticamente nao foi implementado -- decisao consciente de
      escopo, ver `spec.md` Edge Cases).
 
-3. [ ] **Checagem de liquidez e spread antes da ordem**
+3. [x] **Checagem de liquidez e spread antes da ordem**
    - Validar order book, spread maximo, volume minimo e tamanho da ordem antes de comprar.
    - Por que melhora: slippage real pode destruir expectativa positiva, principalmente em pares menores.
+   - **Concluido** (`specs/005-live-protections`, US3): novo `execution/liquidity.py`,
+     `check_liquidity(symbol, order_size_usdt)` via `fetch_order_book` -- bloqueia com motivo
+     especifico quando spread > `MAX_SPREAD_PCT_ENTRY` (novo, default 0.5%) ou profundidade do lado
+     ask < `MIN_ORDERBOOK_DEPTH_USDT` (novo, default 3x `MAX_ORDER_SIZE_USDT`). Falha de rede vira
+     bloqueio conservador, nunca aprovacao por omissao. Integrado em `handle_entry_candidate` depois
+     do MTF.
 
-4. [ ] **Execucao inteligente de ordens**
+4. [x] **Execucao inteligente de ordens**
    - Adicionar ordens limit/stop, reconciliacao de ordens, rastreamento de preenchimento parcial e verificacao de estado na corretora.
    - Por que melhora: ordem a mercado e estado local simples sao suficientes para paper, mas live exige reconciliar o que a corretora realmente executou.
-   - **Parcial** (`specs/001-hardening-incremental`, US1): `execution/reconciliation.py` compara
-     `state.json` com o saldo real via `fetch_balance()` na inicializacao e a cada ~30min, com alerta
-     (nao correcao automatica) em divergencia; `clientOrderId` idempotente em toda ordem (paper e
-     live). Ordens limit/stop e rastreamento de preenchimento parcial continuam nao implementados.
+   - **Concluido** (`specs/001-hardening-incremental` US1 + `specs/005-live-protections` US4):
+     `execution/reconciliation.py` compara `state.json` com o saldo real via `fetch_balance()` na
+     inicializacao e a cada ~30min, com alerta (nao correcao automatica) em divergencia;
+     `clientOrderId` idempotente em toda ordem (paper e live). Ordens limit opcionais
+     (`USE_LIMIT_ORDERS`, default `false`) via `_live_buy_limit`, preco = melhor ask do order book ja
+     obtido pela checagem de liquidez; `pending_limit_orders` persistido em `state.json`, sobrevive a
+     restart; `check_pending_limit_orders()` (uma vez por ciclo) resolve preenchimento total, parcial
+     + timeout (`LIMIT_ORDER_TIMEOUT_CYCLES`, cancela o restante e abre so com o preenchido) ou zero +
+     timeout (cancela e descarta). Nao implementado: ordens stop nativas da exchange (o stop
+     loss/trailing continua sendo gerido localmente pelo bot, nao enviado como ordem stop para a
+     corretora) -- fora de escopo desta spec, sem incidente ou necessidade real que o justifique ainda.
    - Item relacionado nao antecipado no ROADMAP original: `_generate_client_order_id()` idempotente
      tambem fecha o gap de retry-duplica-ordem em rede instavel (ver achados #7/#26 em `tasks.md`).
 
-5. [ ] **Limites de perda por dia, semana e mes**
+5. [x] **Limites de perda por dia, semana e mes**
    - Expandir o limite diario atual para limites semanais/mensais e bloqueio automatico apos sequencia ruim.
    - Por que melhora: protege contra degradacao gradual da estrategia e contra periodos em que o mercado deixou de favorecer o modelo.
-   - **Parcial** (`specs/001-hardening-incremental`, US2): "bloqueio automatico apos sequencia ruim"
-     implementado via `MAX_CONSECUTIVE_LOSSES` (circuit breaker, contador global de perdas seguidas,
-     reseta so em trade com `pnl > 0`). Limites semanais/mensais (alem do `DAILY_DRAWDOWN_LIMIT` ja
-     existente) continuam nao implementados.
+   - **Concluido** (`specs/001-hardening-incremental` US2 + `specs/005-live-protections` US2):
+     "bloqueio automatico apos sequencia ruim" via `MAX_CONSECUTIVE_LOSSES` (circuit breaker, contador
+     global de perdas seguidas, reseta so em trade com `pnl > 0`). `WEEKLY_DRAWDOWN_LIMIT`/
+     `MONTHLY_DRAWDOWN_LIMIT` novos, mesmo padrao do `DAILY_DRAWDOWN_LIMIT` ja existente, cada um com
+     reset independente (dia/semana ISO/mes) e seu proprio saldo de referencia real. Corrigido no
+     mesmo trabalho um bug real: `is_daily_limit_hit()` usava `DAILY_DRAWDOWN_LIMIT * 1000.0`
+     (saldo paper default hardcoded) em vez do saldo real da conta -- agora cada periodo captura seu
+     saldo de referencia via `OrderManager._reference_balance()`.
 
 ## Fase 7 - Avancado
 

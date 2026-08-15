@@ -109,6 +109,10 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `TIMEFRAME` | `4h` | Timeframe dos candles |
 | `MAX_ORDER_SIZE_USDT` | `100.0` | Teto por ordem em USDT |
 | `MAX_POSITIONS` | `5` | Máximo de posições abertas simultaneamente |
+| `MAX_SPREAD_PCT_ENTRY` | `0.005` | Spread máximo do order book para permitir uma entrada (distinto de `MAX_SPREAD_PCT`, usado na seleção dinâmica de pares) |
+| `MIN_ORDERBOOK_DEPTH_USDT` | `3 × MAX_ORDER_SIZE_USDT` | Profundidade mínima (lado ask) exigida para permitir uma entrada |
+| `USE_LIMIT_ORDERS` | `false` | Quando `true`, entradas usam ordem limit em vez de mercado |
+| `LIMIT_ORDER_TIMEOUT_CYCLES` | `3` | Ciclos (60s cada) antes de cancelar uma ordem limit não preenchida (ou assumir o preenchimento parcial já obtido) |
 | `STOP_LOSS_PCT` | `0.015` | Stop loss fixo (fallback sem ATR) |
 | `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo (fallback sem ATR) |
 | `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
@@ -117,7 +121,9 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |
 | `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Horas de bloqueio de reentrada após stop loss |
-| `DAILY_DRAWDOWN_LIMIT` | `0.05` | Limite de perda diária (5% do saldo inicial = $50) |
+| `DAILY_DRAWDOWN_LIMIT` | `0.05` | Limite de perda diária (5% do saldo de referência diário) |
+| `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Limite de perda semanal (10% do saldo de referência semanal); deve ser ≥ `DAILY_DRAWDOWN_LIMIT` |
+| `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Limite de perda mensal (20% do saldo de referência mensal); deve ser ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Perdas seguidas (`pnl < 0`) até ativar o circuit breaker; reseta em trade com `pnl > 0` |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
 | `BB_PERIOD` | `20` | Período das Bollinger Bands |
@@ -184,6 +190,29 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
   próprio, não em `state.json`, para que uma escrita normal do bot em execução não sobrescreva uma
   ativação externa via `python main.py kill`. Ativa/desativa via `kill`/`resume`; o bot lê o arquivo
   do disco uma vez por ciclo.
+- **Confirmação de sessão live** (`trading/runner.py`): antes do loop principal, em
+  `TRADING_MODE=live`, exibe um resumo (pares, saldo real, `MAX_ORDER_SIZE_USDT`, `MAX_POSITIONS`,
+  limites diário/semanal/mensal/perdas-consecutivas) e grava o evento `live_session_started`. Não
+  bloqueia a inicialização esperando confirmação interativa — só informativo, além do
+  `LIVE_TRADING_CONFIRMATION` já exigido. Não aparece em `paper`.
+- **Limites de perda semanal e mensal** (`execution/order_manager.py`): mesmo padrão do diário, cada
+  um com seu próprio saldo de referência real (`daily_reference_balance`/`weekly_reference_balance`/
+  `monthly_reference_balance`, capturado a cada reset de período via `_reference_balance()`) e reset
+  independente (dia calendário / semana ISO / mês calendário). `WEEKLY_DRAWDOWN_LIMIT` deve ser
+  ≥ `DAILY_DRAWDOWN_LIMIT`; `MONTHLY_DRAWDOWN_LIMIT` deve ser ≥ `WEEKLY_DRAWDOWN_LIMIT` (validado em
+  `validate_config()`). Saldo de referência desconhecido bloqueia conservador em vez de usar um
+  limite de $0.
+- **Checagem de liquidez** (`execution/liquidity.py`): antes de cada entrada, `check_liquidity`
+  consulta o order book real e bloqueia com motivo específico (`"liquidez: ..."`) quando o spread
+  excede `MAX_SPREAD_PCT_ENTRY` ou a profundidade do lado ask fica abaixo de
+  `MIN_ORDERBOOK_DEPTH_USDT`. Falha ao buscar o order book também bloqueia (`"liquidez
+  indisponivel"`) — nunca aprovação por omissão.
+- **Ordens limit com preenchimento parcial** (`execution/order_manager.py`): opcional via
+  `USE_LIMIT_ORDERS` (default `false`, preserva o comportamento a mercado). Quando ligado, a entrada
+  usa o melhor preço de venda do order book (já obtido pela checagem de liquidez) como preço limite;
+  a ordem fica em `pending_limit_orders` até `check_pending_limit_orders()` (chamado uma vez por
+  ciclo) confirmar o preenchimento — total abre a posição, parcial após `LIMIT_ORDER_TIMEOUT_CYCLES`
+  cancela o restante e abre só com a quantidade preenchida, zero após o timeout cancela e descarta.
 
 ---
 

@@ -58,22 +58,22 @@ dependência direta de US4 em US3, não uma infraestrutura compartilhada nova.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T001 [P] [US1] Teste: `_print_live_confirmation_banner(...)` exibe pares, saldo,
+- [X] T001 [P] [US1] Teste: `_print_live_confirmation_banner(...)` exibe pares, saldo,
       `MAX_ORDER_SIZE_USDT`, `MAX_POSITIONS` e os limites de perda configurados — novo
       `tests/test_runner_live_banner.py`
-- [ ] T002 [P] [US1] Teste: `run()` (`trading/runner.py`) chama o banner quando
+- [X] T002 [P] [US1] Teste: `run()` (`trading/runner.py`) chama o banner quando
       `TRADING_MODE == "live"`, ANTES do loop principal — `tests/test_runner_live_banner.py`
-- [ ] T003 [P] [US1] Teste: `run()` NÃO chama o banner quando `TRADING_MODE == "paper"` —
+- [X] T003 [P] [US1] Teste: `run()` NÃO chama o banner quando `TRADING_MODE == "paper"` —
       `tests/test_runner_live_banner.py`
-- [ ] T004 [P] [US1] Teste: o banner grava um evento `live_session_started` via `log_event`, além do
+- [X] T004 [P] [US1] Teste: o banner grava um evento `live_session_started` via `log_event`, além do
       `console.print` — `tests/test_runner_live_banner.py`
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] `_print_live_confirmation_banner(pairs, balance, manager)` em `trading/runner.py`:
+- [X] T005 [US1] `_print_live_confirmation_banner(pairs, balance, manager)` em `trading/runner.py`:
       monta e imprime o resumo, chama `log_event("live_session_started", ...)` isolado via
       `safe_step` (depende de T001 falhando, T004 falhando)
-- [ ] T006 [US1] `run()` chama o banner condicionalmente quando `TRADING_MODE == "live"`, depois de
+- [X] T006 [US1] `run()` chama o banner condicionalmente quando `TRADING_MODE == "live"`, depois de
       `OrderManager()` já criado (para ter saldo real) e antes do loop principal (depende de T002
       falhando, T003 falhando, T005)
 
@@ -91,39 +91,39 @@ e correção do bug do saldo de referência hardcoded no limite diário.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T007 [P] [US2] Teste de regressão: `is_daily_limit_hit()` usa `daily_reference_balance` real
+- [X] T007 [P] [US2] Teste de regressão: `is_daily_limit_hit()` usa `daily_reference_balance` real
       (não `* 1000.0` hardcoded) — com saldo de referência $5000 e `DAILY_DRAWDOWN_LIMIT=0.05`, o
       limite deve ser $250, não $50 — em `tests/test_order_manager_safety.py`
-- [ ] T008 [P] [US2] Teste: `is_weekly_limit_hit()`/`is_monthly_limit_hit()` calculam contra
+- [X] T008 [P] [US2] Teste: `is_weekly_limit_hit()`/`is_monthly_limit_hit()` calculam contra
       `weekly_reference_balance`/`monthly_reference_balance` — `tests/test_order_manager_safety.py`
-- [ ] T009 [P] [US2] Teste: `weekly_pnl`/`monthly_pnl` resetam de forma independente um do outro e do
+- [X] T009 [P] [US2] Teste: `weekly_pnl`/`monthly_pnl` resetam de forma independente um do outro e do
       diário, na virada do respectivo período — `tests/test_order_manager_safety.py`
-- [ ] T010 [P] [US2] Teste: `handle_entry_candidate` bloqueia com `"limite semanal"`/`"limite mensal"`
+- [X] T010 [P] [US2] Teste: `handle_entry_candidate` bloqueia com `"limite semanal"`/`"limite mensal"`
       quando os respectivos limites são atingidos, mesmo com o diário e o circuit breaker OK — em
       `tests/test_position_lifecycle.py`
-- [ ] T011 [P] [US2] Teste: `validate_config()` rejeita `WEEKLY_DRAWDOWN_LIMIT < DAILY_DRAWDOWN_LIMIT`
+- [X] T011 [P] [US2] Teste: `validate_config()` rejeita `WEEKLY_DRAWDOWN_LIMIT < DAILY_DRAWDOWN_LIMIT`
       e `MONTHLY_DRAWDOWN_LIMIT < WEEKLY_DRAWDOWN_LIMIT` — em `tests/test_settings_validation.py`
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] `WEEKLY_DRAWDOWN_LIMIT` (default `0.10`), `MONTHLY_DRAWDOWN_LIMIT` (default `0.20`)
+- [X] T012 [US2] `WEEKLY_DRAWDOWN_LIMIT` (default `0.10`), `MONTHLY_DRAWDOWN_LIMIT` (default `0.20`)
       em `config/settings.py`, com a validação de consistência (depende de T011 falhando)
-- [ ] T013 [US2] `OrderManager._reference_balance()`: saldo real, paper via `self.paper_balance_usdt`,
+- [X] T013 [US2] `OrderManager._reference_balance()`: saldo real, paper via `self.paper_balance_usdt`,
       live via `fetch_balance()` — mesma bifurcação de `trading/position_lifecycle.py`
       `_current_balance()`, duplicada conscientemente para evitar import circular (ver `research.md`)
-- [ ] T014 [US2] Campos novos em `OrderManager`/`state.json`: `daily_reference_balance`,
+- [X] T014 [US2] Campos novos em `OrderManager`/`state.json`: `daily_reference_balance`,
       `weekly_pnl`/`weekly_reset_date`/`weekly_reference_balance`,
       `monthly_pnl`/`monthly_reset_date`/`monthly_reference_balance` — `_restore_state`/
       `_persist_state` estendidos (depende de T013)
-- [ ] T015 [US2] `is_daily_limit_hit()` corrigido para usar `daily_reference_balance` (fecha o bug de
+- [X] T015 [US2] `is_daily_limit_hit()` corrigido para usar `daily_reference_balance` (fecha o bug de
       T007); `is_weekly_limit_hit()`/`is_monthly_limit_hit()` novos, mesmo padrão (depende de T007
       falhando, T008 falhando, T014)
-- [ ] T016 [US2] `_check_weekly_reset()`/`_check_monthly_reset()` (mesmo padrão de
+- [X] T016 [US2] `_check_weekly_reset()`/`_check_monthly_reset()` (mesmo padrão de
       `_check_daily_reset`), capturando novo `*_reference_balance` a cada reset (depende de T009
       falhando, T015)
-- [ ] T017 [US2] `_paper_sell`/`_live_sell` acumulam `weekly_pnl`/`monthly_pnl` junto com `daily_pnl`
+- [X] T017 [US2] `_paper_sell`/`_live_sell` acumulam `weekly_pnl`/`monthly_pnl` junto com `daily_pnl`
       já existente (depende de T016)
-- [ ] T018 [US2] `handle_entry_candidate` (`trading/position_lifecycle.py`) ganha blockers
+- [X] T018 [US2] `handle_entry_candidate` (`trading/position_lifecycle.py`) ganha blockers
       `"limite semanal"`/`"limite mensal"` (depende de T010 falhando, T017)
 
 **Checkpoint**: US1 e US2 completas e independentes. Bug do limite diário corrigido.
@@ -139,28 +139,28 @@ limites configurados.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T019 [P] [US3] Teste: `check_liquidity(symbol, order_size_usdt)` bloqueia (`approved=False`)
+- [X] T019 [P] [US3] Teste: `check_liquidity(symbol, order_size_usdt)` bloqueia (`approved=False`)
       quando o spread do order book mockado excede `MAX_SPREAD_PCT_ENTRY` — novo
       `tests/test_liquidity.py`
-- [ ] T020 [P] [US3] Teste: `check_liquidity` bloqueia quando a profundidade do lado ask fica abaixo
+- [X] T020 [P] [US3] Teste: `check_liquidity` bloqueia quando a profundidade do lado ask fica abaixo
       de `MIN_ORDERBOOK_DEPTH_USDT` — `tests/test_liquidity.py`
-- [ ] T021 [P] [US3] Teste: `check_liquidity` trata falha ao buscar o order book (exceção) como
+- [X] T021 [P] [US3] Teste: `check_liquidity` trata falha ao buscar o order book (exceção) como
       bloqueio (`approved=False`, motivo `"liquidez indisponivel"`), não aprovação por omissão —
       `tests/test_liquidity.py`
-- [ ] T022 [P] [US3] Teste: `check_liquidity` aprova quando spread e profundidade estão dentro dos
+- [X] T022 [P] [US3] Teste: `check_liquidity` aprova quando spread e profundidade estão dentro dos
       limites — `tests/test_liquidity.py`
-- [ ] T023 [P] [US3] Teste: `handle_entry_candidate` inclui o blocker `"liquidez"` (com o motivo de
+- [X] T023 [P] [US3] Teste: `handle_entry_candidate` inclui o blocker `"liquidez"` (com o motivo de
       `check_liquidity`) quando reprovado, verificado depois do MTF na ordem de checagens — em
       `tests/test_position_lifecycle.py`
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] `MAX_SPREAD_PCT_ENTRY` (default `0.005`), `MIN_ORDERBOOK_DEPTH_USDT` (default
+- [X] T024 [US3] `MAX_SPREAD_PCT_ENTRY` (default `0.005`), `MIN_ORDERBOOK_DEPTH_USDT` (default
       `3 * MAX_ORDER_SIZE_USDT`) em `config/settings.py`
-- [ ] T025 [US3] Novo `execution/liquidity.py`: dataclass `LiquidityCheck` + `check_liquidity(symbol,
+- [X] T025 [US3] Novo `execution/liquidity.py`: dataclass `LiquidityCheck` + `check_liquidity(symbol,
       order_size_usdt)` via `exchange.fetch_order_book` (depende de T019 falhando, T020 falhando,
       T021 falhando, T022 falhando, T024)
-- [ ] T026 [US3] `handle_entry_candidate` chama `check_liquidity` depois do MTF confirmado e antes do
+- [X] T026 [US3] `handle_entry_candidate` chama `check_liquidity` depois do MTF confirmado e antes do
       saldo (mesma posição "checagem cara por último" já estabelecida), adiciona `"liquidez"` aos
       `blockers` quando reprovado (depende de T023 falhando, T025)
 
@@ -178,39 +178,39 @@ preenchimento parcial fica em Binance Testnet — nunca com fundos reais (Consti
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T027 [P] [US4] Teste: com `USE_LIMIT_ORDERS=false` (default), `_live_buy` continua chamando
+- [X] T027 [P] [US4] Teste: com `USE_LIMIT_ORDERS=false` (default), `_live_buy` continua chamando
       `create_market_buy_order` exatamente como hoje — comportamento idêntico ao já validado —
       novo `tests/test_limit_orders.py`
-- [ ] T028 [P] [US4] Teste: com `USE_LIMIT_ORDERS=true`, `_live_buy` chama `create_limit_buy_order`
+- [X] T028 [P] [US4] Teste: com `USE_LIMIT_ORDERS=true`, `_live_buy` chama `create_limit_buy_order`
       com preço = melhor `ask` do order book e `clientOrderId` idempotente (reusa
       `pending_open_client_order_ids`, mesmo padrão já existente) — `tests/test_limit_orders.py`
-- [ ] T029 [P] [US4] Teste: `check_pending_limit_orders()` abre a posição com a quantidade cheia
+- [X] T029 [P] [US4] Teste: `check_pending_limit_orders()` abre a posição com a quantidade cheia
       quando `fetch_order` reporta `filled == amount` — `tests/test_limit_orders.py`
-- [ ] T030 [P] [US4] Teste: preenchimento parcial (`0 < filled < amount`) + `LIMIT_ORDER_TIMEOUT_CYCLES`
+- [X] T030 [P] [US4] Teste: preenchimento parcial (`0 < filled < amount`) + `LIMIT_ORDER_TIMEOUT_CYCLES`
       atingido → cancela o restante e abre a posição só com a quantidade preenchida —
       `tests/test_limit_orders.py`
-- [ ] T031 [P] [US4] Teste: sem nenhum preenchimento (`filled == 0`) + timeout atingido → cancela e
+- [X] T031 [P] [US4] Teste: sem nenhum preenchimento (`filled == 0`) + timeout atingido → cancela e
       descarta a ordem pendente, sem posição aberta — `tests/test_limit_orders.py`
-- [ ] T032 [P] [US4] Teste: `pending_limit_orders` sobrevive a um restart simulado (persistido em
+- [X] T032 [P] [US4] Teste: `pending_limit_orders` sobrevive a um restart simulado (persistido em
       `state.json`, `clientOrderId` reusado na consulta seguinte, não gerado de novo) —
       `tests/test_limit_orders.py`
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] `USE_LIMIT_ORDERS` (default `false`), `LIMIT_ORDER_TIMEOUT_CYCLES` (default `3`) em
+- [X] T033 [US4] `USE_LIMIT_ORDERS` (default `false`), `LIMIT_ORDER_TIMEOUT_CYCLES` (default `3`) em
       `config/settings.py` (depende de T027 falhando)
-- [ ] T034 [US4] Dataclass `PendingLimitOrder` (`symbol`, `client_order_id`, `limit_price`,
+- [X] T034 [US4] Dataclass `PendingLimitOrder` (`symbol`, `client_order_id`, `limit_price`,
       `requested_quantity`, `placed_at_cycle`) + `pending_limit_orders: Dict[str, PendingLimitOrder]`
       em `OrderManager`, persistido em `state.json` (depende de T032 falhando)
-- [ ] T035 [US4] `_live_buy` ganha caminho de ordem limit quando `USE_LIMIT_ORDERS=true`: reusa o
+- [X] T035 [US4] `_live_buy` ganha caminho de ordem limit quando `USE_LIMIT_ORDERS=true`: reusa o
       order book já buscado por `check_liquidity` (US3) para o preço, envia `create_limit_buy_order`
       com `clientOrderId` idempotente, registra em `pending_limit_orders` em vez de `positions`
       diretamente (depende de T028 falhando, T033, T034, T025)
-- [ ] T036 [US4] `OrderManager.check_pending_limit_orders()`: para cada ordem pendente, `fetch_order`
+- [X] T036 [US4] `OrderManager.check_pending_limit_orders()`: para cada ordem pendente, `fetch_order`
       via `clientOrderId`; preenchimento completo → move para `positions`; parcial + timeout →
       `cancel_order` do restante, abre posição com quantidade preenchida; zero + timeout → cancela e
       remove de `pending_limit_orders` (depende de T029 falhando, T030 falhando, T031 falhando, T034)
-- [ ] T037 [US4] `trading/runner.py` chama `manager.check_pending_limit_orders()` uma vez por ciclo,
+- [X] T037 [US4] `trading/runner.py` chama `manager.check_pending_limit_orders()` uma vez por ciclo,
       mesmo padrão de chamada da reconciliação periódica (depende de T036)
 
 **Checkpoint**: US1, US2, US3 e US4 funcionam de forma independente (à parte da dependência
@@ -223,11 +223,11 @@ a mercado já validado — suíte completa deve passar sem nenhuma mudança de c
 
 **Purpose**: Documentação — não altera comportamento do bot além do já implementado nas User Stories.
 
-- [ ] T038 [P] Atualizar `ROADMAP.md` marcando Fase 6 itens 1 (confirmação explícita), 3
+- [X] T038 [P] Atualizar `ROADMAP.md` marcando Fase 6 itens 1 (confirmação explícita), 3
       (liquidez/spread), 4 (execução inteligente — parcial, ver nota abaixo) e 5 (limites
       semanal/mensal) como concluídos/atualizados, com link para esta spec
-- [ ] T039 [P] Atualizar `specs/BACKLOG.md`: status da spec 005 para concluída
-- [ ] T040 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novas variáveis de `.env`
+- [X] T039 [P] Atualizar `specs/BACKLOG.md`: status da spec 005 para concluída
+- [X] T040 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novas variáveis de `.env`
       (`WEEKLY_DRAWDOWN_LIMIT`, `MONTHLY_DRAWDOWN_LIMIT`, `MAX_SPREAD_PCT_ENTRY`,
       `MIN_ORDERBOOK_DEPTH_USDT`, `USE_LIMIT_ORDERS`, `LIMIT_ORDER_TIMEOUT_CYCLES`), banner de
       confirmação live, nova seção sobre liquidez/ordens limit
