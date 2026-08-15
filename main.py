@@ -9,6 +9,7 @@ Uso:
   python main.py edge          -- run profitability edge report
   python main.py multibacktest -- run backtest on fixed pair list
   python main.py scan          -- backtest top 30 pairs by volume
+  python main.py compare       -- compare multiple strategies/presets side by side
   python main.py optimize      -- grid search best parameters
   python main.py optimize --validate      -- grid search with train/validation split
   python main.py optimize --walk-forward  -- validate winner across sliding windows
@@ -46,6 +47,10 @@ def cmd_multibacktest():
 
 def cmd_scan():
     from backtesting.scanner import run
+    run()
+
+def cmd_comparar():
+    from backtesting.compare import run
     run()
 
 def cmd_analisar():
@@ -178,6 +183,7 @@ COMMANDS = {
     "edge":          cmd_edge,
     "multibacktest": cmd_multibacktest,
     "scan":          cmd_scan,
+    "compare":       cmd_comparar,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
     "optimize":      cmd_otimizar,
@@ -192,6 +198,7 @@ COMMANDS = {
     "decisoes":      cmd_decisions,
     "otimizar":      cmd_otimizar,
     "selecionar":    cmd_selecionar,
+    "comparar":      cmd_comparar,
 }
 
 if __name__ == "__main__":

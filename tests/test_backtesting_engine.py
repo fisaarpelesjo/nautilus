@@ -367,3 +367,95 @@ def test_run_backtest_uses_passed_strategy_instead_of_default(monkeypatch):
     result = run_backtest("BTC/USDT", "4h", strategy=custom)
 
     assert result is not None
+
+
+def test_run_backtest_produces_full_report_with_breakout_strategy(monkeypatch):
+    from strategy.breakout import BreakoutStrategy
+
+    # serie com variacao suficiente para produzir alguns rompimentos reais
+    # dentro de uma janela de 200 candles.
+    n = 260
+    closes = [100.0 + (i % 40) * 0.5 - (i // 40) * 0.3 for i in range(n)]
+    df = pd.DataFrame({
+        "open": closes, "high": [c + 1.0 for c in closes], "low": [c - 1.0 for c in closes],
+        "close": closes, "volume": [1000.0] * n,
+    }, index=pd.date_range("2024-01-01", periods=n, freq="4h"))
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda symbol, timeframe, limit=2000: df)
+    monkeypatch.setattr(engine, "print_report", lambda result: None)
+
+    result = run_backtest("BTC/USDT", "4h", strategy=BreakoutStrategy(window=50))
+
+    assert result is not None
+    assert hasattr(result, "edge_score")
+    assert hasattr(result, "sortino")
+
+
+def _prepared_df_for_buy_signal(regime="trending", atr_ratio=0.01):
+    # 2 candles com um cruzamento EMA de alta claro no segundo -- replica o
+    # mesmo cenario ja usado em tests/test_strategy_ema_rsi.py para BUY.
+    index = pd.date_range("2026-01-01", periods=2, freq="h")
+    return pd.DataFrame({
+        "close":     [100.0, 110.0],
+        "open":      [100.0, 105.0],
+        "low":       [99.0, 108.0],
+        "ema_fast":  [9.0, 12.0],
+        "ema_slow":  [10.0, 10.0],
+        "ema_trend": [90.0, 95.0],
+        "rsi":       [50.0, 55.0],
+        "volume":    [150.0, 150.0],
+        "volume_ma": [100.0, 100.0],
+        "bb_upper":  [120.0, 120.0],
+        "regime":    [regime, regime],
+        "atr_ratio": [atr_ratio, atr_ratio],
+    }, index=index)
+
+
+def test_precompute_signals_blocks_buy_in_sideways_regime_when_filter_enabled(monkeypatch):
+    # Regressao (achado de code-review): precompute_signals() -- caminho
+    # vetorizado usado por optimize/backtest --validate/optimize
+    # --walk-forward -- nao respeitava REGIME_FILTER_ENABLED, divergindo do
+    # caminho por candle (generate_signal) usado por backtest/edge/compare.
+    monkeypatch.setattr(engine, "REGIME_FILTER_ENABLED", True)
+    df = _prepared_df_for_buy_signal(regime="sideways")
+    strategy = EmaRsiStrategy()
+
+    signals = engine.precompute_signals(df, strategy)
+
+    assert signals.iloc[-1] == Signal.HOLD
+
+
+def test_precompute_signals_allows_buy_in_trending_regime_when_filter_enabled(monkeypatch):
+    monkeypatch.setattr(engine, "REGIME_FILTER_ENABLED", True)
+    df = _prepared_df_for_buy_signal(regime="trending")
+    strategy = EmaRsiStrategy()
+
+    signals = engine.precompute_signals(df, strategy)
+
+    assert signals.iloc[-1] == Signal.BUY
+
+
+def test_precompute_signals_blocks_buy_on_high_volatility_when_filter_enabled(monkeypatch):
+    monkeypatch.setattr(engine, "HIGH_VOLATILITY_FILTER_ENABLED", True)
+    monkeypatch.setattr(engine, "HIGH_VOLATILITY_ATR_RATIO", 0.05)
+    df = _prepared_df_for_buy_signal(atr_ratio=0.20)
+    strategy = EmaRsiStrategy()
+
+    signals = engine.precompute_signals(df, strategy)
+
+    assert signals.iloc[-1] == Signal.HOLD
+
+
+def test_precompute_signals_matches_generate_signal_when_all_filters_enabled(monkeypatch):
+    # Consistencia entre os dois caminhos (vetorizado e por-candle) --
+    # exatamente o que divergia antes desta correcao.
+    monkeypatch.setattr(engine, "REGIME_FILTER_ENABLED", True)
+    from strategy import ema_rsi
+    monkeypatch.setattr(ema_rsi, "REGIME_FILTER_ENABLED", True)
+    df = _prepared_df_for_buy_signal(regime="sideways")
+    strategy = EmaRsiStrategy()
+    monkeypatch.setattr(strategy, "calculate_indicators", lambda _df: df)
+
+    vectorized = engine.precompute_signals(df, strategy)
+    per_candle = strategy.generate_signal(pd.DataFrame()).signal
+
+    assert vectorized.iloc[-1] == per_candle == Signal.HOLD

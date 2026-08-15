@@ -2,6 +2,7 @@ import sys
 from types import SimpleNamespace
 
 import main
+import backtesting.compare
 import backtesting.engine
 import backtesting.optimizer
 import backtesting.robustness
@@ -90,3 +91,18 @@ def test_cmd_backtest_without_montecarlo_flag_does_not_run_report(monkeypatch):
     main.cmd_backtest()
 
     assert calls == []
+
+
+def test_compare_command_is_registered_with_pt_br_alias():
+    assert "compare" in main.COMMANDS
+    assert "comparar" in main.COMMANDS
+    assert main.COMMANDS["compare"] is main.COMMANDS["comparar"]
+
+
+def test_cmd_comparar_calls_backtesting_compare_run(monkeypatch):
+    calls = []
+    monkeypatch.setattr(backtesting.compare, "run", lambda *a, **k: calls.append((a, k)))
+
+    main.cmd_comparar()
+
+    assert len(calls) == 1

@@ -10,6 +10,10 @@ from config.settings import (
     MAX_ORDER_SIZE_USDT,
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
+    REGIME_FILTER_ENABLED,
+    HIGH_VOLATILITY_ATR_RATIO,
+    HIGH_VOLATILITY_FILTER_ENABLED,
+    ADAPTIVE_BOLLINGER_ENABLED,
 )
 from strategy.base import BaseStrategy, Signal
 from strategy.ema_rsi import EmaRsiStrategy
@@ -83,9 +87,24 @@ def precompute_signals(df: pd.DataFrame, strategy: EmaRsiStrategy) -> pd.Series:
 
     above_trend      = df["close"] > df["ema_trend"]
     volume_ok        = df["volume"] >= df["volume_ma"] * p.volume_min_ratio
-    not_overextended = df["close"] <= df["bb_upper"]
+    # Mesmos filtros aditivos ja aplicados em EmaRsiStrategy.generate_signal()
+    # (strategy/ema_rsi.py) -- este caminho vetorizado precisa reproduzi-los
+    # identicamente, senao optimize/backtest --validate/optimize --walk-forward
+    # (que usam este caminho) divergem silenciosamente de backtest/edge/compare
+    # (que usam generate_signal por candle) assim que qualquer flag e ligada
+    # (achado de code-review).
+    adaptive_breakout_ok = ADAPTIVE_BOLLINGER_ENABLED & above_trend & volume_ok
+    not_overextended = (df["close"] <= df["bb_upper"]) | adaptive_breakout_ok
     rsi_buy_ok       = df["rsi"] < p.rsi_overbought
     rsi_sell_ok      = df["rsi"] > p.rsi_oversold
+
+    regime_blocks_entry = pd.Series(False, index=df.index)
+    if REGIME_FILTER_ENABLED and "regime" in df.columns:
+        regime_blocks_entry = df["regime"].isin(["sideways", "indefinido"])
+
+    high_volatility = pd.Series(False, index=df.index)
+    if HIGH_VOLATILITY_FILTER_ENABLED and "atr_ratio" in df.columns:
+        high_volatility = df["atr_ratio"] > HIGH_VOLATILITY_ATR_RATIO
 
     if p.pullback_entry_enabled:
         trend_aligned = (
@@ -104,6 +123,9 @@ def precompute_signals(df: pd.DataFrame, strategy: EmaRsiStrategy) -> pd.Series:
         pullback = pd.Series(False, index=df.index)
 
     buy  = (bullish_cross & above_trend & rsi_buy_ok & volume_ok & not_overextended) | (pullback & volume_ok & not_overextended)
+    # Regime/volatilidade bloqueiam so novas entradas -- nunca a saida
+    # (venda), mesmo escopo ja aplicado em generate_signal().
+    buy  = buy & ~regime_blocks_entry & ~high_volatility
     sell = bearish_cross & rsi_sell_ok
 
     result = pd.Series(Signal.HOLD, index=df.index)
