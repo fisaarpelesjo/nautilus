@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import math
 import pandas as pd
 import ta
 from config.settings import (
@@ -15,11 +16,25 @@ from config.settings import (
     PULLBACK_ENTRY_ENABLED,
     PULLBACK_RSI_MIN,
     PULLBACK_MAX_DISTANCE_PCT,
+    REGIME_ADX_THRESHOLD,
+    REGIME_FILTER_ENABLED,
+    HIGH_VOLATILITY_ATR_RATIO,
+    HIGH_VOLATILITY_FILTER_ENABLED,
+    ADAPTIVE_BOLLINGER_ENABLED,
 )
 from strategy.base import BaseStrategy, TradeSignal, Signal
 from utils.logger import get_logger
 
 log = get_logger("ema_rsi")
+
+
+def _classify_regime(adx, threshold: float = REGIME_ADX_THRESHOLD) -> str:
+    """Classifica o regime de mercado a partir do ADX. `None`/NaN (dados
+    insuficientes) MUST virar "indefinido", tratado como bloqueio
+    conservador pelo chamador -- nunca aprovar por omissao de dado."""
+    if adx is None or (isinstance(adx, float) and math.isnan(adx)):
+        return "indefinido"
+    return "trending" if adx >= threshold else "sideways"
 
 
 @dataclass(frozen=True)
@@ -57,6 +72,12 @@ class EmaRsiStrategy(BaseStrategy):
         df["rsi"]       = ta.momentum.RSIIndicator(df["close"], window=p.rsi_period).rsi()
         df["macd"]      = ta.trend.MACD(df["close"]).macd_diff()
         df["atr"]       = ta.volatility.AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range()
+        # close==0 (candle invalido/par congelado) viraria +inf, nao NaN --
+        # dropna() abaixo nao remove +inf, furando o caminho de "dado
+        # desconhecido" que o filtro de volatilidade elevada espera.
+        df["atr_ratio"] = (df["atr"] / df["close"]).replace([float("inf"), float("-inf")], float("nan"))
+        df["adx"]       = ta.trend.ADXIndicator(df["high"], df["low"], df["close"], window=14).adx()
+        df["regime"]    = df["adx"].apply(_classify_regime)
         df["volume_ma"] = df["volume"].rolling(window=p.volume_ma_period).mean()
         bb = ta.volatility.BollingerBands(df["close"], window=p.bb_period, window_dev=p.bb_std)
         df["bb_upper"]  = bb.bollinger_hband()
@@ -77,19 +98,47 @@ class EmaRsiStrategy(BaseStrategy):
         price = curr["close"]
         rsi   = curr["rsi"]
 
+        atr_ratio = float(curr.get("atr_ratio", 0) or 0)
+        high_volatility = HIGH_VOLATILITY_FILTER_ENABLED and atr_ratio > HIGH_VOLATILITY_ATR_RATIO
+
         bullish_cross = prev["ema_fast"] < prev["ema_slow"] and curr["ema_fast"] > curr["ema_slow"]
         bearish_cross = prev["ema_fast"] > prev["ema_slow"] and curr["ema_fast"] < curr["ema_slow"]
 
         above_trend    = price > curr["ema_trend"]
         volume_ok      = curr["volume"] >= curr["volume_ma"] * p.volume_min_ratio
-        not_overextended = price <= curr["bb_upper"]
+        # Filtro Bollinger adaptativo (desligado por padrao): permite entrada
+        # acima da banda superior quando tendencia e volume ja estao fortes
+        # (mesmos criterios acima, nao um terceiro conjunto de regras).
+        adaptive_breakout_ok = ADAPTIVE_BOLLINGER_ENABLED and above_trend and volume_ok
+        not_overextended = price <= curr["bb_upper"] or adaptive_breakout_ok
         pullback_entry = self._is_pullback_entry(curr)
 
-        if bullish_cross and above_trend and rsi < p.rsi_overbought and volume_ok and not_overextended:
+        # Calculada uma unica vez e reusada abaixo -- evita duplicar a
+        # condicao de compra entre o guard de bloqueio (regime/volatilidade)
+        # e os ramos de sinal reais, que ja divergiram uma vez nesta mesma
+        # spec (achado de code-review).
+        crossover_buy_ok = bullish_cross and above_trend and rsi < p.rsi_overbought and volume_ok and not_overextended
+        pullback_buy_ok  = pullback_entry and volume_ok and not_overextended
+        would_buy = crossover_buy_ok or pullback_buy_ok
+
+        # Regime/volatilidade bloqueiam APENAS novas entradas (compra) --
+        # nunca a saida (sinal de venda), que deve continuar funcionando
+        # normalmente mesmo com o filtro ativo (FR-002/FR-005: "novas
+        # entradas", nao posicoes ja abertas).
+        if would_buy:
+            regime = curr.get("regime", "indefinido")
+            if REGIME_FILTER_ENABLED and regime in ("sideways", "indefinido"):
+                log.info(f"HOLD | regime de mercado {regime} -- entradas suspensas")
+                return TradeSignal(Signal.HOLD, price, f"Regime de mercado {regime} -- entradas suspensas")
+            if high_volatility:
+                log.info(f"HOLD | volatilidade elevada | ATR_ratio={atr_ratio:.4f}")
+                return TradeSignal(Signal.HOLD, price, f"Volatilidade elevada (ATR_ratio={atr_ratio:.4f}) -- entrada bloqueada")
+
+        if crossover_buy_ok:
             log.info(f"COMPRA | EMA cross alta + acima EMA{p.ema_trend} | RSI={rsi:.1f} | Vol={curr['volume']:.0f} (MA={curr['volume_ma']:.0f}) | BB_upper={curr['bb_upper']:.4f}")
             return TradeSignal(Signal.BUY, price, f"EMA{p.ema_fast} cruzou acima EMA{p.ema_slow} | acima EMA{p.ema_trend} | RSI={rsi:.1f} | vol OK | BB OK")
 
-        if pullback_entry and volume_ok and not_overextended:
+        if pullback_buy_ok:
             log.info(f"COMPRA | pullback em tendencia | RSI={rsi:.1f} | Vol={curr['volume']:.0f} (MA={curr['volume_ma']:.0f}) | low={curr['low']:.4f}")
             return TradeSignal(Signal.BUY, price, f"Pullback em tendencia EMA{p.ema_fast}/{p.ema_slow}/{p.ema_trend} | RSI={rsi:.1f} | vol OK | BB OK")
 

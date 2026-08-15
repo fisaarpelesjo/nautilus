@@ -46,6 +46,7 @@ def log_decision_snapshot(cycle_id: int, symbol: str, signal, indicators, previo
         "volume_ok": checks["volume_ok"],
         "bb_ok": checks["bb_ok"],
         "pullback_entry": checks["pullback_entry"],
+        "regime": indicators.get("regime", ""),
         "reason": signal.reason,
     })
 

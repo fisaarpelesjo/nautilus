@@ -10,7 +10,7 @@ DECISION_HEADERS = [
     "ema_fast", "ema_slow", "ema_trend", "rsi", "macd", "atr", "atr_pct",
     "volume_ma", "volume_ratio", "bb_upper", "bb_middle", "bb_lower",
     "trend_gap_pct", "bullish_cross", "bearish_cross", "trend_ok", "rsi_ok",
-    "volume_ok", "bb_ok", "pullback_entry", "reason",
+    "volume_ok", "bb_ok", "pullback_entry", "regime", "reason",
 ]
 
 

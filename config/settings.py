@@ -79,6 +79,20 @@ PULLBACK_MAX_DISTANCE_PCT = float(os.getenv("PULLBACK_MAX_DISTANCE_PCT", "0.01")
 BB_PERIOD = int(os.getenv("BB_PERIOD", "20"))
 BB_STD    = float(os.getenv("BB_STD", "2.0"))
 
+# Regime de mercado (ADX) -- desligado por padrao, aditivo
+REGIME_ADX_THRESHOLD = float(os.getenv("REGIME_ADX_THRESHOLD", "20"))
+REGIME_FILTER_ENABLED = os.getenv("REGIME_FILTER_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
+
+# Volatilidade elevada (ATR_ratio) -- desligado por padrao, aditivo
+HIGH_VOLATILITY_ATR_RATIO = float(os.getenv("HIGH_VOLATILITY_ATR_RATIO", "0.05"))
+HIGH_VOLATILITY_FILTER_ENABLED = os.getenv("HIGH_VOLATILITY_FILTER_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
+
+# Filtro Bollinger adaptativo -- desligado por padrao, aditivo
+ADAPTIVE_BOLLINGER_ENABLED = os.getenv("ADAPTIVE_BOLLINGER_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
+
+# Estrategia de rompimento (breakout)
+BREAKOUT_WINDOW = int(os.getenv("BREAKOUT_WINDOW", "150"))
+
 # Candles para carregar
 CANDLE_LIMIT = 1000
 
@@ -154,6 +168,12 @@ def validate_config():
         errors.append("DAILY_REPORT_HOUR deve estar entre 0 e 23.")
     if BB_PERIOD < 1 or BB_STD <= 0:
         errors.append("Configuracao de Bollinger Bands invalida.")
+    if REGIME_ADX_THRESHOLD <= 0:
+        errors.append("REGIME_ADX_THRESHOLD deve ser maior que zero.")
+    if not 0 < HIGH_VOLATILITY_ATR_RATIO <= 1:
+        errors.append("HIGH_VOLATILITY_ATR_RATIO deve estar entre 0 e 1.")
+    if BREAKOUT_WINDOW < 10:
+        errors.append("BREAKOUT_WINDOW deve ser pelo menos 10.")
     if CANDLE_LIMIT < 50:
         errors.append("CANDLE_LIMIT deve ser pelo menos 50.")
     if BACKTEST_FEE_RATE < 0 or BACKTEST_SLIPPAGE_PCT < 0:
