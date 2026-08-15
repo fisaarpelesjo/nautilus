@@ -62,9 +62,12 @@ python main.py analyze              # resumo do data/trades.csv
 python main.py select               # ranqueia candidatos de pares dinâmicos
 python main.py chart [PAR] [TF]     # gráfico interativo no browser (Dash/Plotly)
 python main.py bot                  # inicia o bot multi-par
-python main.py status               # preço atual, saldo, circuit breaker e kill switch
+python main.py status               # patrimônio (caixa/posições/total), PnL, circuit breaker e kill switch
 python main.py kill                 # suspende novas entradas (kill switch manual)
 python main.py resume               # retoma novas entradas (kill switch manual)
+python main.py painel               # patrimônio, posições, últimas operações/sinais e bloqueios recentes
+python main.py debug [PAR]          # explica cada condição de entrada (EMA, RSI, MTF, regime, cooldown...)
+python main.py performance          # curva de capital, drawdown e PnL por par (HTML no navegador)
 ```
 
 ---
@@ -245,6 +248,26 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `logs/events-YYYY-MM-DD.jsonl` | JSONL | Eventos estruturados de ordens, erros e ciclo operacional |
 
 O bot restaura o estado do `state.json` ao reiniciar — posição aberta e saldo paper são preservados.
+
+---
+
+## Observabilidade operacional
+
+- **Patrimônio operacional** (`trading/portfolio.py` `compute_portfolio_snapshot()`): calcula caixa
+  livre, valor em posições (ao preço atual), patrimônio total, PnL realizado, PnL não realizado e
+  PnL total — reusado por `status` e `painel`. Preço indisponível para uma posição propaga `None`
+  em todos os campos agregados (nunca `0.0` silencioso).
+- **`python main.py painel`** (`trading/panel.py`): agrega patrimônio, posições abertas, últimas
+  operações (`data/trades.csv`), últimos sinais (`data/signals.csv`) e bloqueios recentes
+  (`analyze_decisions()`, já existente). Histórico ausente/vazio vira estado explícito em cada
+  seção, nunca erro.
+- **`python main.py debug <PAR>`** (`strategy/diagnostics.py` `full_diagnosis()`): estende
+  `signal_checks()` já existente com MTF, regime, volatilidade e cooldown — mostra o valor de cada
+  condição de entrada para diagnosticar por que um par está em `BUY`/`SELL`/`HOLD`.
+- **`python main.py performance`/`desempenho`** (`backtesting/performance_charts.py`): curva de
+  capital, drawdown e PnL por par a partir de `data/trades.csv`, HTML combinado aberto no
+  navegador. `python main.py chart` ganha uma camada de marcadores de trades reais (distinta dos
+  marcadores teóricos de sinal já existentes).
 
 ---
 

@@ -25,23 +25,23 @@ valores distintos.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T001 [P] [US1] Teste: `compute_portfolio_snapshot()` sem posições retorna
+- [X] T001 [P] [US1] Teste: `compute_portfolio_snapshot()` sem posições retorna
       `total_equity == free_cash` e `unrealized_pnl == 0.0` — novo `tests/test_portfolio.py`
-- [ ] T002 [P] [US1] Teste: com uma posição aberta e preço atual conhecido, `positions_value`,
+- [X] T002 [P] [US1] Teste: com uma posição aberta e preço atual conhecido, `positions_value`,
       `total_equity`, `unrealized_pnl` e `total_pnl` calculados corretamente — `tests/test_portfolio.py`
-- [ ] T003 [P] [US1] Teste: quando `fetch_ticker` falha para uma posição, `positions_value`/
+- [X] T003 [P] [US1] Teste: quando `fetch_ticker` falha para uma posição, `positions_value`/
       `total_equity`/`unrealized_pnl`/`total_pnl` viram `None` (não `0.0`) e o símbolo aparece em
       `positions_with_unknown_price` — `tests/test_portfolio.py`
-- [ ] T004 [P] [US1] Teste: `cmd_status()` chama `compute_portfolio_snapshot()` e exibe caixa/
+- [X] T004 [P] [US1] Teste: `cmd_status()` chama `compute_portfolio_snapshot()` e exibe caixa/
       posições/patrimônio/PnLs — `tests/test_main_status.py` (novo)
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Novo `trading/portfolio.py`: dataclass `PortfolioSnapshot` +
+- [X] T005 [US1] Novo `trading/portfolio.py`: dataclass `PortfolioSnapshot` +
       `compute_portfolio_snapshot(manager)` — bifurcação paper/live igual a `_current_balance`/
       `_reference_balance`, preço indisponível vira `None` propagado (depende de T001 falhando, T002
       falhando, T003 falhando)
-- [ ] T006 [US1] `main.py`/`utils/display.py`: `cmd_status()` chama `compute_portfolio_snapshot()` e
+- [X] T006 [US1] `main.py`/`utils/display.py`: `cmd_status()` chama `compute_portfolio_snapshot()` e
       exibe os 6 valores; trata `None` como "indisponível" na exibição (depende de T004 falhando, T005)
 
 **Checkpoint**: US1 completa e testável isoladamente — MVP desta spec.
@@ -56,16 +56,16 @@ valores distintos.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T007 [P] [US2] Teste: `run_edge_report()` chama uma função de contexto de simulação com
+- [X] T007 [P] [US2] Teste: `run_edge_report()` chama uma função de contexto de simulação com
       symbol/timeframe/período/capital inicial antes de `print_report()` — novo
       `tests/test_backtesting_validation_context.py`
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] `utils/display.py`: nova `simulation_context_banner(symbol, timeframe, period_start,
+- [X] T008 [US2] `utils/display.py`: nova `simulation_context_banner(symbol, timeframe, period_start,
       period_end, initial_capital)` — modo "backtest simulado" + aviso de que não reflete
       `data/state.json` (depende de T007 falhando)
-- [ ] T009 [US2] `backtesting/validation.py` `run_edge_report()`: chama o banner antes de
+- [X] T009 [US2] `backtesting/validation.py` `run_edge_report()`: chama o banner antes de
       `print_report()` (depende de T008)
 
 **Checkpoint**: US1 e US2 completas e independentes.
@@ -81,28 +81,28 @@ bloqueios recentes.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T010 [P] [US3] Teste: novo leitor tolerante `data/trade_store.py` `load_recent_trades(n)` —
+- [X] T010 [P] [US3] Teste: novo leitor tolerante `data/trade_store.py` `load_recent_trades(n)` —
       arquivo ausente retorna lista vazia, não erro — novo `tests/test_trade_store.py`
-- [ ] T011 [P] [US3] Teste: novo leitor tolerante `data/signal_store.py` `load_recent_signals(n)` —
+- [X] T011 [P] [US3] Teste: novo leitor tolerante `data/signal_store.py` `load_recent_signals(n)` —
       mesmo comportamento — novo `tests/test_signal_store.py`
-- [ ] T012 [P] [US3] Teste: `print_panel()` com histórico completo (fixtures sintéticas) imprime
+- [X] T012 [P] [US3] Teste: `print_panel()` com histórico completo (fixtures sintéticas) imprime
       todas as seções sem erro — novo `tests/test_panel.py`
-- [ ] T013 [P] [US3] Teste: `print_panel()` sem nenhum histórico mostra estado vazio explícito em
+- [X] T013 [P] [US3] Teste: `print_panel()` sem nenhum histórico mostra estado vazio explícito em
       cada seção, não lança exceção — `tests/test_panel.py`
-- [ ] T014 [P] [US3] Teste: `main.py` registra o comando `painel` — `tests/test_main_backtest.py`
+- [X] T014 [P] [US3] Teste: `main.py` registra o comando `painel` — `tests/test_main_backtest.py`
       (mesmo arquivo já usado para outros comandos de `main.py`)
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] `data/trade_store.py`: `load_recent_trades(n=10)`, mesmo padrão de
+- [X] T015 [US3] `data/trade_store.py`: `load_recent_trades(n=10)`, mesmo padrão de
       `_load_decisions()` (`Path.exists()` → lista vazia) (depende de T010 falhando)
-- [ ] T016 [US3] `data/signal_store.py`: `load_recent_signals(n=10)`, mesmo padrão (depende de T011
+- [X] T016 [US3] `data/signal_store.py`: `load_recent_signals(n=10)`, mesmo padrão (depende de T011
       falhando)
-- [ ] T017 [US3] Novo `trading/panel.py`: `print_panel()` agrega `compute_portfolio_snapshot()`
+- [X] T017 [US3] Novo `trading/panel.py`: `print_panel()` agrega `compute_portfolio_snapshot()`
       (US1), posições abertas, `load_recent_trades()`, `load_recent_signals()`,
       `analyze_decisions()` (já existente, spec 004) (depende de T012 falhando, T013 falhando, T015,
       T016)
-- [ ] T018 [US3] `main.py`: `cmd_painel()`, registra `"painel"` em `COMMANDS` (depende de T014
+- [X] T018 [US3] `main.py`: `cmd_painel()`, registra `"painel"` em `COMMANDS` (depende de T014
       falhando, T017)
 
 **Checkpoint**: US1, US2 e US3 completas e independentes.
@@ -117,20 +117,20 @@ bloqueios recentes.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T019 [P] [US4] Teste: `full_diagnosis()` inclui todos os campos de `signal_checks()` mais
+- [X] T019 [P] [US4] Teste: `full_diagnosis()` inclui todos os campos de `signal_checks()` mais
       `mtf_ok`/`regime`/`high_volatility`/`cooldown_active` — novo `tests/test_strategy_diagnostics.py`
-- [ ] T020 [P] [US4] Teste: `full_diagnosis()` com `cooldown_active=True` identifica cooldown como
+- [X] T020 [P] [US4] Teste: `full_diagnosis()` com `cooldown_active=True` identifica cooldown como
       motivo de bloqueio, não escondido atrás de outras condições — `tests/test_strategy_diagnostics.py`
-- [ ] T021 [P] [US4] Teste: `main.py` registra o comando `debug` — `tests/test_main_backtest.py`
-- [ ] T022 [P] [US4] Teste: `cmd_debug()` busca candles, calcula indicadores e imprime cada condição
+- [X] T021 [P] [US4] Teste: `main.py` registra o comando `debug` — `tests/test_main_backtest.py`
+- [X] T022 [P] [US4] Teste: `cmd_debug()` busca candles, calcula indicadores e imprime cada condição
       com seu valor — novo `tests/test_main_debug.py`
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] `strategy/diagnostics.py`: `full_diagnosis(symbol, indicators, previous,
+- [X] T023 [US4] `strategy/diagnostics.py`: `full_diagnosis(symbol, indicators, previous,
       current_price, strategy, mtf_ok, regime, high_volatility, cooldown_active) -> dict` — estende
       `signal_checks()`, não duplica (depende de T019 falhando, T020 falhando)
-- [ ] T024 [US4] `main.py`: `cmd_debug()` — busca par via `sys.argv`, `fetch_ohlcv`,
+- [X] T024 [US4] `main.py`: `cmd_debug()` — busca par via `sys.argv`, `fetch_ohlcv`,
       `calculate_indicators`, `mtf_confirmed`, `manager.is_in_cooldown`, imprime `full_diagnosis()`
       formatado; registra `"debug"` em `COMMANDS` (depende de T021 falhando, T022 falhando, T023)
 
@@ -147,25 +147,25 @@ marcadores de trades reais.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T025 [P] [US5] Teste: `build_performance_figures(trades)` retorna 3 figuras Plotly (capital,
+- [X] T025 [P] [US5] Teste: `build_performance_figures(trades)` retorna 3 figuras Plotly (capital,
       drawdown, PnL por par) a partir de uma lista sintética de `Trade` — novo
       `tests/test_performance_charts.py`
-- [ ] T026 [P] [US5] Teste: `build_performance_figures([])` (sem trades) retorna estado vazio
+- [X] T026 [P] [US5] Teste: `build_performance_figures([])` (sem trades) retorna estado vazio
       explícito, não lança exceção — `tests/test_performance_charts.py`
-- [ ] T027 [P] [US5] Teste: `main.py` registra o comando `performance`/`desempenho` —
+- [X] T027 [P] [US5] Teste: `main.py` registra o comando `performance`/`desempenho` —
       `tests/test_main_backtest.py`
-- [ ] T028 [P] [US5] Teste: camada de marcadores reais em `utils/chart.py` `_build_figure()` lê
+- [X] T028 [P] [US5] Teste: camada de marcadores reais em `utils/chart.py` `_build_figure()` lê
       trades de `data/trades.csv` (mockado) e adiciona um trace visualmente distinto dos marcadores
       teóricos já existentes — novo `tests/test_chart_real_trades.py`
 
 ### Implementation for User Story 5
 
-- [ ] T029 [US5] Novo `backtesting/performance_charts.py`: `build_performance_figures(trades)` —
+- [X] T029 [US5] Novo `backtesting/performance_charts.py`: `build_performance_figures(trades)` —
       curva de capital, drawdown, PnL por par, via `plotly` (depende de T025 falhando, T026 falhando)
-- [ ] T030 [US5] `main.py`: `cmd_performance()` — lê `data/trades.csv` via `load_recent_trades`
+- [X] T030 [US5] `main.py`: `cmd_performance()` — lê `data/trades.csv` via `load_recent_trades`
       (ou leitura completa equivalente), gera HTML combinado, abre no navegador; registra
       `"performance"`/`"desempenho"` em `COMMANDS` (depende de T027 falhando, T029)
-- [ ] T031 [US5] `utils/chart.py` `_build_figure()`: nova camada de marcadores de trades reais lidos
+- [X] T031 [US5] `utils/chart.py` `_build_figure()`: nova camada de marcadores de trades reais lidos
       de `data/trades.csv`, trace Plotly distinto (cor/símbolo diferente) dos marcadores teóricos já
       existentes (depende de T028 falhando)
 
@@ -175,10 +175,10 @@ marcadores de trades reais.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T032 [P] Atualizar `ROADMAP.md` marcando Fase 5 itens 2, 3, 5, 6, 7 como concluídos, com link
+- [X] T032 [P] Atualizar `ROADMAP.md` marcando Fase 5 itens 2, 3, 5, 6, 7 como concluídos, com link
       para esta spec (itens 1 e 4 permanecem pendentes — fora de escopo)
-- [ ] T033 [P] Atualizar `specs/BACKLOG.md`: status da spec 007 para "parte autônoma concluída"
-- [ ] T034 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novos comandos (`painel`, `debug`,
+- [X] T033 [P] Atualizar `specs/BACKLOG.md`: status da spec 007 para "parte autônoma concluída"
+- [X] T034 Sincronizar `CLAUDE.md` e `AGENTS.md` no mesmo commit: novos comandos (`painel`, `debug`,
       `performance`), nova seção sobre patrimônio operacional/diagnóstico
 - [ ] T035 Rodar `quickstart.md` (todos os passos usam fixtures sintéticas ou dados públicos,
       executáveis sem depender do operador) e registrar observações relevantes em

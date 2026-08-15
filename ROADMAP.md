@@ -240,31 +240,51 @@ Objetivo: aproximar o paper mode da realidade operacional antes de qualquer live
    - Comparar performance paper contra backtest do mesmo intervalo.
    - Por que melhora: backtest nao captura todos os problemas de execucao, latencia, dados incompletos e comportamento real do loop.
 
-2. [ ] **Separar caixa, posicoes e patrimonio total**
+2. [x] **Separar caixa, posicoes e patrimonio total**
    - Mostrar `caixa livre`, `valor em posicoes abertas`, `patrimonio total`, `PnL realizado`, `PnL nao realizado` e `PnL total`.
    - Aplicar no painel do bot, `status` e qualquer resumo operacional.
    - Por que melhora: hoje o saldo exibido pode parecer menor quando ha posicao aberta, porque representa caixa livre e nao patrimonio total. Isso evita confundir paper trading atual com capital final de backtest.
+   - **Concluido** (`specs/007-observabilidade-operacional-capacidades`, US1): novo
+     `trading/portfolio.py` `compute_portfolio_snapshot()` centraliza os 6 valores, reusado por
+     `status` e `painel`. Preco indisponivel para uma posicao propaga `None` (nunca `0.0`
+     silencioso) em todos os campos agregados. Corrige no mesmo commit um bug real: `status`
+     calculava PnL como `saldo - 1000.0` hardcoded, mesmo padrao de bug ja corrigido na spec 005.
 
-3. [ ] **Explicitar contexto do relatorio de edge**
+3. [x] **Explicitar contexto do relatorio de edge**
    - Mostrar no `python main.py edge`: `modo: backtest simulado`, par, timeframe, periodo testado, capital inicial simulado e aviso de que nao e o saldo atual do paper bot.
    - Por que melhora: deixa claro que `Capital final` do edge e uma simulacao historica, enquanto o bot rodando usa estado real salvo em `data/state.json`.
+   - **Concluido** (`specs/007-observabilidade-operacional-capacidades`, US2): nova
+     `simulation_context_banner()` em `utils/display.py`, chamada por `run_edge_report()` antes do
+     relatorio -- isolada desse comando, sem alterar `print_report()` compartilhado com
+     `backtest`/`scan`/`multibacktest`/`compare`.
 
 4. [ ] **Comparar paper atual vs backtest do mesmo periodo**
    - Criar relatorio que use o intervalo em que o bot ficou ligado e rode um backtest equivalente no mesmo par/timeframe.
    - Comparar trades reais paper, trades simulados, diferenca de entrada/saida, slippage, sinais perdidos e patrimonio final.
    - Por que melhora: mostra se a execucao real do loop esta reproduzindo o backtest ou se ha divergencia por timing, cache, MTF, cooldown, posicoes abertas ou dados incompletos.
 
-5. [ ] **Painel local**
+5. [x] **Painel local**
    - Adicionar `python main.py painel` para mostrar saldo, posicoes abertas, PnL, ultimas operacoes, ultimos sinais, status dos pares e bloqueios recentes.
    - Por que melhora: reduz operacao as cegas. O operador precisa saber rapidamente se o bot esta saudavel, parado, exposto ou repetindo erros.
+   - **Concluido** (`specs/007-observabilidade-operacional-capacidades`, US3): novo
+     `trading/panel.py` `print_panel()`, comando `python main.py painel`, agrega patrimonio (US1),
+     posicoes abertas, `data/trades.csv`, `data/signals.csv` e `analyze_decisions()` (spec 004).
+     Cada secao trata historico ausente/vazio como estado explicito, nunca erro.
 
-6. [ ] **Modo debug da estrategia**
+6. [x] **Modo debug da estrategia**
    - Explicar por que cada par esta em `BUY`, `SELL` ou `HOLD`, incluindo EMA, RSI, volume, MTF, Bollinger, regime e cooldown.
    - Por que melhora: facilita diagnosticar sinais ausentes e evita mexer em parametros sem entender qual filtro esta dominando.
+   - **Concluido** (`specs/007-observabilidade-operacional-capacidades`, US4):
+     `strategy/diagnostics.py` `full_diagnosis()` estende `signal_checks()` ja existente com MTF/
+     regime/volatilidade/cooldown. Comando `python main.py debug <PAR>`.
 
-7. [ ] **Graficos de performance**
+7. [x] **Graficos de performance**
    - Gerar curva de capital, drawdown, PnL por par e candles com marcacoes de entrada/saida.
    - Por que melhora: algumas falhas aparecem melhor visualmente, como lucros concentrados em poucos trades, drawdown longo ou entradas logo antes de reversoes.
+   - **Concluido** (`specs/007-observabilidade-operacional-capacidades`, US5): novo
+     `backtesting/performance_charts.py`, comando `python main.py performance`/`desempenho` (HTML
+     combinado aberto no navegador). `python main.py chart` ganha camada de marcadores de trades
+     reais (`data/trades.csv`), distinta dos marcadores teoricos de sinal ja existentes.
 
 ## Fase 6 - Protecoes para live
 

@@ -21,7 +21,7 @@ Coluna **Autonomia**:
 | 004 | Métricas de risco avançadas | Sozinho | ✅ Concluída (`specs/004-advanced-risk-metrics/`) |
 | 005 | Proteções finais para live | Sozinho | ✅ Concluída (`specs/005-live-protections/`, US1-US4 + Polish) |
 | 006 | Evolução da estratégia | Parcial | ✅ Parte autônoma concluída (`specs/006-evolucao-estrategia-novas/`, US1-US5 + Polish); "validar preset operacional atual" (Fase 4 item 1) segue pendente — depende de operação paper real |
-| 007 | Observabilidade operacional / forward test | Parcial | 🔲 Pendente |
+| 007 | Observabilidade operacional / forward test | Parcial | ✅ Parte autônoma concluída (`specs/007-observabilidade-operacional-capacidades/`, US1-US5 + Polish); forward test formal e comparação paper-vs-backtest (Fase 5 itens 1 e 4) seguem pendentes — dependem de operação paper real |
 | 008 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
 
 ## 002 — Decisão de aprovação multi-par
@@ -83,5 +83,10 @@ Continuação direta de US1/US2 da spec 001.
 ## Ordem sugerida
 
 002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho)
+
+**Status (2026-08-15)**: 001-007 com a parte autônoma concluída. Resta apenas o que depende do
+operador: "validar preset operacional atual" (006, Fase 4 item 1), forward test formal e
+comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos exigem histórico real de operação
+paper rodando por um período, não são tarefas que dá para adiantar sem esse dado.
 
 008 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.
