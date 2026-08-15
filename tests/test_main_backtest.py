@@ -106,3 +106,20 @@ def test_cmd_comparar_calls_backtesting_compare_run(monkeypatch):
     main.cmd_comparar()
 
     assert len(calls) == 1
+
+
+def test_painel_command_is_registered():
+    assert "painel" in main.COMMANDS
+
+
+def test_cmd_painel_calls_trading_panel_print_panel(monkeypatch):
+    import trading.panel
+    calls = []
+    monkeypatch.setattr(trading.panel, "print_panel", lambda manager: calls.append(manager))
+    from execution import order_manager
+    monkeypatch.setattr(order_manager, "TRADING_MODE", "paper")
+    monkeypatch.setattr(order_manager, "load_state", lambda: {})
+
+    main.cmd_painel()
+
+    assert len(calls) == 1

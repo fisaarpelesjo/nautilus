@@ -1,3 +1,6 @@
+from typing import Optional
+
+from config.settings import HIGH_VOLATILITY_ATR_RATIO
 from strategy.base import Signal
 
 
@@ -62,3 +65,22 @@ def hold_diagnosis(signal, indicators, previous, current_price: float, strategy)
         checks.append("acima Bollinger")
 
     return "aguardando: " + ", ".join(checks[:3]) if checks else "aguardando confirmacao final"
+
+
+def full_diagnosis(
+    indicators, previous, current_price: float, strategy,
+    mtf_ok: Optional[bool] = None, cooldown_active: bool = False,
+) -> dict:
+    """Diagnostico completo (nao truncado) de todas as condicoes de entrada
+    de um par -- estende signal_checks() com MTF, regime, volatilidade
+    (spec 006) e cooldown, para o modo debug (`python main.py debug <PAR>`).
+    Nao duplica a logica de signal_checks(), so adiciona o que falta nele."""
+    checks = signal_checks(indicators, previous, current_price, strategy)
+    atr_ratio = float(indicators.get("atr_ratio", 0) or 0)
+    checks.update({
+        "mtf_ok": mtf_ok,
+        "regime": indicators.get("regime", "indefinido"),
+        "high_volatility": atr_ratio > HIGH_VOLATILITY_ATR_RATIO,
+        "cooldown_active": cooldown_active,
+    })
+    return checks

@@ -106,17 +106,11 @@ def cmd_kill():
 def cmd_resume():
     _toggle_killswitch(False)
 
-def _fmt_or_na(value, fmt: str = ",.2f", prefix: str = "$") -> str:
-    if value is None:
-        return "indisponível"
-    return f"{prefix}{value:{fmt}}"
-
-
 def cmd_status():
     from data.killswitch_store import load_killswitch
     from execution.order_manager import OrderManager
     from trading.portfolio import compute_portfolio_snapshot
-    from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price
+    from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price, fmt_or_na
 
     header()
     manager = OrderManager()
@@ -132,12 +126,12 @@ def cmd_status():
     pnl_c   = C_POS if (snap.total_pnl is None or snap.total_pnl >= 0) else C_NEG
     wc      = C_POS if win_rate >= 50 else C_NEG
 
-    console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{_fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{_fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{_fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
-    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{_fmt_or_na(snap.realized_pnl, fmt='+.2f')}[/]"
-                  f"   [{C_LABEL}]pnl não realizado[/{C_LABEL}] [white]{_fmt_or_na(snap.unrealized_pnl, fmt='+.2f')}[/white]"
-                  f"   [{C_LABEL}]pnl total[/{C_LABEL}] [{pnl_c}]{_fmt_or_na(snap.total_pnl, fmt='+.2f')}[/{pnl_c}]")
+    console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
+                  f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
+                  f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
+    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{fmt_or_na(snap.realized_pnl, fmt='+.2f')}[/]"
+                  f"   [{C_LABEL}]pnl não realizado[/{C_LABEL}] [white]{fmt_or_na(snap.unrealized_pnl, fmt='+.2f')}[/white]"
+                  f"   [{C_LABEL}]pnl total[/{C_LABEL}] [{pnl_c}]{fmt_or_na(snap.total_pnl, fmt='+.2f')}[/{pnl_c}]")
     console.print(f"  [{C_LABEL}]trades[/{C_LABEL}] [white]{total}[/white]"
                   f"   [{C_LABEL}]win rate[/{C_LABEL}] [{wc}]{win_rate:.0f}%[/{wc}]")
     console.print()
@@ -189,6 +183,49 @@ def cmd_status():
             console.print(f"  [{C_DIM}]reconciliação ainda não rodou nesta sessão[/{C_DIM}]")
         console.print()
 
+def cmd_painel():
+    from execution.order_manager import OrderManager
+    from trading.panel import print_panel
+
+    manager = OrderManager()
+    print_panel(manager)
+
+def cmd_debug():
+    from data.fetcher import fetch_ohlcv
+    from execution.order_manager import OrderManager
+    from strategy.diagnostics import full_diagnosis
+    from strategy.ema_rsi import EmaRsiStrategy
+    from trading.position_lifecycle import mtf_confirmed
+    from utils.display import C_DIM, C_LABEL, C_NEG, C_POS, console, header
+
+    args = sys.argv[2:]
+    symbol = args[0] if args else SYMBOL
+
+    header()
+    strategy = EmaRsiStrategy()
+    df = fetch_ohlcv(symbol, TIMEFRAME)
+    prepared = strategy.calculate_indicators(df)
+    if len(prepared) < 2:
+        console.print(f"  [{C_NEG}]{symbol}: dados insuficientes para diagnostico[/{C_NEG}]")
+        return
+
+    indicators = prepared.iloc[-1]
+    previous = prepared.iloc[-2]
+    current_price = float(indicators["close"])
+
+    manager = OrderManager()
+    cooldown_active = manager.is_in_cooldown(symbol)
+    mtf_ok = mtf_confirmed(symbol, current_price, strategy)
+
+    diagnosis = full_diagnosis(indicators, previous, current_price, strategy, mtf_ok=mtf_ok, cooldown_active=cooldown_active)
+
+    console.print(f"[bold]diagnostico: {symbol}[/bold]  preco ${current_price:.4f}")
+    console.print()
+    for key, value in diagnosis.items():
+        ok = value is True
+        color = C_POS if ok else (C_NEG if value is False else C_DIM)
+        console.print(f"  [{C_LABEL}]{key}[/{C_LABEL}]  [{color}]{value}[/{color}]")
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -204,6 +241,8 @@ COMMANDS = {
     "status":        cmd_status,
     "kill":          cmd_kill,
     "resume":        cmd_resume,
+    "painel":        cmd_painel,
+    "debug":         cmd_debug,
     # aliases pt-br
     "analisar":      cmd_analisar,
     "decisoes":      cmd_decisions,

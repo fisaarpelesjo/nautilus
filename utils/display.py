@@ -142,6 +142,15 @@ def live_confirmation_banner(
     console.print()
 
 
+def fmt_or_na(value, fmt: str = ",.2f", prefix: str = "$") -> str:
+    """Formata um valor monetario/numerico, ou "indisponível" quando `None`
+    -- usado para caixa/patrimonio/PnL quando um preco nao pode ser
+    buscado (nunca deve virar 0.0 silencioso, ver trading/portfolio.py)."""
+    if value is None:
+        return "indisponível"
+    return f"{prefix}{value:{fmt}}"
+
+
 def simulation_context_banner(symbol: str, timeframe: str, period_start, period_end, initial_capital: float):
     start_str = period_start.strftime("%Y-%m-%d") if hasattr(period_start, "strftime") else str(period_start)
     end_str = period_end.strftime("%Y-%m-%d") if hasattr(period_end, "strftime") else str(period_end)
