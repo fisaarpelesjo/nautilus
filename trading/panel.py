@@ -3,7 +3,7 @@ from data.signal_store import load_recent_signals
 from data.trade_store import load_recent_trades
 from execution.order_manager import OrderManager
 from trading.portfolio import compute_portfolio_snapshot
-from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, C_PRICE, console, fmt_or_na, header
+from utils.display import C_CYAN, C_DIM, console, header, print_portfolio_summary
 
 
 def print_panel(manager: OrderManager):
@@ -15,10 +15,7 @@ def print_panel(manager: OrderManager):
     console.print()
 
     snap = compute_portfolio_snapshot(manager)
-    console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
-    console.print(f"  [{C_LABEL}]pnl total[/{C_LABEL}] [{C_POS if (snap.total_pnl or 0) >= 0 else C_NEG}]{fmt_or_na(snap.total_pnl, fmt='+.2f')}[/]")
+    print_portfolio_summary(snap)
     console.print()
 
     console.print(f"[bold {C_CYAN}]posições abertas[/bold {C_CYAN}]")

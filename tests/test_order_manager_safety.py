@@ -591,6 +591,31 @@ def test_live_sell_records_distinct_open_and_close_client_order_ids(monkeypatch)
     assert logged_trades[0]["close_client_order_id"] != "bot-open-id"
 
 
+def test_live_sell_records_balance_after_in_logged_trade(monkeypatch):
+    # Regressao (achado de code-review): _live_sell nao incluia
+    # balance_after no log_trade (diferente de _paper_sell, que ja
+    # incluia) -- backtesting/performance_charts.py depende desse campo
+    # para a curva de capital/drawdown; sem ele, todo trade live vira
+    # $0.0 na curva, silenciosamente.
+    class _SucceedingExchange:
+        def create_market_sell_order(self, symbol, quantity, params=None):
+            return {"id": "abc123", "average": 90.0}
+
+    logged_trades = []
+    manager = _live_manager(
+        monkeypatch, _SucceedingExchange(), log_trade=logged_trades.append,
+        fetch_balance_fn=lambda: {"USDT": 950.0},
+    )
+    manager.positions["BTC/USDT"] = order_manager.Position(
+        symbol="BTC/USDT", side="long", entry_price=100.0, quantity=1.0,
+        stop_loss=90.0, take_profit=110.0,
+    )
+
+    manager.close_position("BTC/USDT", "Stop Loss", current_price=90.0)
+
+    assert logged_trades[0]["balance_after"] == 950.0
+
+
 def test_live_sell_falls_back_to_current_price_when_order_has_no_fill_price(monkeypatch):
     class _SucceedingExchangeNoFillPrice:
         def create_market_sell_order(self, symbol, quantity, params=None):

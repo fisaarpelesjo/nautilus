@@ -37,7 +37,14 @@ def _add_real_trade_markers(fig: go.Figure, symbol: str, dates):
     if not trades:
         return
 
-    period_start, period_end = dates.min(), dates.max()
+    # Margem de 1 dia: closed_at em trades.csv e gravado com datetime.now()
+    # (hora LOCAL naive, ver execution/order_manager.py), enquanto os
+    # candles usam timestamp naive-UTC (data/fetcher.py). Sem essa margem,
+    # um operador fora de UTC podia ter um trade perto da borda do periodo
+    # descartado silenciosamente so por causa do fuso -- limitacao
+    # conhecida (nao convertemos para UTC de verdade aqui, so toleramos).
+    tz_margin = pd.Timedelta(days=1)
+    period_start, period_end = dates.min() - tz_margin, dates.max() + tz_margin
     xs, ys = [], []
     for t in trades:
         if t.get("symbol") != symbol:

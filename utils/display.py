@@ -151,6 +151,20 @@ def fmt_or_na(value, fmt: str = ",.2f", prefix: str = "$") -> str:
     return f"{prefix}{value:{fmt}}"
 
 
+def print_portfolio_summary(snap):
+    """Caixa livre/posições/patrimônio + PnL realizado/não realizado/total --
+    compartilhado entre `status` e `painel` (trading/portfolio.py
+    PortfolioSnapshot) para as duas telas nunca divergirem na formatacao
+    dos mesmos dados (achado de code-review: bloco estava duplicado)."""
+    pnl_c = C_POS if (snap.total_pnl is None or snap.total_pnl >= 0) else C_NEG
+    console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
+                  f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
+                  f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
+    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{fmt_or_na(snap.realized_pnl, fmt='+.2f')}[/]"
+                  f"   [{C_LABEL}]pnl não realizado[/{C_LABEL}] [white]{fmt_or_na(snap.unrealized_pnl, fmt='+.2f')}[/white]"
+                  f"   [{C_LABEL}]pnl total[/{C_LABEL}] [{pnl_c}]{fmt_or_na(snap.total_pnl, fmt='+.2f')}[/{pnl_c}]")
+
+
 def simulation_context_banner(symbol: str, timeframe: str, period_start, period_end, initial_capital: float):
     start_str = period_start.strftime("%Y-%m-%d") if hasattr(period_start, "strftime") else str(period_start)
     end_str = period_end.strftime("%Y-%m-%d") if hasattr(period_end, "strftime") else str(period_end)

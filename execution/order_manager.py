@@ -854,6 +854,7 @@ class OrderManager:
             "pnl_usdt":      round(pnl, 6),
             "pnl_pct":       round(pnl_pct, 4),
             "exit_reason":   reason,
+            "balance_after": self._reference_balance(),
             "client_order_id": pos.client_order_id,
             "close_client_order_id": client_order_id,
         }))

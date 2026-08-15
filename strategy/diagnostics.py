@@ -1,6 +1,6 @@
 from typing import Optional
 
-from config.settings import HIGH_VOLATILITY_ATR_RATIO
+from config.settings import HIGH_VOLATILITY_ATR_RATIO, HIGH_VOLATILITY_FILTER_ENABLED
 from strategy.base import Signal
 
 
@@ -77,10 +77,16 @@ def full_diagnosis(
     Nao duplica a logica de signal_checks(), so adiciona o que falta nele."""
     checks = signal_checks(indicators, previous, current_price, strategy)
     atr_ratio = float(indicators.get("atr_ratio", 0) or 0)
+    above_threshold = atr_ratio > HIGH_VOLATILITY_ATR_RATIO
     checks.update({
         "mtf_ok": mtf_ok,
         "regime": indicators.get("regime", "indefinido"),
-        "high_volatility": atr_ratio > HIGH_VOLATILITY_ATR_RATIO,
+        "atr_ratio": atr_ratio,
+        # so reflete um bloqueio de verdade se o filtro estiver ligado --
+        # mostrar True aqui com HIGH_VOLATILITY_FILTER_ENABLED=false
+        # induziria o operador a achar que isso esta bloqueando o sinal
+        # quando na pratica nao tem efeito nenhum (achado de code-review).
+        "high_volatility": HIGH_VOLATILITY_FILTER_ENABLED and above_threshold,
         "cooldown_active": cooldown_active,
     })
     return checks

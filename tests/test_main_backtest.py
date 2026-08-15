@@ -143,5 +143,28 @@ def test_cmd_performance_builds_figures_and_opens_report(monkeypatch, tmp_path):
 
     main.cmd_performance()
 
+    assert opened[0].startswith("file:///")
+
+
+def test_cmd_performance_opens_valid_file_uri_from_relative_path(monkeypatch, tmp_path):
+    # Regressao (achado de code-review): PERFORMANCE_REPORT_PATH default e
+    # relativo ("data/performance_report.html"); f"file://{path}" produzia
+    # uma URL malformada (o navegador interpretava "data" como host, nao
+    # como parte do caminho) -- o relatorio nunca aparecia de verdade.
+    from data import trade_store
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(trade_store, "load_recent_trades", lambda n=100000: [
+        {"symbol": "BTC/USDT", "pnl_usdt": "5.0", "closed_at": "2026-01-01", "balance_after": "1005.0"},
+    ])
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
+    monkeypatch.setattr(main, "PERFORMANCE_REPORT_PATH", "data/performance_report.html")
+    (tmp_path / "data").mkdir()
+
+    main.cmd_performance()
+
     assert len(opened) == 1
-    assert (tmp_path / "performance.html").exists()
+    assert opened[0].startswith("file:///")
+    assert "performance_report.html" in opened[0]
+    assert (tmp_path / "data" / "performance_report.html").exists()

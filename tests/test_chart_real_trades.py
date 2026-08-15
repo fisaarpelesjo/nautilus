@@ -39,6 +39,33 @@ def test_build_figure_adds_real_trade_marker_layer(monkeypatch):
     assert "trade real" in trace_names
 
 
+def test_build_figure_does_not_drop_trade_near_period_edge_due_to_timezone_offset(monkeypatch):
+    # Regressao (achado de code-review): closed_at em trades.csv e gravado
+    # com datetime.now() (hora local naive), enquanto os candles usam
+    # timestamp naive-UTC (data/fetcher.py). Num operador fora de UTC (ex:
+    # Brasil, UTC-3), um trade fechado perto da borda do periodo exibido
+    # podia ser descartado silenciosamente por essa divergencia de fuso --
+    # a comparacao de periodo precisa de uma margem de tolerancia.
+    import pandas as pd
+    df = _synthetic_ohlcv_df()
+    monkeypatch.setattr(chart, "fetch_ohlcv", lambda symbol, timeframe, limit=200: df)
+    monkeypatch.setattr(chart, "precompute_signals", lambda df, strategy: pd.Series(
+        ["HOLD"] * len(df), index=df.index,
+    ))
+
+    # 12h depois do ultimo candle do periodo exibido -- dentro da margem de
+    # fuso horario esperada (ate 1 dia), mas fora do periodo exato.
+    closed_at = (df.index[-1] + pd.Timedelta(hours=12)).isoformat()
+    monkeypatch.setattr(chart, "load_recent_trades", lambda n=100000: [
+        {"symbol": "BTC/USDT", "closed_at": closed_at, "exit_price": "105.0", "pnl_usdt": "5.0"},
+    ])
+
+    fig = chart._build_figure("BTC/USDT", "4h")
+
+    trace_names = [t.name for t in fig.data]
+    assert "trade real" in trace_names
+
+
 def test_build_figure_without_real_trades_has_no_extra_trace(monkeypatch):
     df = _synthetic_ohlcv_df()
     monkeypatch.setattr(chart, "fetch_ohlcv", lambda symbol, timeframe, limit=200: df)

@@ -25,7 +25,9 @@ def test_full_diagnosis_includes_all_signal_checks_fields():
         assert key in result
 
 
-def test_full_diagnosis_includes_mtf_regime_volatility_and_cooldown():
+def test_full_diagnosis_includes_mtf_regime_volatility_and_cooldown(monkeypatch):
+    from strategy import diagnostics
+    monkeypatch.setattr(diagnostics, "HIGH_VOLATILITY_FILTER_ENABLED", True)
     strategy = EmaRsiStrategy()
     indicators = _indicators(regime="sideways", atr_ratio=0.20)
 
@@ -36,8 +38,28 @@ def test_full_diagnosis_includes_mtf_regime_volatility_and_cooldown():
 
     assert result["mtf_ok"] is False
     assert result["regime"] == "sideways"
+    assert result["atr_ratio"] == 0.20
     assert result["high_volatility"] is True
     assert result["cooldown_active"] is True
+
+
+def test_full_diagnosis_high_volatility_is_false_when_filter_disabled_even_above_threshold(monkeypatch):
+    # Regressao (achado de code-review): high_volatility aparecia True no
+    # modo debug mesmo com HIGH_VOLATILITY_FILTER_ENABLED=false (default),
+    # levando o operador a achar que isso estava bloqueando o sinal quando
+    # na pratica nao tinha efeito nenhum sobre generate_signal().
+    from strategy import diagnostics
+    monkeypatch.setattr(diagnostics, "HIGH_VOLATILITY_FILTER_ENABLED", False)
+    strategy = EmaRsiStrategy()
+    indicators = _indicators(atr_ratio=0.20)  # bem acima do limiar default (0.05)
+
+    result = full_diagnosis(
+        indicators, None, 110.0, strategy,
+        mtf_ok=True, cooldown_active=False,
+    )
+
+    assert result["atr_ratio"] == 0.20  # valor bruto continua visivel
+    assert result["high_volatility"] is False  # mas nao bloqueia de verdade
 
 
 def test_full_diagnosis_identifies_cooldown_as_blocking_reason():

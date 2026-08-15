@@ -112,7 +112,7 @@ def cmd_status():
     from data.killswitch_store import load_killswitch
     from execution.order_manager import OrderManager
     from trading.portfolio import compute_portfolio_snapshot
-    from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price, fmt_or_na
+    from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price, print_portfolio_summary
 
     header()
     manager = OrderManager()
@@ -125,15 +125,9 @@ def cmd_status():
     consecutive_losses     = manager.consecutive_losses
     circuit_breaker_active = manager.circuit_breaker_active
     killswitch_active = load_killswitch()
-    pnl_c   = C_POS if (snap.total_pnl is None or snap.total_pnl >= 0) else C_NEG
     wc      = C_POS if win_rate >= 50 else C_NEG
 
-    console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
-    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{fmt_or_na(snap.realized_pnl, fmt='+.2f')}[/]"
-                  f"   [{C_LABEL}]pnl não realizado[/{C_LABEL}] [white]{fmt_or_na(snap.unrealized_pnl, fmt='+.2f')}[/white]"
-                  f"   [{C_LABEL}]pnl total[/{C_LABEL}] [{pnl_c}]{fmt_or_na(snap.total_pnl, fmt='+.2f')}[/{pnl_c}]")
+    print_portfolio_summary(snap)
     console.print(f"  [{C_LABEL}]trades[/{C_LABEL}] [white]{total}[/white]"
                   f"   [{C_LABEL}]win rate[/{C_LABEL}] [{wc}]{win_rate:.0f}%[/{wc}]")
     console.print()
@@ -194,6 +188,7 @@ def cmd_painel():
 
 def cmd_performance():
     import webbrowser
+    from pathlib import Path
     from backtesting.performance_charts import build_performance_figures
     from data.trade_store import load_recent_trades
 
@@ -211,10 +206,15 @@ def cmd_performance():
     ]
     html = "<html><body>" + "".join(parts) + "</body></html>"
 
-    with open(PERFORMANCE_REPORT_PATH, "w", encoding="utf-8") as f:
-        f.write(html)
+    report_path = Path(PERFORMANCE_REPORT_PATH)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(html, encoding="utf-8")
 
-    webbrowser.open(f"file://{PERFORMANCE_REPORT_PATH}")
+    # PERFORMANCE_REPORT_PATH e relativo por padrao -- um f"file://{path}"
+    # direto produz uma URL malformada (o navegador interpreta o primeiro
+    # segmento como host, nao como parte do caminho). resolve().as_uri()
+    # gera sempre um file:/// absoluto valido.
+    webbrowser.open(report_path.resolve().as_uri())
 
 def cmd_debug():
     from data.fetcher import fetch_ohlcv
