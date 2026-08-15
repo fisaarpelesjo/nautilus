@@ -52,12 +52,15 @@ def test_generate_client_order_id_is_unique():
 
 
 def _paper_manager(monkeypatch, logged_trades=None):
+    # log_trade SEMPRE mockado, mesmo quando o chamador nao quer inspecionar
+    # os trades -- sem isso, qualquer teste que feche uma posicao escreve
+    # de verdade em data/trades.csv (achado ao validar isolamento da spec
+    # 008: a suite inteira alterava o arquivo real do bot a cada execucao).
     monkeypatch.setattr(order_manager, "TRADING_MODE", "paper")
     monkeypatch.setattr(order_manager, "load_state", lambda: {})
     monkeypatch.setattr(order_manager, "save_state", lambda state: None)
     monkeypatch.setattr(order_manager, "send_telegram", lambda msg: None)
-    if logged_trades is not None:
-        monkeypatch.setattr(order_manager, "log_trade", lambda trade: logged_trades.append(trade))
+    monkeypatch.setattr(order_manager, "log_trade", lambda trade: (logged_trades if logged_trades is not None else []).append(trade))
     return OrderManager()
 
 
@@ -392,8 +395,10 @@ def _live_manager(monkeypatch, exchange, log_trade=None, fetch_balance_fn=lambda
     monkeypatch.setattr(order_manager, "save_state", lambda state: None)
     monkeypatch.setattr(order_manager, "send_telegram", lambda msg: None)
     monkeypatch.setattr(order_manager, "get_exchange", lambda: exchange)
-    if log_trade is not None:
-        monkeypatch.setattr(order_manager, "log_trade", log_trade)
+    # log_trade SEMPRE mockado (mesmo padrao de _paper_manager acima) --
+    # sem isso, um teste que fecha posicao escreve de verdade em
+    # data/trades.csv.
+    monkeypatch.setattr(order_manager, "log_trade", log_trade if log_trade is not None else (lambda trade: None))
     return OrderManager()
 
 
