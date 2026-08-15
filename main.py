@@ -217,7 +217,9 @@ def cmd_performance():
     webbrowser.open(report_path.resolve().as_uri())
 
 def cmd_replay():
-    from backtesting.engine import run_backtest
+    from backtesting.engine import simulate_backtest
+    from data.fetcher import fetch_ohlcv
+    from strategy.ema_rsi import EmaRsiStrategy
     from trading.replay import compare_to_backtest, run_replay
     from utils.display import C_CYAN, C_DIM, C_LABEL, C_POS, C_NEG, console, header
 
@@ -236,9 +238,22 @@ def cmd_replay():
     # 300 mantem o comando usavel sob demanda, custando ~1 mes de historico
     # em 4h.
     replay_candle_limit = 300
+    initial_capital = 1000.0
     result = run_replay(symbol, TIMEFRAME, candle_limit=replay_candle_limit)
-    backtest_result = run_backtest(symbol, TIMEFRAME, candle_limit=replay_candle_limit)
-    comparison = compare_to_backtest(result, backtest_result)
+
+    # simulate_backtest() em vez de run_backtest(): run_backtest() imprime
+    # seu proprio relatorio completo internamente (print_report), o que
+    # poluiria a saida deste comando com um bloco de backtest inteiro antes
+    # da comparacao concisa pretendida (achado de code-review).
+    # initial_capital MUST ser o mesmo valor passado a compare_to_backtest()
+    # abaixo -- sem isso, os dois retornos % comparados nao teriam a mesma
+    # base de capital (outro achado de code-review: coincidencia de
+    # defaults duplicados, nao um vinculo real).
+    df = fetch_ohlcv(symbol, TIMEFRAME, limit=replay_candle_limit)
+    strategy = EmaRsiStrategy()
+    prepared = strategy.calculate_indicators(df)
+    backtest_result = simulate_backtest(prepared, strategy, initial_capital=initial_capital)
+    comparison = compare_to_backtest(result, backtest_result, initial_capital=initial_capital)
 
     console.print(f"  [{C_LABEL}]replay[/{C_LABEL}]    trades [white]{comparison.replay_trades}[/white]"
                   f"   retorno [{C_POS if comparison.replay_return_pct >= 0 else C_NEG}]{comparison.replay_return_pct:+.2f}%[/]"
