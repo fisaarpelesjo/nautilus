@@ -9,12 +9,14 @@ from config.settings import (
     BINANCE_API_SECRET,
     LIVE_CONFIRMATION_TEXT,
     LIVE_TRADING_CONFIRMATION,
+    LIMIT_ORDER_TIMEOUT_CYCLES,
     TRADING_MODE,
     COOLDOWN_HOURS,
     DAILY_DRAWDOWN_LIMIT,
     WEEKLY_DRAWDOWN_LIMIT,
     MONTHLY_DRAWDOWN_LIMIT,
     MAX_CONSECUTIVE_LOSSES,
+    USE_LIMIT_ORDERS,
 )
 from data.fetcher import fetch_balance, get_exchange
 from data.state_store import load_state, save_state
@@ -56,6 +58,18 @@ class Position:
     client_order_id: Optional[str] = None
     pending_close_client_order_id: Optional[str] = None
 
+
+@dataclass
+class PendingLimitOrder:
+    symbol: str
+    client_order_id: str
+    limit_price: float
+    requested_quantity: float
+    stop_loss: float
+    take_profit: float
+    atr: float = 0.0
+    cycles_waited: int = 0
+
 class OrderManager:
     def __init__(self):
         self.exchange: Optional[ccxt.binance] = None
@@ -78,6 +92,7 @@ class OrderManager:
         self._reference_balance_cache_at: float = 0.0
         self.last_reconciliation: Optional[dict] = None
         self.pending_open_client_order_ids: Dict[str, str] = {}
+        self.pending_limit_orders: Dict[str, PendingLimitOrder] = {}
         self.consecutive_losses: int = 0
         self.circuit_breaker_active: bool = False
         if TRADING_MODE == "live":
@@ -105,6 +120,18 @@ class OrderManager:
         self.realized_pnl       = state.get("realized_pnl", 0.0)
         self.last_reconciliation = state.get("last_reconciliation")
         self.pending_open_client_order_ids = state.get("pending_open_client_order_ids", {})
+        for symbol, pending in state.get("pending_limit_orders", {}).items():
+            if pending:
+                self.pending_limit_orders[symbol] = PendingLimitOrder(
+                    symbol             = pending["symbol"],
+                    client_order_id    = pending["client_order_id"],
+                    limit_price        = pending["limit_price"],
+                    requested_quantity = pending["requested_quantity"],
+                    stop_loss          = pending["stop_loss"],
+                    take_profit        = pending["take_profit"],
+                    atr                = pending.get("atr", 0.0),
+                    cycles_waited      = pending.get("cycles_waited", 0),
+                )
         self.consecutive_losses = state.get("consecutive_losses", 0)
         self.circuit_breaker_active = state.get("circuit_breaker_active", False)
         for symbol, ts in state.get("cooldowns", {}).items():
@@ -193,6 +220,19 @@ class OrderManager:
             "monthly_reference_balance": self.monthly_reference_balance,
             "last_reconciliation": self.last_reconciliation,
             "pending_open_client_order_ids": self.pending_open_client_order_ids,
+            "pending_limit_orders": {
+                symbol: {
+                    "symbol":             pending.symbol,
+                    "client_order_id":    pending.client_order_id,
+                    "limit_price":        pending.limit_price,
+                    "requested_quantity": pending.requested_quantity,
+                    "stop_loss":          pending.stop_loss,
+                    "take_profit":        pending.take_profit,
+                    "atr":                pending.atr,
+                    "cycles_waited":      pending.cycles_waited,
+                }
+                for symbol, pending in self.pending_limit_orders.items()
+            },
             "consecutive_losses": self.consecutive_losses,
             "circuit_breaker_active": self.circuit_breaker_active,
             "updated_at":         datetime.now().isoformat(),
@@ -292,32 +332,37 @@ class OrderManager:
         if self.monthly_reference_balance <= 0:
             self.monthly_reference_balance = ref
 
-    def _check_daily_reset(self):
-        today = datetime.now().strftime("%Y-%m-%d")
-        if self.daily_reset_date != today:
-            self.daily_pnl        = 0.0
-            self.daily_reset_date = today
+    def _check_period_reset(self, date_attr: str, pnl_attr: str, ref_attr: str, current_period: str):
+        """Logica de reset compartilhada por dia/semana/mes -- ver
+        _check_daily_reset/_check_weekly_reset/_check_monthly_reset. Achado
+        de code-review: os 3 periodos eram blocos quase identicos
+        copiados-colados, risco real de uma correcao futura (ex: a do cache
+        de saldo abaixo) ser aplicada num periodo e esquecida nos outros
+        dois -- ja aconteceu 2x nesta mesma spec antes desta consolidacao."""
+        if getattr(self, date_attr) != current_period:
+            setattr(self, pnl_attr, 0.0)
+            setattr(self, date_attr, current_period)
             ref = self._reference_balance()
             if ref is not None:
-                self.daily_reference_balance = ref
+                setattr(self, ref_attr, ref)
+
+    def _check_daily_reset(self):
+        self._check_period_reset(
+            "daily_reset_date", "daily_pnl", "daily_reference_balance",
+            datetime.now().strftime("%Y-%m-%d"),
+        )
 
     def _check_weekly_reset(self):
-        current_week = datetime.now().strftime("%G-W%V")
-        if self.weekly_reset_date != current_week:
-            self.weekly_pnl        = 0.0
-            self.weekly_reset_date = current_week
-            ref = self._reference_balance()
-            if ref is not None:
-                self.weekly_reference_balance = ref
+        self._check_period_reset(
+            "weekly_reset_date", "weekly_pnl", "weekly_reference_balance",
+            datetime.now().strftime("%G-W%V"),
+        )
 
     def _check_monthly_reset(self):
-        current_month = datetime.now().strftime("%Y-%m")
-        if self.monthly_reset_date != current_month:
-            self.monthly_pnl        = 0.0
-            self.monthly_reset_date = current_month
-            ref = self._reference_balance()
-            if ref is not None:
-                self.monthly_reference_balance = ref
+        self._check_period_reset(
+            "monthly_reset_date", "monthly_pnl", "monthly_reference_balance",
+            datetime.now().strftime("%Y-%m"),
+        )
 
     def _ensure_positive_reference(self, current: float, period_label: str) -> Optional[float]:
         """Reconsulta o saldo de referencia enquanto ele for desconhecido
@@ -335,41 +380,36 @@ class OrderManager:
             log.warning(f"Saldo de referencia {period_label} indisponivel -- bloqueando novas entradas por seguranca")
         return ref
 
-    def is_daily_limit_hit(self) -> bool:
-        self._check_daily_reset()
-        ref = self._ensure_positive_reference(self.daily_reference_balance, "diario")
+    def _is_period_limit_hit(self, check_reset, pnl_attr: str, ref_attr: str, limit_pct: float, period_label: str) -> bool:
+        """Logica compartilhada por is_daily_limit_hit/is_weekly_limit_hit/
+        is_monthly_limit_hit -- ver _check_period_reset para o motivo da
+        consolidacao."""
+        check_reset()
+        ref = self._ensure_positive_reference(getattr(self, ref_attr), period_label)
         if ref is None:
             return True
-        self.daily_reference_balance = ref
-        limit = DAILY_DRAWDOWN_LIMIT * ref
-        if self.daily_pnl < -limit:
-            log.warning(f"Daily drawdown atingido: ${self.daily_pnl:.2f} (limite -${limit:.2f})")
+        setattr(self, ref_attr, ref)
+        limit = limit_pct * ref
+        pnl = getattr(self, pnl_attr)
+        if pnl < -limit:
+            log.warning(f"{period_label.capitalize()} drawdown atingido: ${pnl:.2f} (limite -${limit:.2f})")
             return True
         return False
+
+    def is_daily_limit_hit(self) -> bool:
+        return self._is_period_limit_hit(
+            self._check_daily_reset, "daily_pnl", "daily_reference_balance", DAILY_DRAWDOWN_LIMIT, "diario",
+        )
 
     def is_weekly_limit_hit(self) -> bool:
-        self._check_weekly_reset()
-        ref = self._ensure_positive_reference(self.weekly_reference_balance, "semanal")
-        if ref is None:
-            return True
-        self.weekly_reference_balance = ref
-        limit = WEEKLY_DRAWDOWN_LIMIT * ref
-        if self.weekly_pnl < -limit:
-            log.warning(f"Weekly drawdown atingido: ${self.weekly_pnl:.2f} (limite -${limit:.2f})")
-            return True
-        return False
+        return self._is_period_limit_hit(
+            self._check_weekly_reset, "weekly_pnl", "weekly_reference_balance", WEEKLY_DRAWDOWN_LIMIT, "semanal",
+        )
 
     def is_monthly_limit_hit(self) -> bool:
-        self._check_monthly_reset()
-        ref = self._ensure_positive_reference(self.monthly_reference_balance, "mensal")
-        if ref is None:
-            return True
-        self.monthly_reference_balance = ref
-        limit = MONTHLY_DRAWDOWN_LIMIT * ref
-        if self.monthly_pnl < -limit:
-            log.warning(f"Monthly drawdown atingido: ${self.monthly_pnl:.2f} (limite -${limit:.2f})")
-            return True
-        return False
+        return self._is_period_limit_hit(
+            self._check_monthly_reset, "monthly_pnl", "monthly_reference_balance", MONTHLY_DRAWDOWN_LIMIT, "mensal",
+        )
 
     def set_cooldown(self, symbol: str):
         self.cooldowns[symbol] = datetime.now()
@@ -392,11 +432,16 @@ class OrderManager:
     def pnl(self) -> float:
         return self.realized_pnl
 
-    def open_long(self, symbol: str, risk: RiskLevels):
+    def open_long(self, symbol: str, risk: RiskLevels, limit_price: Optional[float] = None):
         if self.has_position(symbol):
             return
         if TRADING_MODE == "paper":
+            # Paper sempre preenche total e instantaneo (nao ha book real
+            # para simular preenchimento parcial) -- USE_LIMIT_ORDERS nao
+            # muda o comportamento em paper, so em live.
             self._paper_buy(symbol, risk)
+        elif USE_LIMIT_ORDERS and limit_price:
+            self._live_buy_limit(symbol, risk, limit_price)
         else:
             self._live_buy(symbol, risk)
 
@@ -577,6 +622,155 @@ class OrderManager:
         msg = f"[LIVE] COMPRA {symbol} | ID={order['id']} | ${risk.entry_price:.4f}"
 
         _notify_safe(prefix, msg)
+
+    def _live_buy_limit(self, symbol: str, risk: RiskLevels, limit_price: float):
+        """Envia ordem LIMIT em vez de mercado (USE_LIMIT_ORDERS=true). Nao
+        abre posicao imediatamente -- fica em pending_limit_orders ate
+        check_pending_limit_orders() confirmar preenchimento (total, parcial
+        + timeout, ou zero + timeout). Mesmo padrao de client_order_id
+        idempotente de _live_buy."""
+        if self.exchange is None:
+            raise RuntimeError("Exchange live nao inicializada.")
+        if symbol not in self.pending_open_client_order_ids:
+            self.pending_open_client_order_ids[symbol] = _generate_client_order_id()
+            self._persist_state_with_retry(f"ao registrar tentativa de compra limit de {symbol}")
+        client_order_id = self.pending_open_client_order_ids[symbol]
+
+        try:
+            order = self.exchange.create_limit_buy_order(
+                symbol, risk.quantity, limit_price,
+                params={"newClientOrderId": client_order_id},
+            )
+        except Exception as e:
+            error_message = str(e)  # 'e' some ao sair do except; captura antes das lambdas
+            log.error(f"Erro ao enviar ordem limit de compra {symbol}: {error_message}")
+            error_prefix = f"Erro ao enviar ordem limit de {symbol} ja registrado no log"
+            safe_step(log, f"{error_prefix}, mas falha ao publicar evento", lambda: log_event(
+                "live_order_error", mode=TRADING_MODE, symbol=symbol, side="buy",
+                error=error_message, client_order_id=client_order_id,
+            ))
+            safe_step(log, f"{error_prefix}, mas falha ao enviar alerta", lambda: send_telegram(
+                f"[LIVE] ERRO ao enviar ordem limit de compra {symbol}: {error_message}"
+            ))
+            return
+
+        # A partir daqui a ordem foi aceita pela exchange -- pending_limit_orders
+        # MUST refletir isso mesmo que o log/alerta abaixo falhe.
+        self.pending_open_client_order_ids.pop(symbol, None)
+        self.pending_limit_orders[symbol] = PendingLimitOrder(
+            symbol             = symbol,
+            client_order_id    = client_order_id,
+            limit_price        = limit_price,
+            requested_quantity = risk.quantity,
+            stop_loss          = risk.stop_loss,
+            take_profit        = risk.take_profit,
+            atr                = risk.atr,
+        )
+        self._persist_state_with_retry(f"apos enviar ordem limit de compra de {symbol}")
+
+        prefix = f"Ordem limit de compra de {symbol} enviada"
+        safe_step(log, f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+            "live_limit_order_placed",
+            mode=TRADING_MODE,
+            symbol=symbol,
+            limit_price=limit_price,
+            quantity=risk.quantity,
+            order_id=order.get("id"),
+            client_order_id=client_order_id,
+        ))
+
+        msg = f"[LIVE] ORDEM LIMIT COMPRA {symbol} | ID={order.get('id')} | preco limite ${limit_price:.4f}"
+
+        _notify_safe(prefix, msg)
+
+    def check_pending_limit_orders(self):
+        """Chamado uma vez por ciclo (trading/runner.py) -- consulta cada
+        ordem limit pendente na exchange e resolve: preenchimento total abre
+        a posicao; preenchimento parcial + LIMIT_ORDER_TIMEOUT_CYCLES cancela
+        o restante e abre a posicao so com a quantidade preenchida; zero
+        preenchimento + timeout cancela e descarta."""
+        for symbol in list(self.pending_limit_orders.keys()):
+            self._check_single_pending_limit_order(symbol)
+
+    def _check_single_pending_limit_order(self, symbol: str):
+        if self.exchange is None:
+            raise RuntimeError("Exchange live nao inicializada.")
+        pending = self.pending_limit_orders[symbol]
+        try:
+            order = self.exchange.fetch_order(pending.client_order_id, symbol)
+            filled = float(order.get("filled") or 0.0)
+        except Exception as e:
+            log.error(f"Erro ao consultar ordem limit pendente de {symbol}: {e}")
+            filled = 0.0
+            order = None
+
+        if order is not None and filled >= pending.requested_quantity > 0:
+            self._finalize_filled_limit_order(symbol, pending, order, filled)
+            return
+
+        pending.cycles_waited += 1
+        if pending.cycles_waited >= LIMIT_ORDER_TIMEOUT_CYCLES:
+            self._timeout_pending_limit_order(symbol, pending, filled)
+        else:
+            self._persist_state_with_retry(f"apos checar ordem limit pendente de {symbol}")
+
+    def _finalize_filled_limit_order(self, symbol: str, pending: PendingLimitOrder, order: dict, filled: float):
+        entry_price = float(order.get("average") or pending.limit_price)
+        del self.pending_limit_orders[symbol]
+        self.positions[symbol] = Position(
+            symbol        = symbol,
+            side          = "long",
+            entry_price   = entry_price,
+            quantity      = filled,
+            stop_loss     = pending.stop_loss,
+            take_profit   = pending.take_profit,
+            atr           = pending.atr,
+            highest_price = entry_price,
+            client_order_id = pending.client_order_id,
+        )
+        self._persist_state_with_retry(f"apos preenchimento de ordem limit de {symbol}")
+
+        prefix = f"Ordem limit de {symbol} preenchida"
+        safe_step(log, f"{prefix}, mas falha ao registrar evento", lambda: log_event(
+            "live_limit_order_filled", mode=TRADING_MODE, symbol=symbol,
+            entry_price=entry_price, quantity=filled, client_order_id=pending.client_order_id,
+        ))
+        _notify_safe(prefix, f"[LIVE] ORDEM LIMIT PREENCHIDA {symbol} | ${entry_price:.4f} | Qtd {filled}")
+
+    def _timeout_pending_limit_order(self, symbol: str, pending: PendingLimitOrder, filled: float):
+        try:
+            if self.exchange is None:
+                raise RuntimeError("Exchange live nao inicializada.")
+            self.exchange.cancel_order(pending.client_order_id, symbol)
+        except Exception as e:
+            # A ordem pode ja ter sido preenchida ou cancelada entre a
+            # consulta acima e este cancelamento -- a reconciliacao periodica
+            # e quem flagra uma divergencia real para revisao manual.
+            log.warning(f"Falha ao cancelar ordem limit pendente de {symbol} (pode ja ter mudado de estado): {e}")
+
+        del self.pending_limit_orders[symbol]
+        if filled > 0:
+            self.positions[symbol] = Position(
+                symbol        = symbol,
+                side          = "long",
+                entry_price   = pending.limit_price,
+                quantity      = filled,
+                stop_loss     = pending.stop_loss,
+                take_profit   = pending.take_profit,
+                atr           = pending.atr,
+                highest_price = pending.limit_price,
+                client_order_id = pending.client_order_id,
+            )
+            msg = f"[LIVE] Ordem limit {symbol} expirou parcialmente preenchida: {filled}/{pending.requested_quantity}"
+        else:
+            msg = f"[LIVE] Ordem limit {symbol} expirou sem preenchimento -- cancelada"
+
+        self._persist_state_with_retry(f"apos timeout de ordem limit de {symbol}")
+        safe_step(log, "Falha ao registrar evento de timeout de ordem limit", lambda: log_event(
+            "live_limit_order_timeout", mode=TRADING_MODE, symbol=symbol,
+            filled=filled, requested=pending.requested_quantity,
+        ))
+        _notify_safe(f"Ordem limit de {symbol} expirou", msg)
 
     def _live_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         if self.exchange is None:

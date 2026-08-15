@@ -27,6 +27,15 @@ MIN_VOLATILITY_PCT = float(os.getenv("MIN_VOLATILITY_PCT", "1.0"))
 
 MAX_ORDER_SIZE_USDT = float(os.getenv("MAX_ORDER_SIZE_USDT", "100.0"))
 MAX_POSITIONS       = int(os.getenv("MAX_POSITIONS", "5"))
+# Spread maximo aceitavel do order book para permitir uma ENTRADA (distinto
+# de MAX_SPREAD_PCT, usado na selecao dinamica de pares -- contextos de
+# decisao diferentes, ver research.md da spec 005).
+MAX_SPREAD_PCT_ENTRY = float(os.getenv("MAX_SPREAD_PCT_ENTRY", "0.005"))
+MIN_ORDERBOOK_DEPTH_USDT = float(os.getenv("MIN_ORDERBOOK_DEPTH_USDT", str(3 * MAX_ORDER_SIZE_USDT)))
+# Ordens limit sao opcionais e desligadas por padrao -- o comportamento de
+# mercado ja validado permanece o default para quem nao habilitar.
+USE_LIMIT_ORDERS = os.getenv("USE_LIMIT_ORDERS", "false").lower() in {"1", "true", "yes", "sim"}
+LIMIT_ORDER_TIMEOUT_CYCLES = int(os.getenv("LIMIT_ORDER_TIMEOUT_CYCLES", "3"))
 STOP_LOSS_PCT = float(os.getenv("STOP_LOSS_PCT", "0.015"))
 TAKE_PROFIT_PCT = float(os.getenv("TAKE_PROFIT_PCT", "0.06"))
 ATR_SL_MULTIPLIER = float(os.getenv("ATR_SL_MULTIPLIER", "1.5"))
@@ -95,6 +104,12 @@ def validate_config():
         errors.append("TIMEFRAME nao pode ficar vazio.")
     if MAX_ORDER_SIZE_USDT <= 0:
         errors.append("MAX_ORDER_SIZE_USDT deve ser maior que zero.")
+    if not 0 < MAX_SPREAD_PCT_ENTRY <= 1:
+        errors.append("MAX_SPREAD_PCT_ENTRY deve estar entre 0 e 1.")
+    if MIN_ORDERBOOK_DEPTH_USDT <= 0:
+        errors.append("MIN_ORDERBOOK_DEPTH_USDT deve ser maior que zero.")
+    if LIMIT_ORDER_TIMEOUT_CYCLES < 1:
+        errors.append("LIMIT_ORDER_TIMEOUT_CYCLES deve ser pelo menos 1.")
     if DYNAMIC_PAIRS_TOP_N < 1 or DYNAMIC_PAIRS_CANDIDATES < 1:
         errors.append("DYNAMIC_PAIRS_TOP_N e DYNAMIC_PAIRS_CANDIDATES devem ser maiores que zero.")
     if MIN_VOLUME_USDT < 0 or MAX_SPREAD_PCT < 0 or MIN_VOLATILITY_PCT < 0:

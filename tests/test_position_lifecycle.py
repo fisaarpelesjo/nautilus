@@ -60,6 +60,7 @@ class _FakeEntryManager:
         self._open_succeeds = open_succeeds
         self.circuit_breaker_active = circuit_breaker_active
         self.open_calls = []
+        self.pending_limit_orders = {}
 
     def is_daily_limit_hit(self):
         return self._daily_limit_hit
@@ -73,8 +74,8 @@ class _FakeEntryManager:
     def is_in_cooldown(self, symbol):
         return self._in_cooldown
 
-    def open_long(self, symbol, risk):
-        self.open_calls.append((symbol, risk))
+    def open_long(self, symbol, risk, limit_price=None):
+        self.open_calls.append((symbol, risk, limit_price))
         if self._open_succeeds:
             self.positions[symbol] = object()
 
@@ -96,6 +97,10 @@ def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
         position_lifecycle, "fetch_ohlcv",
         lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
     )
+    monkeypatch.setattr(
+        position_lifecycle, "check_liquidity",
+        lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
+    )
     manager = _FakeEntryManager()
     row = {}
     trade_events = []
@@ -115,6 +120,10 @@ def test_handle_entry_candidate_opens_when_balance_known(monkeypatch):
     monkeypatch.setattr(
         position_lifecycle, "fetch_ohlcv",
         lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
+    )
+    monkeypatch.setattr(
+        position_lifecycle, "check_liquidity",
+        lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
     )
     manager = _FakeEntryManager(balance=1000.0)
     row = {}
@@ -144,6 +153,32 @@ def test_handle_entry_candidate_blocks_when_circuit_breaker_active():
     assert opened is False
     assert manager.open_calls == []
     assert "circuit breaker" in row["blockers"]
+
+
+def test_handle_entry_candidate_blocks_when_liquidity_check_fails(monkeypatch):
+    monkeypatch.setattr(
+        position_lifecycle, "fetch_ohlcv",
+        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
+    )
+    monkeypatch.setattr(
+        position_lifecycle, "check_liquidity",
+        lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(
+            False, "spread 1.00% acima do limite 0.50%", 0.01, 50.0,
+        ),
+    )
+    manager = _FakeEntryManager(balance=1000.0)
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "liquidez" in row["blockers"]
 
 
 def test_handle_entry_candidate_blocks_when_weekly_limit_hit():

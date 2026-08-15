@@ -1,5 +1,8 @@
-from config.settings import ATR_SL_MULTIPLIER, MAX_POSITIONS, MTF_TIMEFRAME, TRADING_MODE
+from typing import Optional
+
+from config.settings import ATR_SL_MULTIPLIER, MAX_ORDER_SIZE_USDT, MAX_POSITIONS, MTF_TIMEFRAME, TRADING_MODE
 from data.fetcher import fetch_balance, fetch_ohlcv
+from execution.liquidity import LiquidityCheck, check_liquidity
 from execution.order_manager import OrderManager
 from risk.manager import calculate_risk, should_stop_loss, should_take_profit
 from strategy.base import Signal
@@ -80,6 +83,17 @@ def handle_entry_candidate(
         if not row["mtf_ok"]:
             blockers.append("MTF negado")
 
+    liquidity: Optional[LiquidityCheck] = None
+    if not blockers:
+        # Estimativa conservadora do tamanho da ordem (teto configurado, nao
+        # o valor final) -- evita buscar o saldo (proxima checagem) so para
+        # calcular o tamanho exato antes de saber se a liquidez ja bloqueia.
+        # best_ask e reaproveitado como preco limite (US4) se USE_LIMIT_ORDERS
+        # estiver ligado -- nao gasta uma segunda chamada de rede so pra isso.
+        liquidity = check_liquidity(symbol, MAX_ORDER_SIZE_USDT)
+        if not liquidity.approved:
+            blockers.append(f"liquidez: {liquidity.reason}")
+
     current_balance = None
     if not blockers:
         # So busca o saldo se nenhum bloqueio mais barato (incluindo MTF) ja
@@ -100,11 +114,17 @@ def handle_entry_candidate(
     available = current_balance / slots_left
     atr = float(indicators.get("atr", 0) or 0)
     risk = calculate_risk(current_price, available, atr)
-    manager.open_long(symbol, risk)
+    limit_price = liquidity.best_ask if liquidity and liquidity.best_ask > 0 else None
+    manager.open_long(symbol, risk, limit_price=limit_price)
     opened = manager.has_position(symbol)
     row["entry_opened"] = opened
     row["in_pos"] = opened
-    row["decision"] = "compra aberta" if opened else "compra falhou: ordem nao abriu"
+    if opened:
+        row["decision"] = "compra aberta"
+    elif symbol in manager.pending_limit_orders:
+        row["decision"] = "ordem limit enviada: aguardando preenchimento"
+    else:
+        row["decision"] = "compra falhou: ordem nao abriu"
     if opened:
         trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
     return opened

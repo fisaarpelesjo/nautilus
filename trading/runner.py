@@ -155,6 +155,9 @@ def run():
                 _run_reconciliation(manager, active_pairs)
             if entry_cooldown > 0:
                 entry_cooldown -= 1
+            if manager.pending_limit_orders:
+                safe_step(log, "Falha ao checar ordens limit pendentes",
+                          manager.check_pending_limit_orders)
             pair_rows = []
             trade_events = []
             new_entries = 0

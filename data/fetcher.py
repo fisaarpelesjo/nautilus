@@ -62,3 +62,6 @@ def fetch_ticker(symbol: str) -> dict:
 def fetch_balance() -> dict:
     balance = get_exchange().fetch_balance()
     return {k: v for k, v in balance["total"].items() if v > 0}
+
+def fetch_order_book(symbol: str, limit: int = 20) -> dict:
+    return get_exchange().fetch_order_book(symbol, limit=limit)
