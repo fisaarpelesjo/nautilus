@@ -55,6 +55,23 @@ def test_snapshot_propagates_none_when_price_unavailable(monkeypatch):
     assert snap.free_cash == 500.0  # caixa livre continua conhecida
 
 
+def test_snapshot_exposes_per_symbol_prices_for_reuse(monkeypatch):
+    # Regressao (achado de code-review): cmd_status() buscava o ticker de
+    # novo para exibir cada posicao, duplicando a chamada de rede ja feita
+    # aqui e arriscando inconsistencia (um symbol podia aparecer como
+    # "preco desconhecido" nos totais mas com preco na lista detalhada, se
+    # a segunda chamada tivesse sorte). O snapshot MUST expor os precos ja
+    # buscados para o chamador reusar.
+    monkeypatch.setattr(portfolio, "TRADING_MODE", "paper")
+    monkeypatch.setattr(portfolio, "fetch_ticker", lambda symbol: {"last": 110.0})
+    pos = Position(symbol="BTC/USDT", side="long", entry_price=100.0, quantity=2.0, stop_loss=90.0, take_profit=120.0)
+    manager = _FakeManager(paper_balance=500.0, realized_pnl=10.0, positions={"BTC/USDT": pos})
+
+    snap = portfolio.compute_portfolio_snapshot(manager)
+
+    assert snap.prices == {"BTC/USDT": 110.0}
+
+
 def test_snapshot_mixes_known_and_unknown_prices(monkeypatch):
     monkeypatch.setattr(portfolio, "TRADING_MODE", "paper")
 

@@ -113,7 +113,6 @@ def _fmt_or_na(value, fmt: str = ",.2f", prefix: str = "$") -> str:
 
 
 def cmd_status():
-    from data.fetcher import fetch_ticker
     from data.killswitch_store import load_killswitch
     from execution.order_manager import OrderManager
     from trading.portfolio import compute_portfolio_snapshot
@@ -136,7 +135,7 @@ def cmd_status():
     console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{_fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
                   f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{_fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
                   f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{_fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
-    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{snap.realized_pnl:+.2f}[/]"
+    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{_fmt_or_na(snap.realized_pnl, fmt='+.2f')}[/]"
                   f"   [{C_LABEL}]pnl não realizado[/{C_LABEL}] [white]{_fmt_or_na(snap.unrealized_pnl, fmt='+.2f')}[/white]"
                   f"   [{C_LABEL}]pnl total[/{C_LABEL}] [{pnl_c}]{_fmt_or_na(snap.total_pnl, fmt='+.2f')}[/{pnl_c}]")
     console.print(f"  [{C_LABEL}]trades[/{C_LABEL}] [white]{total}[/white]"
@@ -155,19 +154,21 @@ def cmd_status():
     if positions:
         console.print(f"  [{C_LABEL}]posições abertas ({len(positions)}):[/{C_LABEL}]")
         for symbol, pos in positions.items():
-            try:
-                ticker  = fetch_ticker(symbol)
-                current = ticker["last"]
-                pnl_pct = (current - pos.entry_price) / pos.entry_price * 100
-                pc2     = C_POS if pnl_pct >= 0 else C_NEG
-                console.print(
-                    f"  [{C_CYAN}]{symbol}[/{C_CYAN}]"
-                    f"  [{C_LABEL}]entrada[/{C_LABEL}] [{C_PRICE}]{_fmt_price(pos.entry_price)}[/{C_PRICE}]"
-                    f"  [{C_LABEL}]atual[/{C_LABEL}] [{C_PRICE}]{_fmt_price(current)}[/{C_PRICE}]"
-                    f"  [{pc2}]{pnl_pct:+.2f}%[/{pc2}]"
-                )
-            except Exception:
+            # Reusa o preco ja buscado por compute_portfolio_snapshot() --
+            # buscar de novo aqui duplicaria a chamada de rede e podia
+            # divergir do total agregado acima (achado de code-review).
+            current = snap.prices.get(symbol)
+            if current is None:
                 console.print(f"  [{C_DIM}]{symbol}  erro ao buscar preço[/{C_DIM}]")
+                continue
+            pnl_pct = (current - pos.entry_price) / pos.entry_price * 100
+            pc2     = C_POS if pnl_pct >= 0 else C_NEG
+            console.print(
+                f"  [{C_CYAN}]{symbol}[/{C_CYAN}]"
+                f"  [{C_LABEL}]entrada[/{C_LABEL}] [{C_PRICE}]{_fmt_price(pos.entry_price)}[/{C_PRICE}]"
+                f"  [{C_LABEL}]atual[/{C_LABEL}] [{C_PRICE}]{_fmt_price(current)}[/{C_PRICE}]"
+                f"  [{pc2}]{pnl_pct:+.2f}%[/{pc2}]"
+            )
     else:
         console.print(f"  [{C_DIM}]nenhuma posição aberta[/{C_DIM}]")
     console.print()

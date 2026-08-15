@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from config.settings import TRADING_MODE
 from data.fetcher import fetch_balance, fetch_ticker
@@ -15,6 +15,7 @@ class PortfolioSnapshot:
     unrealized_pnl: Optional[float]
     total_pnl: Optional[float]
     positions_with_unknown_price: List[str] = field(default_factory=list)
+    prices: Dict[str, float] = field(default_factory=dict)
 
 
 def _current_free_cash(manager: OrderManager) -> Optional[float]:
@@ -43,6 +44,7 @@ def compute_portfolio_snapshot(manager: OrderManager) -> PortfolioSnapshot:
     positions_value = 0.0
     unrealized_pnl = 0.0
     unknown: List[str] = []
+    prices: Dict[str, float] = {}
 
     for symbol, pos in manager.positions.items():
         try:
@@ -50,6 +52,7 @@ def compute_portfolio_snapshot(manager: OrderManager) -> PortfolioSnapshot:
         except Exception:
             unknown.append(symbol)
             continue
+        prices[symbol] = current_price
         positions_value += pos.quantity * current_price
         unrealized_pnl += (current_price - pos.entry_price) * pos.quantity
 
@@ -68,4 +71,5 @@ def compute_portfolio_snapshot(manager: OrderManager) -> PortfolioSnapshot:
         unrealized_pnl=unrealized_pnl,
         total_pnl=total_pnl,
         positions_with_unknown_price=unknown,
+        prices=prices,
     )
