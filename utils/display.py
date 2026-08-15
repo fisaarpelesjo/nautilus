@@ -142,6 +142,24 @@ def live_confirmation_banner(
     console.print()
 
 
+def simulation_context_banner(symbol: str, timeframe: str, period_start, period_end, initial_capital: float):
+    start_str = period_start.strftime("%Y-%m-%d") if hasattr(period_start, "strftime") else str(period_start)
+    end_str = period_end.strftime("%Y-%m-%d") if hasattr(period_end, "strftime") else str(period_end)
+    console.print()
+    console.print(Panel.fit(
+        f"[bold {C_CYAN}]modo: backtest simulado[/bold {C_CYAN}]\n\n"
+        f"[{C_LABEL}]par[/] [white]{symbol}[/white]"
+        f"   [{C_LABEL}]timeframe[/] [white]{timeframe}[/white]\n"
+        f"[{C_LABEL}]periodo testado[/] [white]{start_str} a {end_str}[/white]\n"
+        f"[{C_LABEL}]capital inicial simulado[/] [white]${initial_capital:,.2f}[/white]\n\n"
+        f"[{C_DIM}]resultado historico simulado -- nao reflete o saldo real do bot"
+        f" (ver data/state.json)[/{C_DIM}]",
+        border_style=C_CYAN,
+        box=box.ROUNDED,
+    ))
+    console.print()
+
+
 def cycle_start(cycle_id: int, active_pairs: list, open_positions: int, balance: float, daily_pnl: float):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     daily_color = _pnl_color(daily_pnl)

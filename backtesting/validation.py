@@ -6,7 +6,7 @@ from backtesting.approval import ApprovalVerdict, diagnose_profile, evaluate_app
 from backtesting.engine import BacktestResult, edge_score_band, print_report, precompute_signals, simulate_backtest
 from data.fetcher import fetch_ohlcv
 from strategy.ema_rsi import EmaRsiStrategy
-from utils.display import C_CYAN, C_NEG, C_POS, console
+from utils.display import C_CYAN, C_NEG, C_POS, console, simulation_context_banner
 from utils.logger import get_logger
 
 log = get_logger("backtest")
@@ -119,6 +119,7 @@ def run_edge_report(
     inteiro. Usado por `python main.py edge`, que ate esta spec era um alias
     literal de `backtest`."""
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
+    simulation_context_banner(symbol, timeframe, df.index[0], df.index[-1], initial_capital)
     strategy = EmaRsiStrategy()
     df = strategy.calculate_indicators(df)
 

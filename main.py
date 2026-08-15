@@ -106,30 +106,40 @@ def cmd_kill():
 def cmd_resume():
     _toggle_killswitch(False)
 
+def _fmt_or_na(value, fmt: str = ",.2f", prefix: str = "$") -> str:
+    if value is None:
+        return "indisponível"
+    return f"{prefix}{value:{fmt}}"
+
+
 def cmd_status():
     from data.fetcher import fetch_ticker
     from data.killswitch_store import load_killswitch
-    from data.state_store import load_state
+    from execution.order_manager import OrderManager
+    from trading.portfolio import compute_portfolio_snapshot
     from utils.display import console, header, C_LABEL, C_PRICE, C_POS, C_NEG, C_DIM, C_CYAN, _fmt_price
 
     header()
-    state = load_state()
+    manager = OrderManager()
+    snap = compute_portfolio_snapshot(manager)
 
-    balance     = state.get("paper_balance_usdt", 1000.0) if state else 1000.0
-    pnl         = balance - 1000.0
-    total       = state.get("total_trades", 0) if state else 0
-    wins        = state.get("winning_trades", 0) if state else 0
-    positions   = state.get("positions", {}) if state else {}
+    total       = manager.total_trades
+    wins        = manager.winning_trades
+    positions   = manager.positions
     win_rate    = (wins / total * 100) if total else 0
-    consecutive_losses    = state.get("consecutive_losses", 0) if state else 0
-    circuit_breaker_active = state.get("circuit_breaker_active", False) if state else False
+    consecutive_losses     = manager.consecutive_losses
+    circuit_breaker_active = manager.circuit_breaker_active
     killswitch_active = load_killswitch()
-    pc          = C_POS if pnl >= 0 else C_NEG
-    wc          = C_POS if win_rate >= 50 else C_NEG
+    pnl_c   = C_POS if (snap.total_pnl is None or snap.total_pnl >= 0) else C_NEG
+    wc      = C_POS if win_rate >= 50 else C_NEG
 
-    console.print(f"  [{C_LABEL}]saldo[/{C_LABEL}]     [{C_PRICE}]${balance:,.2f}[/{C_PRICE}]"
-                  f"   [{C_LABEL}]pnl[/{C_LABEL}] [{pc}]{pnl:+.2f}[/{pc}]"
-                  f"   [{C_LABEL}]trades[/{C_LABEL}] [white]{total}[/white]"
+    console.print(f"  [{C_LABEL}]caixa livre[/{C_LABEL}]   [{C_PRICE}]{_fmt_or_na(snap.free_cash)}[/{C_PRICE}]"
+                  f"   [{C_LABEL}]posições[/{C_LABEL}] [{C_PRICE}]{_fmt_or_na(snap.positions_value)}[/{C_PRICE}]"
+                  f"   [{C_LABEL}]patrimônio[/{C_LABEL}] [{C_PRICE}]{_fmt_or_na(snap.total_equity)}[/{C_PRICE}]")
+    console.print(f"  [{C_LABEL}]pnl realizado[/{C_LABEL}] [{C_POS if snap.realized_pnl >= 0 else C_NEG}]{snap.realized_pnl:+.2f}[/]"
+                  f"   [{C_LABEL}]pnl não realizado[/{C_LABEL}] [white]{_fmt_or_na(snap.unrealized_pnl, fmt='+.2f')}[/white]"
+                  f"   [{C_LABEL}]pnl total[/{C_LABEL}] [{pnl_c}]{_fmt_or_na(snap.total_pnl, fmt='+.2f')}[/{pnl_c}]")
+    console.print(f"  [{C_LABEL}]trades[/{C_LABEL}] [white]{total}[/white]"
                   f"   [{C_LABEL}]win rate[/{C_LABEL}] [{wc}]{win_rate:.0f}%[/{wc}]")
     console.print()
 
@@ -148,11 +158,11 @@ def cmd_status():
             try:
                 ticker  = fetch_ticker(symbol)
                 current = ticker["last"]
-                pnl_pct = (current - pos["entry_price"]) / pos["entry_price"] * 100
+                pnl_pct = (current - pos.entry_price) / pos.entry_price * 100
                 pc2     = C_POS if pnl_pct >= 0 else C_NEG
                 console.print(
                     f"  [{C_CYAN}]{symbol}[/{C_CYAN}]"
-                    f"  [{C_LABEL}]entrada[/{C_LABEL}] [{C_PRICE}]{_fmt_price(pos['entry_price'])}[/{C_PRICE}]"
+                    f"  [{C_LABEL}]entrada[/{C_LABEL}] [{C_PRICE}]{_fmt_price(pos.entry_price)}[/{C_PRICE}]"
                     f"  [{C_LABEL}]atual[/{C_LABEL}] [{C_PRICE}]{_fmt_price(current)}[/{C_PRICE}]"
                     f"  [{pc2}]{pnl_pct:+.2f}%[/{pc2}]"
                 )
@@ -163,7 +173,7 @@ def cmd_status():
     console.print()
 
     if TRADING_MODE == "live":
-        last_reconciliation = state.get("last_reconciliation") if state else None
+        last_reconciliation = manager.last_reconciliation
         if last_reconciliation:
             status = last_reconciliation.get("status", "?")
             checked_at = last_reconciliation.get("checked_at", "?")
