@@ -184,31 +184,52 @@ Objetivo: testar hipoteses de melhoria com evidencia, sem transformar a estrateg
    - Registrar resultado em `STRATEGY_REVIEW.md`.
    - Por que melhora: o preset atual foi desenhado para aumentar frequencia de trades, mas ainda precisa provar que nao aumentou falsos sinais demais.
 
-2. [ ] **Testar filtro Bollinger adaptativo**
+2. [x] **Testar filtro Bollinger adaptativo**
    - Permitir entrada acima da banda superior somente quando tendencia e volume estiverem fortes.
    - Comparar contra o filtro fixo atual.
    - Por que melhora: o filtro atual evita compra esticada, mas tambem pode bloquear rompimentos fortes que sao comuns em cripto.
+   - **Concluido** (`specs/006-evolucao-estrategia-novas`, US3): `ADAPTIVE_BOLLINGER_ENABLED`
+     (default `false`) permite entrada acima da banda superior quando `above_trend` e `volume_ok`
+     (mesmos criterios ja usados na estrategia) estao verdadeiros. Aplicado tanto no caminho por
+     candle (`generate_signal`) quanto no vetorizado (`precompute_signals`, usado por
+     `optimize`/`backtest --validate`).
 
-3. [ ] **Regime detection com ADX**
+3. [x] **Regime detection com ADX**
    - Calcular ADX(14) e classificar mercado como trending, sideways ou indefinido.
    - Em tendencia, permitir regras mais flexiveis; em lateralizacao, suspender ou endurecer entradas.
    - Registrar regime em `data/decisions.csv`.
    - Por que melhora: EMA crossover costuma perder dinheiro em mercado lateral. Detectar regime reduz trades onde a estrategia tem menor vantagem.
+   - **Concluido** (`specs/006-evolucao-estrategia-novas`, US1): `REGIME_ADX_THRESHOLD`/
+     `REGIME_FILTER_ENABLED` (default `false`), regime classificado em `trending`/`sideways`/
+     `indefinido`, registrado em `data/decisions.csv`. Bloqueia so novas entradas -- nunca a saida de
+     uma posicao ja aberta (achado de code-review corrigido antes do commit).
 
-4. [ ] **Deteccao de volatilidade elevada**
+4. [x] **Deteccao de volatilidade elevada**
    - Calcular `ATR_ratio = ATR14 / close`.
    - Quando volatilidade estiver alta, testar alvos/stops adaptados e bloqueios de entrada em candles extremos.
    - Por que melhora: cripto muda rapidamente de volatilidade. Stop e alvo fixos por regime podem ser apertados demais em explosoes e largos demais em consolidacao.
+   - **Concluido** (`specs/006-evolucao-estrategia-novas`, US2): `HIGH_VOLATILITY_ATR_RATIO`/
+     `HIGH_VOLATILITY_FILTER_ENABLED` (default `false`) bloqueia novas entradas quando
+     `ATR_ratio` excede o limiar. Alvos/stops adaptativos por regime de volatilidade (alternativa
+     citada no `research.md`) ficam como evolucao futura -- o risk manager ja ajusta SL/TP
+     proporcionalmente via `ATR_SL_MULTIPLIER`/`ATR_TP_MULTIPLIER`.
 
-5. [ ] **Trading Range Breakout**
+5. [x] **Trading Range Breakout**
    - Implementar `strategy/breakout.py` herdando `BaseStrategy`.
    - Testar janelas 50/150/200 periodos e comparar contra EMA/RSI nos mesmos pares, custos e timeframes.
    - Por que melhora: estudos de analise tecnica em cripto indicam que regras de rompimento podem superar medias moveis em alguns ativos e periodos.
+   - **Concluido** (`specs/006-evolucao-estrategia-novas`, US4): `BreakoutStrategy(BaseStrategy)`
+     (Donchian channel), `BREAKOUT_WINDOW` (default `150`), testavel nas 3 janelas via
+     `BreakoutStrategy(window=N)`. Roda pela mesma infraestrutura de backtest ja existente
+     (`run_backtest(..., strategy=BreakoutStrategy(...))`).
 
-6. [ ] **Comparativo de estrategias e presets**
+6. [x] **Comparativo de estrategias e presets**
    - Criar comando para comparar EMA/RSI, breakout e presets diferentes em uma unica execucao.
    - Usar as mesmas metricas, benchmark e criterios de aprovacao.
    - Por que melhora: impede comparar resultados gerados em condicoes diferentes e ajuda a escolher a estrategia mais robusta, nao a mais recente.
+   - **Concluido** (`specs/006-evolucao-estrategia-novas`, US5): novo `python main.py compare`/
+     `comparar`, `backtesting/compare.py` reusa `evaluate_approval`/`edge_score`/`ranking_key` ja
+     estabelecidos (spec 002), sem criterio de comparacao novo.
 
 ## Fase 5 - Forward test e observabilidade operacional
 

@@ -58,6 +58,7 @@ python main.py backtest --validate  # backtest with train/out-of-sample split + 
 python main.py edge                 # profitability edge report vs buy-and-hold
 python main.py multibacktest        # backtest on fixed pair list
 python main.py scan                 # backtest on top 30 Binance pairs by volume
+python main.py compare              # compare multiple strategies/presets side by side
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py select               # rank dynamic pair candidates
@@ -114,6 +115,12 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
 | `BB_PERIOD` | `20` | Bollinger Bands period |
 | `BB_STD` | `2.0` | Bollinger Bands standard deviations |
+| `REGIME_ADX_THRESHOLD` | `20` | Minimum ADX to classify market regime as `trending` |
+| `REGIME_FILTER_ENABLED` | `false` | When `true`, suspends new entries in `sideways`/`indefinido` regime |
+| `HIGH_VOLATILITY_ATR_RATIO` | `0.05` | `ATR_ratio` (ATR14/close) above which a candle is considered high volatility |
+| `HIGH_VOLATILITY_FILTER_ENABLED` | `false` | When `true`, blocks new entries on high-volatility candles |
+| `ADAPTIVE_BOLLINGER_ENABLED` | `false` | When `true`, allows entry above the upper band with strong trend/volume |
+| `BREAKOUT_WINDOW` | `150` | Default window (periods) for `strategy/breakout.py` |
 | `TELEGRAM_BOT_TOKEN` | — | Telegram bot token (optional) |
 | `TELEGRAM_CHAT_ID` | — | Telegram chat ID (optional) |
 
@@ -130,6 +137,9 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 - `rsi` — RSI(14)
 - `macd` — MACD diff (logged, not yet used in signal)
 - `atr` — ATR(14), used by risk manager for dynamic SL/TP
+- `atr_ratio` — ATR14 / close, relative volatility indicator
+- `adx` — ADX(14), basis for the market regime
+- `regime` — `trending`/`sideways`/`indefinido`, derived from `adx` vs `REGIME_ADX_THRESHOLD`
 - `volume_ma` — simple moving average of volume (period `VOLUME_MA_PERIOD`)
 - `bb_upper`, `bb_middle`, `bb_lower` — Bollinger Bands(20, 2)
 
@@ -137,11 +147,17 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 
 | Signal | Condition |
 |---|---|
-| BUY | EMA12 crosses above EMA21 **and** price > EMA50 **and** RSI < 60 **and** volume > 1.2× avg(20) **and** price > EMA50 on daily timeframe (MTF) **and** price ≤ BB upper (not overextended) |
+| BUY | EMA12 crosses above EMA21 **and** price > EMA50 **and** RSI < 60 **and** volume > 1.2× avg(20) **and** price > EMA50 on daily timeframe (MTF) **and** price ≤ BB upper (not overextended, or `ADAPTIVE_BOLLINGER_ENABLED` with strong trend/volume) |
 | SELL | EMA12 crosses below EMA21 **and** RSI > 35 |
-| HOLD | none of the above |
+| HOLD | none of the above, **or** blocked by `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED` (new entries only — a sell signal for an already-open position is never blocked by these filters) |
+
+**Optional filters** (all off by default, additive — see `specs/006-evolucao-estrategia-novas/`): market regime via ADX (`REGIME_FILTER_ENABLED`), high volatility via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`), and the adaptive Bollinger filter (`ADAPTIVE_BOLLINGER_ENABLED`). Applied both in the per-candle path (`generate_signal`) and the vectorized one (`precompute_signals`, used by `optimize`/`backtest --validate`/`optimize --walk-forward`) — the two paths must stay in sync whenever a new filter is added.
 
 **Stop Loss / Trailing Stop / Take Profit** are managed in `trading/position_lifecycle.py`, not in the strategy. Each poll, if price makes a new high, stop loss rises to `high - 1.5×ATR`, locking in profit. Fixed TP remains as max target.
+
+**Breakout strategy** (`strategy/breakout.py`, `BreakoutStrategy`): Donchian channel — buys when price breaks above the highest high of the last `BREAKOUT_WINDOW` candles (default `150`, testable at 50/150/200), sells when it breaks below the lowest low. Runs through the same backtest infrastructure via `run_backtest(..., strategy=BreakoutStrategy(window=N))`.
+
+**Strategy/preset comparison**: `python main.py compare` (alias `comparar`) runs multiple strategies/presets over the same pairs/timeframe in a single run, reusing the already-established `evaluate_approval`/`edge_score` — no new comparison criterion.
 
 **Cycle management rules (`trading/runner.py`):**
 - `MAX_ENTRIES_PER_CYCLE = 1` — max 1 new position per 60s cycle, avoids correlated simultaneous entries

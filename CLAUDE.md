@@ -56,6 +56,7 @@ python main.py backtest --validate  # backtest com split treino/validação out-
 python main.py edge                 # relatório de vantagem contra buy-and-hold
 python main.py multibacktest        # backtest em lista fixa de pares
 python main.py scan                 # backtest nos top 30 pares por volume na Binance
+python main.py compare              # compara multiplas estrategias/presets lado a lado
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py select               # ranqueia candidatos de pares dinâmicos
@@ -128,6 +129,12 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
 | `BB_PERIOD` | `20` | Período das Bollinger Bands |
 | `BB_STD` | `2.0` | Desvios padrão das Bollinger Bands |
+| `REGIME_ADX_THRESHOLD` | `20` | ADX mínimo para classificar o regime de mercado como `trending` |
+| `REGIME_FILTER_ENABLED` | `false` | Quando `true`, suspende novas entradas em regime `sideways`/`indefinido` |
+| `HIGH_VOLATILITY_ATR_RATIO` | `0.05` | `ATR_ratio` (ATR14/close) acima do qual o candle é considerado volatilidade elevada |
+| `HIGH_VOLATILITY_FILTER_ENABLED` | `false` | Quando `true`, bloqueia novas entradas em candles de volatilidade elevada |
+| `ADAPTIVE_BOLLINGER_ENABLED` | `false` | Quando `true`, permite entrada acima da banda superior com tendência/volume fortes |
+| `BREAKOUT_WINDOW` | `150` | Janela padrão (períodos) de `strategy/breakout.py` |
 | `TELEGRAM_BOT_TOKEN` | — | Token do bot Telegram (opcional) |
 | `TELEGRAM_CHAT_ID` | — | Chat ID Telegram (opcional) |
 
@@ -144,6 +151,9 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - `rsi` — RSI(14)
 - `macd` — MACD diff (logado, não usado no sinal ainda)
 - `atr` — ATR(14), usado pelo risk manager para SL/TP dinâmico
+- `atr_ratio` — ATR14 / close, indicador de volatilidade relativa
+- `adx` — ADX(14), base do regime de mercado
+- `regime` — `trending`/`sideways`/`indefinido`, derivado de `adx` vs `REGIME_ADX_THRESHOLD`
 - `volume_ma` — média móvel simples do volume (período `VOLUME_MA_PERIOD`)
 - `bb_upper`, `bb_middle`, `bb_lower` — Bollinger Bands(20, 2)
 
@@ -151,11 +161,17 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 | Sinal | Condição |
 |---|---|
-| BUY | EMA12 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 60 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) **e** preço ≤ BB superior (não sobreextendido) |
+| BUY | EMA12 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 60 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) **e** preço ≤ BB superior (não sobreextendido, ou `ADAPTIVE_BOLLINGER_ENABLED` com tendência/volume fortes) |
 | SELL | EMA12 cruza abaixo EMA21 **e** RSI > 35 |
-| HOLD | nenhuma das anteriores |
+| HOLD | nenhuma das anteriores, **ou** bloqueado por `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED` (só para novas entradas — sinal de venda de uma posição já aberta nunca é bloqueado por esses filtros) |
+
+**Filtros opcionais** (todos desligados por padrão, aditivos — ver `specs/006-evolucao-estrategia-novas/`): regime de mercado via ADX (`REGIME_FILTER_ENABLED`), volatilidade elevada via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`) e filtro Bollinger adaptativo (`ADAPTIVE_BOLLINGER_ENABLED`). Aplicados tanto no caminho por candle (`generate_signal`) quanto no vetorizado (`precompute_signals`, usado por `optimize`/`backtest --validate`/`optimize --walk-forward`) — os dois caminhos precisam ficar sincronizados sempre que um filtro novo for adicionado.
 
 **Stop Loss / Trailing Stop / Take Profit** são gerenciados em `trading/position_lifecycle.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
+
+**Estratégia de rompimento** (`strategy/breakout.py`, `BreakoutStrategy`): Donchian channel — compra quando o preço rompe a máxima das últimas `BREAKOUT_WINDOW` velas (padrão `150`, testável em 50/150/200), vende quando rompe a mínima. Roda pela mesma infraestrutura de backtest via `run_backtest(..., strategy=BreakoutStrategy(window=N))`.
+
+**Comparativo de estratégias/presets**: `python main.py compare` (alias `comparar`) roda múltiplas estratégias/presets nos mesmos pares/timeframe numa única execução, reusando `evaluate_approval`/`edge_score` já estabelecidos — sem critério de comparação novo.
 
 **Regras de gestão de ciclo (`trading/runner.py`):**
 - `MAX_ENTRIES_PER_CYCLE = 1` — máximo de 1 nova posição aberta por ciclo de 60s, evitando entradas correlacionadas simultâneas

@@ -221,6 +221,30 @@ tem `data/decisions.csv` real, já que o bot nunca rodou continuamente aqui (mes
 no `Assumptions` da spec). Fica pendente do operador rodar `python main.py bot` por um período e então
 `python main.py decisions` para um diagnóstico real de bloqueios mais frequentes.
 
+## Evolução da Estratégia (2026-08-15, spec 006-evolucao-estrategia-novas)
+
+Validação com dados reais (`BTC/USDT` `4h`) das 5 novas capacidades (regime via ADX, volatilidade
+elevada, Bollinger adaptativo, `strategy/breakout.py`, comando `compare`):
+
+- `strategy/breakout.py` (janela 150) sobre `BTC/USDT` `4h`: 4 trades, todos fechados por Stop Loss,
+  retorno -0.75%, edge score -24.21 (reprovado). Amostra pequena (4 trades) — não conclusivo, mas
+  confirma que a estratégia roda de ponta a ponta pela mesma infraestrutura de backtest sem erros
+  (SC-002).
+- `python main.py compare` com EMA/RSI padrão + Breakout 150 no mesmo par/timeframe: ambas
+  reprovadas nesta amostra (EMA/RSI edge score -7.43, Breakout -24.21) — relatório único, sem
+  comparação manual entre execuções separadas (SC-003).
+- `REGIME_FILTER_ENABLED=true` sobre `BTC/USDT` `4h`: 7 trades (vs 9 sem o filtro), sem erros —
+  confirma que o filtro de regime não trava o bot nem produz resultado inconsistente com dados
+  reais.
+- Todas as execuções acima rodaram com `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED`/
+  `ADAPTIVE_BOLLINGER_ENABLED` desligados por padrão nas demais checagens da suíte (232 testes) —
+  nenhuma mudança de comportamento para quem não habilitar as novas capacidades (FR-010/SC-004).
+
+Amostra única de um par/período não é suficiente para julgar se alguma das 5 capacidades melhora o
+resultado líquido — isso exige backtest sistemático em mais pares/timeframes/janelas (ex: via
+`python main.py compare` com mais presets, ou `python main.py optimize` com as novas flags no grid),
+não coberto nesta sessão por foco em validar que a implementação funciona corretamente primeiro.
+
 ## Experimentos Recomendados
 
 - Benchmark formal contra buy-and-hold por par e timeframe.
