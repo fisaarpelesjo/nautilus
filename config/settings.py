@@ -40,7 +40,9 @@ MTF_TIMEFRAME = os.getenv("MTF_TIMEFRAME", "1d")
 COOLDOWN_HOURS = int(os.getenv("COOLDOWN_HOURS", "4"))
 ENTRY_COOLDOWN_CYCLES = int(os.getenv("ENTRY_COOLDOWN_CYCLES", "3"))
 
-DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do saldo inicial
+DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do saldo de referencia diario
+WEEKLY_DRAWDOWN_LIMIT = float(os.getenv("WEEKLY_DRAWDOWN_LIMIT", "0.10"))  # 10% do saldo de referencia semanal
+MONTHLY_DRAWDOWN_LIMIT = float(os.getenv("MONTHLY_DRAWDOWN_LIMIT", "0.20"))  # 20% do saldo de referencia mensal
 MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "3"))
 
 # Numero minimo de trades para o veredito de aprovacao de backtest (edge/multibacktest/scan/
@@ -121,6 +123,14 @@ def validate_config():
         errors.append("ENTRY_COOLDOWN_CYCLES nao pode ser negativo.")
     if not 0 < DAILY_DRAWDOWN_LIMIT <= 1:
         errors.append("DAILY_DRAWDOWN_LIMIT deve estar entre 0 e 1.")
+    if not 0 < WEEKLY_DRAWDOWN_LIMIT <= 1:
+        errors.append("WEEKLY_DRAWDOWN_LIMIT deve estar entre 0 e 1.")
+    if not 0 < MONTHLY_DRAWDOWN_LIMIT <= 1:
+        errors.append("MONTHLY_DRAWDOWN_LIMIT deve estar entre 0 e 1.")
+    if WEEKLY_DRAWDOWN_LIMIT < DAILY_DRAWDOWN_LIMIT:
+        errors.append("WEEKLY_DRAWDOWN_LIMIT deve ser maior ou igual a DAILY_DRAWDOWN_LIMIT.")
+    if MONTHLY_DRAWDOWN_LIMIT < WEEKLY_DRAWDOWN_LIMIT:
+        errors.append("MONTHLY_DRAWDOWN_LIMIT deve ser maior ou igual a WEEKLY_DRAWDOWN_LIMIT.")
     if MAX_CONSECUTIVE_LOSSES < 1:
         errors.append("MAX_CONSECUTIVE_LOSSES deve ser pelo menos 1.")
     if EDGE_MIN_TRADES < 1:

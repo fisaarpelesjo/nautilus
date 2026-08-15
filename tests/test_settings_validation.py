@@ -35,6 +35,22 @@ def test_validate_config_rejects_edge_min_trades_below_one(monkeypatch):
         settings.validate_config()
 
 
+def test_validate_config_rejects_weekly_limit_below_daily(monkeypatch):
+    monkeypatch.setattr(settings, "DAILY_DRAWDOWN_LIMIT", 0.10)
+    monkeypatch.setattr(settings, "WEEKLY_DRAWDOWN_LIMIT", 0.05)
+
+    with pytest.raises(ValueError, match="WEEKLY_DRAWDOWN_LIMIT"):
+        settings.validate_config()
+
+
+def test_validate_config_rejects_monthly_limit_below_weekly(monkeypatch):
+    monkeypatch.setattr(settings, "WEEKLY_DRAWDOWN_LIMIT", 0.10)
+    monkeypatch.setattr(settings, "MONTHLY_DRAWDOWN_LIMIT", 0.05)
+
+    with pytest.raises(ValueError, match="MONTHLY_DRAWDOWN_LIMIT"):
+        settings.validate_config()
+
+
 def test_validate_config_requires_confirmation_for_live(monkeypatch):
     monkeypatch.setattr(settings, "TRADING_MODE", "live")
     monkeypatch.setattr(settings, "LIVE_TRADING_CONFIRMATION", "")

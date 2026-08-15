@@ -63,6 +63,10 @@ def handle_entry_candidate(
         blockers.append("limite ciclo")
     if manager.is_daily_limit_hit():
         blockers.append("drawdown diario")
+    if manager.is_weekly_limit_hit():
+        blockers.append("limite semanal")
+    if manager.is_monthly_limit_hit():
+        blockers.append("limite mensal")
     if manager.circuit_breaker_active:
         blockers.append("circuit breaker")
     if killswitch_active:

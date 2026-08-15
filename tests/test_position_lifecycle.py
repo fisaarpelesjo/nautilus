@@ -50,10 +50,12 @@ class _FakeManager:
 
 class _FakeEntryManager:
     def __init__(self, balance=1000.0, daily_limit_hit=False, in_cooldown=False, open_succeeds=True,
-                 circuit_breaker_active=False):
+                 circuit_breaker_active=False, weekly_limit_hit=False, monthly_limit_hit=False):
         self.positions = {}
         self.paper_balance_usdt = balance
         self._daily_limit_hit = daily_limit_hit
+        self._weekly_limit_hit = weekly_limit_hit
+        self._monthly_limit_hit = monthly_limit_hit
         self._in_cooldown = in_cooldown
         self._open_succeeds = open_succeeds
         self.circuit_breaker_active = circuit_breaker_active
@@ -61,6 +63,12 @@ class _FakeEntryManager:
 
     def is_daily_limit_hit(self):
         return self._daily_limit_hit
+
+    def is_weekly_limit_hit(self):
+        return self._weekly_limit_hit
+
+    def is_monthly_limit_hit(self):
+        return self._monthly_limit_hit
 
     def is_in_cooldown(self, symbol):
         return self._in_cooldown
@@ -136,6 +144,38 @@ def test_handle_entry_candidate_blocks_when_circuit_breaker_active():
     assert opened is False
     assert manager.open_calls == []
     assert "circuit breaker" in row["blockers"]
+
+
+def test_handle_entry_candidate_blocks_when_weekly_limit_hit():
+    manager = _FakeEntryManager(weekly_limit_hit=True)
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "limite semanal" in row["blockers"]
+
+
+def test_handle_entry_candidate_blocks_when_monthly_limit_hit():
+    manager = _FakeEntryManager(monthly_limit_hit=True)
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "limite mensal" in row["blockers"]
 
 
 def test_handle_entry_candidate_blocks_when_killswitch_active():

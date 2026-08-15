@@ -12,9 +12,11 @@ from config.settings import (
     TRADING_MODE,
     COOLDOWN_HOURS,
     DAILY_DRAWDOWN_LIMIT,
+    WEEKLY_DRAWDOWN_LIMIT,
+    MONTHLY_DRAWDOWN_LIMIT,
     MAX_CONSECUTIVE_LOSSES,
 )
-from data.fetcher import get_exchange
+from data.fetcher import fetch_balance, get_exchange
 from data.state_store import load_state, save_state
 from data.trade_store import log_trade
 from risk.manager import RiskLevels
@@ -65,6 +67,15 @@ class OrderManager:
         self.cooldowns: Dict[str, datetime] = {}
         self.daily_pnl: float = 0.0
         self.daily_reset_date: str = ""
+        self.daily_reference_balance: float = 0.0
+        self.weekly_pnl: float = 0.0
+        self.weekly_reset_date: str = ""
+        self.weekly_reference_balance: float = 0.0
+        self.monthly_pnl: float = 0.0
+        self.monthly_reset_date: str = ""
+        self.monthly_reference_balance: float = 0.0
+        self._reference_balance_cache: Optional[float] = None
+        self._reference_balance_cache_at: float = 0.0
         self.last_reconciliation: Optional[dict] = None
         self.pending_open_client_order_ids: Dict[str, str] = {}
         self.consecutive_losses: int = 0
@@ -73,6 +84,7 @@ class OrderManager:
             self._assert_live_trading_allowed()
             self.exchange = get_exchange()
         self._restore_state()
+        self._ensure_reference_balances()
 
     def _assert_live_trading_allowed(self):
         if LIVE_TRADING_CONFIRMATION != LIVE_CONFIRMATION_TEXT:
@@ -102,9 +114,31 @@ class OrderManager:
         if saved_date == today:
             self.daily_pnl        = state.get("daily_pnl", 0.0)
             self.daily_reset_date = saved_date
+            self.daily_reference_balance = state.get("daily_reference_balance", 0.0)
         else:
             self.daily_pnl        = 0.0
             self.daily_reset_date = today
+
+        current_week = datetime.now().strftime("%G-W%V")
+        saved_week = state.get("weekly_reset_date", "")
+        if saved_week == current_week:
+            self.weekly_pnl = state.get("weekly_pnl", 0.0)
+            self.weekly_reset_date = saved_week
+            self.weekly_reference_balance = state.get("weekly_reference_balance", 0.0)
+        else:
+            self.weekly_pnl = 0.0
+            self.weekly_reset_date = current_week
+
+        current_month = datetime.now().strftime("%Y-%m")
+        saved_month = state.get("monthly_reset_date", "")
+        if saved_month == current_month:
+            self.monthly_pnl = state.get("monthly_pnl", 0.0)
+            self.monthly_reset_date = saved_month
+            self.monthly_reference_balance = state.get("monthly_reference_balance", 0.0)
+        else:
+            self.monthly_pnl = 0.0
+            self.monthly_reset_date = current_month
+
         for symbol, pos in state.get("positions", {}).items():
             if pos:
                 self.positions[symbol] = Position(
@@ -150,6 +184,13 @@ class OrderManager:
             "cooldowns":          {s: dt.isoformat() for s, dt in self.cooldowns.items()},
             "daily_pnl":          self.daily_pnl,
             "daily_reset_date":   self.daily_reset_date,
+            "daily_reference_balance": self.daily_reference_balance,
+            "weekly_pnl":         self.weekly_pnl,
+            "weekly_reset_date":  self.weekly_reset_date,
+            "weekly_reference_balance": self.weekly_reference_balance,
+            "monthly_pnl":        self.monthly_pnl,
+            "monthly_reset_date": self.monthly_reset_date,
+            "monthly_reference_balance": self.monthly_reference_balance,
             "last_reconciliation": self.last_reconciliation,
             "pending_open_client_order_ids": self.pending_open_client_order_ids,
             "consecutive_losses": self.consecutive_losses,
@@ -208,17 +249,125 @@ class OrderManager:
             self.consecutive_losses = 0
             self.circuit_breaker_active = False
 
+    def _reference_balance(self) -> Optional[float]:
+        """Saldo real em USDT, para uso como referencia dos limites de perda
+        (nao de saldo disponivel para uma ordem -- ver
+        trading/position_lifecycle.py _current_balance, que tem a mesma
+        bifurcacao paper/live duplicada aqui de proposito para evitar import
+        circular). Retorna None quando o saldo real nao pode ser obtido -- o
+        chamador MUST manter o ultimo saldo de referencia conhecido nesse
+        caso, nunca zerar."""
+        if TRADING_MODE == "paper":
+            return self.paper_balance_usdt
+        # Cache curto (segundos): dia/semana/mes podem virar juntos (ex: toda
+        # segunda-feira o diario e o semanal viram no mesmo ciclo) -- sem
+        # isso, is_daily_limit_hit/is_weekly_limit_hit/is_monthly_limit_hit
+        # em sequencia disparariam ate 3 chamadas de rede identicas na mesma
+        # checagem de entrada (achado de code-review).
+        now = time.monotonic()
+        if self._reference_balance_cache is not None and now - self._reference_balance_cache_at < 5.0:
+            return self._reference_balance_cache
+        try:
+            balance = fetch_balance()
+            value = float(balance.get("USDT", 0))
+        except Exception:
+            return None
+        self._reference_balance_cache = value
+        self._reference_balance_cache_at = now
+        return value
+
+    def _ensure_reference_balances(self):
+        """Preenche saldos de referencia ainda nao capturados (instalacao
+        nova, ou state.json de antes desta spec sem os campos) -- so roda
+        uma vez por inicializacao, sem sobrescrever um valor ja restaurado."""
+        if self.daily_reference_balance > 0 and self.weekly_reference_balance > 0 and self.monthly_reference_balance > 0:
+            return
+        ref = self._reference_balance()
+        if ref is None:
+            return
+        if self.daily_reference_balance <= 0:
+            self.daily_reference_balance = ref
+        if self.weekly_reference_balance <= 0:
+            self.weekly_reference_balance = ref
+        if self.monthly_reference_balance <= 0:
+            self.monthly_reference_balance = ref
+
     def _check_daily_reset(self):
         today = datetime.now().strftime("%Y-%m-%d")
         if self.daily_reset_date != today:
             self.daily_pnl        = 0.0
             self.daily_reset_date = today
+            ref = self._reference_balance()
+            if ref is not None:
+                self.daily_reference_balance = ref
+
+    def _check_weekly_reset(self):
+        current_week = datetime.now().strftime("%G-W%V")
+        if self.weekly_reset_date != current_week:
+            self.weekly_pnl        = 0.0
+            self.weekly_reset_date = current_week
+            ref = self._reference_balance()
+            if ref is not None:
+                self.weekly_reference_balance = ref
+
+    def _check_monthly_reset(self):
+        current_month = datetime.now().strftime("%Y-%m")
+        if self.monthly_reset_date != current_month:
+            self.monthly_pnl        = 0.0
+            self.monthly_reset_date = current_month
+            ref = self._reference_balance()
+            if ref is not None:
+                self.monthly_reference_balance = ref
+
+    def _ensure_positive_reference(self, current: float, period_label: str) -> Optional[float]:
+        """Reconsulta o saldo de referencia enquanto ele for desconhecido
+        (<=0) -- sem isso, uma falha unica de fetch_balance() (ex: no
+        startup) travaria o saldo de referencia em 0.0 pelo resto do
+        periodo, fazendo limite = 0 e QUALQUER prejuizo parecer "limite
+        atingido" silenciosamente (achado de code-review). Retorna None
+        quando continua indisponivel -- o chamador MUST bloquear
+        conservador nesse caso, mesmo principio ja usado para saldo
+        desconhecido em handle_entry_candidate."""
+        if current > 0:
+            return current
+        ref = self._reference_balance()
+        if ref is None:
+            log.warning(f"Saldo de referencia {period_label} indisponivel -- bloqueando novas entradas por seguranca")
+        return ref
 
     def is_daily_limit_hit(self) -> bool:
         self._check_daily_reset()
-        limit = DAILY_DRAWDOWN_LIMIT * 1000.0
+        ref = self._ensure_positive_reference(self.daily_reference_balance, "diario")
+        if ref is None:
+            return True
+        self.daily_reference_balance = ref
+        limit = DAILY_DRAWDOWN_LIMIT * ref
         if self.daily_pnl < -limit:
             log.warning(f"Daily drawdown atingido: ${self.daily_pnl:.2f} (limite -${limit:.2f})")
+            return True
+        return False
+
+    def is_weekly_limit_hit(self) -> bool:
+        self._check_weekly_reset()
+        ref = self._ensure_positive_reference(self.weekly_reference_balance, "semanal")
+        if ref is None:
+            return True
+        self.weekly_reference_balance = ref
+        limit = WEEKLY_DRAWDOWN_LIMIT * ref
+        if self.weekly_pnl < -limit:
+            log.warning(f"Weekly drawdown atingido: ${self.weekly_pnl:.2f} (limite -${limit:.2f})")
+            return True
+        return False
+
+    def is_monthly_limit_hit(self) -> bool:
+        self._check_monthly_reset()
+        ref = self._ensure_positive_reference(self.monthly_reference_balance, "mensal")
+        if ref is None:
+            return True
+        self.monthly_reference_balance = ref
+        limit = MONTHLY_DRAWDOWN_LIMIT * ref
+        if self.monthly_pnl < -limit:
+            log.warning(f"Monthly drawdown atingido: ${self.monthly_pnl:.2f} (limite -${limit:.2f})")
             return True
         return False
 
@@ -306,9 +455,13 @@ class OrderManager:
         pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
         self.paper_balance_usdt += pos.quantity * exit_price
         self._check_daily_reset()
+        self._check_weekly_reset()
+        self._check_monthly_reset()
         self.total_trades += 1
         self.realized_pnl += pnl
         self.daily_pnl    += pnl
+        self.weekly_pnl   += pnl
+        self.monthly_pnl  += pnl
         if pnl > 0:
             self.winning_trades += 1
         self._update_consecutive_losses(pnl)
@@ -476,9 +629,13 @@ class OrderManager:
         pnl     = (exit_price - pos.entry_price) * pos.quantity
         pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
         self._check_daily_reset()
+        self._check_weekly_reset()
+        self._check_monthly_reset()
         self.total_trades += 1
         self.realized_pnl += pnl
         self.daily_pnl    += pnl
+        self.weekly_pnl   += pnl
+        self.monthly_pnl  += pnl
         if pnl > 0:
             self.winning_trades += 1
         self._update_consecutive_losses(pnl)

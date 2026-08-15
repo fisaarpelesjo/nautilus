@@ -119,6 +119,29 @@ def bot_boot(active_pairs: list, max_positions: int, poll_interval: int, dynamic
     console.print()
 
 
+def live_confirmation_banner(
+    pairs: list, balance_usdt, max_order_size_usdt: float, max_positions: int,
+    daily_limit_pct: float, weekly_limit_pct: float, monthly_limit_pct: float, max_consecutive_losses: int,
+):
+    balance_display = f"${balance_usdt:,.2f}" if balance_usdt is not None else "indisponivel"
+    console.print()
+    console.print(Panel.fit(
+        f"[bold {C_WARN}]MODO LIVE -- operando com dinheiro real[/bold {C_WARN}]\n\n"
+        f"[{C_LABEL}]pares ativos[/] [white]{', '.join(pairs)}[/white]\n"
+        f"[{C_LABEL}]saldo real[/] [{C_PRICE}]{balance_display}[/{C_PRICE}]\n"
+        f"[{C_LABEL}]tamanho maximo por ordem[/] [white]${max_order_size_usdt:,.2f}[/white]\n"
+        f"[{C_LABEL}]maximo de posicoes[/] [white]{max_positions}[/white]\n"
+        f"[{C_LABEL}]limite de perda diario[/] [white]{daily_limit_pct * 100:.1f}%[/white]\n"
+        f"[{C_LABEL}]limite de perda semanal[/] [white]{weekly_limit_pct * 100:.1f}%[/white]\n"
+        f"[{C_LABEL}]limite de perda mensal[/] [white]{monthly_limit_pct * 100:.1f}%[/white]\n"
+        f"[{C_LABEL}]maximo de perdas consecutivas[/] [white]{max_consecutive_losses}[/white]",
+        border_style=C_WARN,
+        box=box.ROUNDED,
+        title="confirmacao antes de operar",
+    ))
+    console.print()
+
+
 def cycle_start(cycle_id: int, active_pairs: list, open_positions: int, balance: float, daily_pnl: float):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     daily_color = _pnl_color(daily_pnl)

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 
 from execution import order_manager
@@ -21,6 +23,7 @@ def test_order_manager_does_not_initialize_exchange_in_paper(monkeypatch):
 
 def test_live_mode_requires_explicit_confirmation(monkeypatch):
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", "")
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -32,6 +35,7 @@ def test_live_mode_requires_explicit_confirmation(monkeypatch):
 
 def test_live_mode_requires_api_credentials(monkeypatch):
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "")
@@ -160,6 +164,124 @@ def test_circuit_breaker_deactivates_when_counter_resets(monkeypatch):
     assert manager.consecutive_losses == 0
 
 
+def _freeze_current_periods(manager):
+    # _restore_state() sai cedo quando load_state() retorna {} (instalacao
+    # nova), deixando *_reset_date="" -- na producao isso e inofensivo (a
+    # primeira chamada de _check_*_reset so reseta um pnl que ja e 0), mas
+    # testes que setam pnl manualmente ANTES de chamar is_*_limit_hit()
+    # precisam fixar a data do periodo corrente, senao o reset dispara e
+    # zera o pnl que acabamos de setar antes da comparacao rodar.
+    manager.daily_reset_date = datetime.now().strftime("%Y-%m-%d")
+    manager.weekly_reset_date = datetime.now().strftime("%G-W%V")
+    manager.monthly_reset_date = datetime.now().strftime("%Y-%m")
+
+
+def test_is_daily_limit_hit_uses_real_reference_balance_not_hardcoded_1000(monkeypatch):
+    # Regressao: is_daily_limit_hit() usava DAILY_DRAWDOWN_LIMIT * 1000.0 (saldo
+    # paper default hardcoded), nao o saldo real da conta. Com saldo de
+    # referencia real de $5000 e limite de 5%, o limite deve ser $250, nao $50.
+    monkeypatch.setattr(order_manager, "DAILY_DRAWDOWN_LIMIT", 0.05)
+    manager = _paper_manager(monkeypatch)
+    _freeze_current_periods(manager)
+    manager.daily_reference_balance = 5000.0
+
+    manager.daily_pnl = -100.0  # acima de $50 (bug antigo) mas abaixo de $250 (correto)
+    assert manager.is_daily_limit_hit() is False
+
+    manager.daily_pnl = -260.0
+    assert manager.is_daily_limit_hit() is True
+
+
+def test_weekly_and_monthly_limit_hit_use_their_own_reference_balance(monkeypatch):
+    monkeypatch.setattr(order_manager, "WEEKLY_DRAWDOWN_LIMIT", 0.10)
+    monkeypatch.setattr(order_manager, "MONTHLY_DRAWDOWN_LIMIT", 0.20)
+    manager = _paper_manager(monkeypatch)
+    _freeze_current_periods(manager)
+    manager.weekly_reference_balance = 5000.0
+    manager.monthly_reference_balance = 5000.0
+
+    manager.weekly_pnl = -400.0
+    assert manager.is_weekly_limit_hit() is False
+    manager.weekly_pnl = -600.0
+    assert manager.is_weekly_limit_hit() is True
+
+    manager.monthly_pnl = -900.0
+    assert manager.is_monthly_limit_hit() is False
+    manager.monthly_pnl = -1100.0
+    assert manager.is_monthly_limit_hit() is True
+
+
+def test_is_daily_limit_hit_blocks_conservatively_when_reference_balance_never_captured(monkeypatch):
+    # Achado de code-review: se fetch_balance() falhar uma vez (ex: no
+    # startup), o saldo de referencia ficava travado em 0.0 pelo resto do
+    # periodo -- limite = 0 faz QUALQUER prejuizo parecer "limite atingido",
+    # silenciosamente. Deve reconsultar a cada chamada enquanto for
+    # desconhecido, e bloquear conservador (nao limite=0) se continuar
+    # indisponivel. fetch_balance ja falha DESDE a construcao, para o cache
+    # de saldo (ver _reference_balance_cache) nunca ser populado.
+    manager = _live_manager(
+        monkeypatch, exchange=object(),
+        fetch_balance_fn=lambda: (_ for _ in ()).throw(RuntimeError("timeout")),
+    )
+    _freeze_current_periods(manager)
+
+    assert manager.is_daily_limit_hit() is True
+
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 5000.0})
+    manager.daily_pnl = -10.0
+    assert manager.is_daily_limit_hit() is False
+    assert manager.daily_reference_balance == 5000.0
+
+
+def test_reference_balance_fetch_is_cached_across_coincident_period_rollovers(monkeypatch):
+    # Achado de code-review: numa segunda-feira (diario + semanal viram
+    # juntos), is_daily_limit_hit/is_weekly_limit_hit/is_monthly_limit_hit
+    # cada um chamava fetch_balance() de novo -- ate 3 chamadas de rede na
+    # mesma checagem de entrada quando uma so bastaria.
+    manager = _live_manager(monkeypatch, exchange=object())
+    calls = []
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: (calls.append(1), {"USDT": 3000.0})[1])
+    manager._reference_balance_cache = None  # invalida o cache aquecido na construcao
+
+    # Forca os 3 periodos a virarem juntos.
+    manager.daily_reset_date = "2000-01-01"
+    manager.weekly_reset_date = "1999-W01"
+    manager.monthly_reset_date = "1999-01"
+
+    manager.is_daily_limit_hit()
+    manager.is_weekly_limit_hit()
+    manager.is_monthly_limit_hit()
+
+    assert len(calls) == 1
+
+
+def test_daily_weekly_monthly_counters_reset_independently(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+    _freeze_current_periods(manager)
+    manager.daily_pnl = -10.0
+    manager.weekly_pnl = -20.0
+    manager.monthly_pnl = -30.0
+
+    # Forca virada so do dia -- semana e mes continuam no periodo corrente.
+    manager.daily_reset_date = "2000-01-01"
+
+    manager._check_daily_reset()
+
+    assert manager.daily_pnl == 0.0
+    assert manager.weekly_pnl == -20.0
+    assert manager.monthly_pnl == -30.0
+
+
+def test_sell_accumulates_weekly_and_monthly_pnl_alongside_daily(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)  # prejuizo de 10
+
+    assert manager.daily_pnl == -10.0
+    assert manager.weekly_pnl == -10.0
+    assert manager.monthly_pnl == -10.0
+
+
 def test_record_reconciliation_persists_and_is_restored(monkeypatch):
     saved_states = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "paper")
@@ -183,6 +305,7 @@ def test_live_sell_keeps_local_position_when_exchange_call_fails(monkeypatch):
             raise RuntimeError("network timeout")
 
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -212,6 +335,7 @@ def test_live_sell_error_alert_still_sent_when_log_event_fails(monkeypatch):
 
     sent_messages = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -258,8 +382,9 @@ def test_live_buy_error_alert_still_sent_when_log_event_fails(monkeypatch):
     assert any("ERRO ao comprar" in m for m in sent_messages)
 
 
-def _live_manager(monkeypatch, exchange, log_trade=None):
+def _live_manager(monkeypatch, exchange, log_trade=None, fetch_balance_fn=lambda: {"USDT": 1000.0}):
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", fetch_balance_fn)
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -359,6 +484,7 @@ def test_live_sell_does_not_abort_when_first_persist_fails(monkeypatch):
             return {"id": "abc123", "average": 100.0}
 
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -389,6 +515,7 @@ def test_live_sell_reuses_client_order_id_across_retries(monkeypatch):
             raise RuntimeError("network timeout")
 
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -418,6 +545,7 @@ def test_live_sell_updates_pnl_and_trade_counters(monkeypatch):
 
     logged_trades = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -470,6 +598,7 @@ def test_live_sell_falls_back_to_current_price_when_order_has_no_fill_price(monk
 
     logged_trades = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -498,6 +627,7 @@ def test_live_sell_removes_position_even_if_post_success_logging_fails(monkeypat
 
     sent_messages = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")
@@ -534,6 +664,7 @@ def test_live_sell_log_trade_failure_does_not_block_event_and_alert(monkeypatch)
     sent_messages = []
     logged_events = []
     monkeypatch.setattr(order_manager, "TRADING_MODE", "live")
+    monkeypatch.setattr(order_manager, "fetch_balance", lambda: {"USDT": 1000.0})
     monkeypatch.setattr(order_manager, "LIVE_TRADING_CONFIRMATION", LIVE_CONFIRMATION_TEXT)
     monkeypatch.setattr(order_manager, "BINANCE_API_KEY", "key")
     monkeypatch.setattr(order_manager, "BINANCE_API_SECRET", "secret")

@@ -3,14 +3,19 @@ from datetime import datetime
 from typing import Dict
 
 from config.settings import (
+    DAILY_DRAWDOWN_LIMIT,
     DAILY_REPORT_HOUR,
     DYNAMIC_PAIRS_ENABLED,
     ENTRY_COOLDOWN_CYCLES,
+    MAX_CONSECUTIVE_LOSSES,
+    MAX_ORDER_SIZE_USDT,
     MAX_POSITIONS,
     MIN_PRICE_USDT,
+    MONTHLY_DRAWDOWN_LIMIT,
     PAIRS,
     TIMEFRAME,
     TRADING_MODE,
+    WEEKLY_DRAWDOWN_LIMIT,
 )
 from data.fetcher import fetch_ohlcv
 from data.killswitch_store import load_killswitch
@@ -31,6 +36,7 @@ from utils.display import (
     cycle_summary,
     error,
     header,
+    live_confirmation_banner,
     pairs_table,
     phase,
     shutdown,
@@ -90,6 +96,34 @@ def _run_reconciliation(manager: OrderManager, tracked_symbols):
     ))
 
 
+def _print_live_confirmation_banner(pairs, manager: OrderManager):
+    # Chamado uma vez, antes do loop principal, quando TRADING_MODE=live --
+    # nao bloqueia esperando confirmacao interativa alem do
+    # LIVE_TRADING_CONFIRMATION ja validado em config/settings.py (FR-003).
+    balance = manager._reference_balance()
+    live_confirmation_banner(
+        pairs, balance, MAX_ORDER_SIZE_USDT, MAX_POSITIONS,
+        DAILY_DRAWDOWN_LIMIT, WEEKLY_DRAWDOWN_LIMIT, MONTHLY_DRAWDOWN_LIMIT, MAX_CONSECUTIVE_LOSSES,
+    )
+    safe_step(log, "Falha ao publicar evento de inicio de sessao live", lambda: log_event(
+        "live_session_started",
+        mode=TRADING_MODE,
+        pairs=pairs,
+        balance_usdt=balance,
+        max_order_size_usdt=MAX_ORDER_SIZE_USDT,
+        max_positions=MAX_POSITIONS,
+        daily_limit_pct=DAILY_DRAWDOWN_LIMIT,
+        weekly_limit_pct=WEEKLY_DRAWDOWN_LIMIT,
+        monthly_limit_pct=MONTHLY_DRAWDOWN_LIMIT,
+        max_consecutive_losses=MAX_CONSECUTIVE_LOSSES,
+    ))
+
+
+def _maybe_print_live_banner(pairs, manager: OrderManager):
+    if TRADING_MODE == "live":
+        _print_live_confirmation_banner(pairs, manager)
+
+
 def _round_price(price: float) -> float:
     if price >= 1:
         return round(price, 4)
@@ -109,6 +143,7 @@ def run():
     cycle_id = 0
     entry_cooldown = 0
 
+    _maybe_print_live_banner(active_pairs, manager)
     bot_boot(active_pairs, MAX_POSITIONS, POLL_INTERVAL, DYNAMIC_PAIRS_ENABLED)
     send_telegram(f"Bot iniciado | {len(active_pairs)} pares | Modo={TRADING_MODE}")
     _run_reconciliation(manager, active_pairs)
