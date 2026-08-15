@@ -1,16 +1,19 @@
 import pandas as pd
 import pytest
 
+from backtesting import engine
 from backtesting.engine import (
     Trade,
     _annualized_return_pct,
     _calculate_advanced_metrics,
     edge_score_band,
     print_report,
+    run_backtest,
     simulate_backtest,
 )
+from strategy.ema_rsi import EmaRsiStrategy
 from utils.display import _fmt_price
-from strategy.base import Signal, TradeSignal
+from strategy.base import BaseStrategy, Signal, TradeSignal
 
 
 class SequenceStrategy:
@@ -317,3 +320,50 @@ def test_edge_score_band_matches_documented_thresholds():
     assert edge_score_band(-20.0) == "Fraco"
     assert edge_score_band(-20.01) == "Reprovado"
     assert edge_score_band(-100.0) == "Reprovado"
+
+
+def _synthetic_ohlcv(n=150):
+    import pandas as pd
+    return pd.DataFrame({
+        "open": [100.0] * n, "high": [101.0] * n, "low": [99.0] * n,
+        "close": [100.0] * n, "volume": [1000.0] * n,
+    }, index=pd.date_range("2024-01-01", periods=n, freq="4h"))
+
+
+class _RecordingStrategy(BaseStrategy):
+    """Estrategia minima usada so para confirmar QUAL estrategia run_backtest usou."""
+    def calculate_indicators(self, df):
+        df = df.copy()
+        df["atr"] = 0.0
+        return df
+
+    def generate_signal(self, df):
+        return TradeSignal(Signal.HOLD, df.iloc[-1]["close"] if len(df) else 0, "recording")
+
+
+def test_run_backtest_defaults_to_ema_rsi_strategy_when_none_passed(monkeypatch):
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda symbol, timeframe, limit=2000: _synthetic_ohlcv())
+    used_strategies = []
+    original_simulate = engine.simulate_backtest
+
+    def _spy_simulate(df, strategy, **kwargs):
+        used_strategies.append(strategy)
+        return original_simulate(df, strategy, **kwargs)
+
+    monkeypatch.setattr(engine, "simulate_backtest", _spy_simulate)
+    monkeypatch.setattr(engine, "print_report", lambda result: None)
+
+    run_backtest("BTC/USDT", "4h")
+
+    assert len(used_strategies) == 1
+    assert isinstance(used_strategies[0], EmaRsiStrategy)
+
+
+def test_run_backtest_uses_passed_strategy_instead_of_default(monkeypatch):
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda symbol, timeframe, limit=2000: _synthetic_ohlcv())
+    monkeypatch.setattr(engine, "print_report", lambda result: None)
+    custom = _RecordingStrategy()
+
+    result = run_backtest("BTC/USDT", "4h", strategy=custom)
+
+    assert result is not None

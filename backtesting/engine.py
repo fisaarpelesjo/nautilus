@@ -11,7 +11,7 @@ from config.settings import (
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
 )
-from strategy.base import Signal
+from strategy.base import BaseStrategy, Signal
 from strategy.ema_rsi import EmaRsiStrategy
 from data.fetcher import fetch_ohlcv
 from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, C_PRICE, console, _fmt_price
@@ -59,9 +59,12 @@ class BacktestResult:
     annualized_return_pct: float
     return_per_exposure_pct: Optional[float]
 
-def run_backtest(symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000) -> BacktestResult:
+def run_backtest(
+    symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000,
+    strategy: Optional[BaseStrategy] = None,
+) -> BacktestResult:
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
-    strategy = EmaRsiStrategy()
+    strategy = strategy or EmaRsiStrategy()
     df = strategy.calculate_indicators(df)
 
     result = simulate_backtest(df, strategy, initial_capital=initial_capital)
