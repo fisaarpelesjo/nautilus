@@ -262,6 +262,15 @@ Objetivo: aproximar o paper mode da realidade operacional antes de qualquer live
    - Criar relatorio que use o intervalo em que o bot ficou ligado e rode um backtest equivalente no mesmo par/timeframe.
    - Comparar trades reais paper, trades simulados, diferenca de entrada/saida, slippage, sinais perdidos e patrimonio final.
    - Por que melhora: mostra se a execucao real do loop esta reproduzindo o backtest ou se ha divergencia por timing, cache, MTF, cooldown, posicoes abertas ou dados incompletos.
+   - **Parcial** (`specs/008-replay-acelerado-loop`): item continua pendente na forma original
+     (exige historico real de paper mode rodando por um periodo). `python main.py replay <PAR>`
+     cobre uma aproximacao: roda o caminho de decisao REAL (`handle_entry_candidate`/
+     `handle_open_position`, nao a simulacao simplificada de backtest) candle a candle sobre
+     historico publico, isolado (nunca toca arquivos reais do bot), e compara contra um backtest
+     do mesmo periodo. Nao substitui o item original -- nao captura latencia de rede real nem
+     comportamento de processo rodando por dias, e tem 2 limitacoes conhecidas e documentadas
+     (cooldown baseado em relogio real, MTF nao point-in-time). Criado em resposta a uma pergunta
+     direta do operador sobre alternativas a esperar operacao paper real.
 
 5. [x] **Painel local**
    - Adicionar `python main.py painel` para mostrar saldo, posicoes abertas, PnL, ultimas operacoes, ultimos sinais, status dos pares e bloqueios recentes.

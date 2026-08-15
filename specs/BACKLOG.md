@@ -22,7 +22,8 @@ Coluna **Autonomia**:
 | 005 | Proteções finais para live | Sozinho | ✅ Concluída (`specs/005-live-protections/`, US1-US4 + Polish) |
 | 006 | Evolução da estratégia | Parcial | ✅ Parte autônoma concluída (`specs/006-evolucao-estrategia-novas/`, US1-US5 + Polish); "validar preset operacional atual" (Fase 4 item 1) segue pendente — depende de operação paper real |
 | 007 | Observabilidade operacional / forward test | Parcial | ✅ Parte autônoma concluída (`specs/007-observabilidade-operacional-capacidades/`, US1-US5 + Polish); forward test formal e comparação paper-vs-backtest (Fase 5 itens 1 e 4) seguem pendentes — dependem de operação paper real |
-| 008 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
+| 008 | Replay acelerado do loop real | Sozinho | ✅ Concluída (`specs/008-replay-acelerado-loop/`, US1-US2 + Polish) — fora do backlog original, criada em resposta a uma pergunta do operador sobre alternativas a esperar operação paper real; aproximação parcial de 007 item 4, não substitui |
+| 009 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
 
 ## 002 — Decisão de aprovação multi-par
 

@@ -68,6 +68,7 @@ python main.py resume               # retoma novas entradas (kill switch manual)
 python main.py painel               # patrimônio, posições, últimas operações/sinais e bloqueios recentes
 python main.py debug [PAR]          # explica cada condição de entrada (EMA, RSI, MTF, regime, cooldown...)
 python main.py performance          # curva de capital, drawdown e PnL por par (HTML no navegador)
+python main.py replay [PAR]         # roda o caminho de decisao real sobre historico, isolado (nunca toca arquivos reais)
 ```
 
 ---
@@ -268,6 +269,15 @@ O bot restaura o estado do `state.json` ao reiniciar — posição aberta e sald
   capital, drawdown e PnL por par a partir de `data/trades.csv`, HTML combinado aberto no
   navegador. `python main.py chart` ganha uma camada de marcadores de trades reais (distinta dos
   marcadores teóricos de sinal já existentes).
+- **`python main.py replay <PAR>`** (`trading/replay.py`): roda o caminho de decisão real
+  (`handle_entry_candidate`/`handle_open_position`, os mesmos usados pelo loop de produção) candle
+  a candle sobre histórico público — não a simulação simplificada de `backtesting/engine.py`.
+  Isolado via `_isolated_order_manager_environment()`: nunca toca `data/state.json`/
+  `data/trades.csv`/`data/signals.csv`/`data/decisions.csv` reais, nunca envia ordem real, nunca
+  dispara Telegram real, independente de `TRADING_MODE` no `.env` (mesmo em erro). Compara o
+  resultado contra um backtest simples do mesmo período. Aproximação parcial de "comparar paper vs
+  backtest" (`ROADMAP.md` Fase 5 item 4) — não substitui operação paper real, tem limitações
+  conhecidas (cooldown por relógio real, MTF não point-in-time).
 
 ---
 

@@ -70,6 +70,7 @@ python main.py resume               # resume new entries (manual kill switch)
 python main.py painel               # portfolio, positions, recent trades/signals and recent blockers
 python main.py debug [PAIR]         # explains each entry condition (EMA, RSI, MTF, regime, cooldown...)
 python main.py performance          # capital curve, drawdown and PnL per pair (HTML in browser)
+python main.py replay [PAIR]        # runs the real decision path over history, isolated (never touches real files)
 ```
 
 Default to `TRADING_MODE=paper` while developing.
@@ -254,6 +255,15 @@ Bot restores state from `state.json` on restart — open position and paper bala
   curve, drawdown, and PnL per pair from `data/trades.csv`, combined HTML opened in the browser.
   `python main.py chart` gains a layer of real-trade markers (distinct from the already-existing
   theoretical signal markers).
+- **`python main.py replay <PAIR>`** (`trading/replay.py`): runs the real decision path
+  (`handle_entry_candidate`/`handle_open_position`, the same ones used by the production loop)
+  candle by candle over public history — not the simplified simulation in
+  `backtesting/engine.py`. Isolated via `_isolated_order_manager_environment()`: never touches
+  real `data/state.json`/`data/trades.csv`/`data/signals.csv`/`data/decisions.csv`, never sends a
+  real order, never fires a real Telegram message, regardless of `TRADING_MODE` in `.env` (even on
+  error). Compares the result against a simple backtest of the same period. Partial approximation
+  of "compare paper vs backtest" (`ROADMAP.md` Fase 5 item 4) — does not replace real paper
+  operation, has known limitations (real-clock-based cooldown, non-point-in-time MTF).
 
 ---
 
