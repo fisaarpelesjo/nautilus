@@ -131,3 +131,46 @@ def test_run_replay_produces_coherent_result_without_network(monkeypatch):
         assert "entry_price" in trade
         assert "exit_price" in trade
         assert "pnl_usdt" in trade
+
+
+def _fake_backtest_result(total_trades=5, total_return_pct=3.0):
+    from backtesting.engine import BacktestResult
+    return BacktestResult(
+        trades=[], initial_capital=1000.0, final_capital=1000.0 * (1 + total_return_pct / 100),
+        total_return_pct=total_return_pct, win_rate=60.0, total_trades=total_trades,
+        max_drawdown_pct=5.0, profit_factor=1.5, expectancy=1.0,
+        average_win=2.0, average_loss=-1.0, largest_win=5.0, largest_loss=-2.0,
+        max_losing_streak=1, exposure_pct=30.0, sharpe=1.0, expectancy_pct=1.0,
+        payoff_ratio=2.0, buy_hold_return_pct=1.0, edge_return_pct=2.0,
+        edge_score=5.0, sortino=1.2, calmar=1.5, annualized_return_pct=10.0,
+        return_per_exposure_pct=10.0,
+    )
+
+
+def test_compare_to_backtest_reports_trade_counts_and_returns():
+    result = replay.ReplayResult(
+        symbol="BTC/USDT", timeframe="4h",
+        trades=[{"pnl_usdt": "10.0"}, {"pnl_usdt": "-5.0"}],
+        total_trades=2, total_pnl=5.0, blocked_cycles=1,
+    )
+    backtest_result = _fake_backtest_result(total_trades=5, total_return_pct=3.0)
+
+    comparison = replay.compare_to_backtest(result, backtest_result, initial_capital=1000.0)
+
+    assert comparison.replay_trades == 2
+    assert comparison.backtest_trades == 5
+    assert comparison.backtest_return_pct == 3.0
+    assert comparison.replay_return_pct == 0.5  # 5.0 / 1000.0 * 100
+    assert len(comparison.notes) > 0
+
+
+def test_compare_to_backtest_notes_no_divergence_when_trade_counts_match():
+    result = replay.ReplayResult(
+        symbol="BTC/USDT", timeframe="4h",
+        trades=[{"pnl_usdt": "10.0"}], total_trades=1, total_pnl=10.0, blocked_cycles=0,
+    )
+    backtest_result = _fake_backtest_result(total_trades=1, total_return_pct=1.0)
+
+    comparison = replay.compare_to_backtest(result, backtest_result, initial_capital=1000.0)
+
+    assert any("sem divergencia" in note.lower() or "nenhuma divergencia" in note.lower() for note in comparison.notes)

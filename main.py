@@ -216,6 +216,39 @@ def cmd_performance():
     # gera sempre um file:/// absoluto valido.
     webbrowser.open(report_path.resolve().as_uri())
 
+def cmd_replay():
+    from backtesting.engine import run_backtest
+    from trading.replay import compare_to_backtest, run_replay
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_POS, C_NEG, console, header
+
+    args = sys.argv[2:]
+    symbol = args[0] if args else SYMBOL
+
+    header()
+    console.print(f"[bold {C_CYAN}]replay: {symbol}[/bold {C_CYAN}]")
+    console.print(f"  [{C_DIM}]rodando o caminho de decisao real sobre historico publico -- isolado, nenhum arquivo real do bot e tocado[/{C_DIM}]")
+    console.print()
+
+    # candle_limit menor que o default de run_backtest/run_replay: cada
+    # ciclo do replay recalcula indicadores sobre uma janela crescente (o
+    # mesmo padrao ja aceito em backtesting/engine.py simulate_backtest sem
+    # precomputed_signals) -- com 2000 candles isso passa de 1 minuto real.
+    # 300 mantem o comando usavel sob demanda, custando ~1 mes de historico
+    # em 4h.
+    replay_candle_limit = 300
+    result = run_replay(symbol, TIMEFRAME, candle_limit=replay_candle_limit)
+    backtest_result = run_backtest(symbol, TIMEFRAME, candle_limit=replay_candle_limit)
+    comparison = compare_to_backtest(result, backtest_result)
+
+    console.print(f"  [{C_LABEL}]replay[/{C_LABEL}]    trades [white]{comparison.replay_trades}[/white]"
+                  f"   retorno [{C_POS if comparison.replay_return_pct >= 0 else C_NEG}]{comparison.replay_return_pct:+.2f}%[/]"
+                  f"   bloqueios [white]{result.blocked_cycles}[/white]")
+    console.print(f"  [{C_LABEL}]backtest[/{C_LABEL}]  trades [white]{comparison.backtest_trades}[/white]"
+                  f"   retorno [{C_POS if comparison.backtest_return_pct >= 0 else C_NEG}]{comparison.backtest_return_pct:+.2f}%[/]")
+    console.print()
+    for note in comparison.notes:
+        console.print(f"  [{C_DIM}]- {note}[/{C_DIM}]")
+
 def cmd_debug():
     from data.fetcher import fetch_ohlcv
     from execution.order_manager import OrderManager
@@ -271,6 +304,7 @@ COMMANDS = {
     "debug":         cmd_debug,
     "performance":   cmd_performance,
     "desempenho":    cmd_performance,
+    "replay":        cmd_replay,
     # aliases pt-br
     "analisar":      cmd_analisar,
     "decisoes":      cmd_decisions,

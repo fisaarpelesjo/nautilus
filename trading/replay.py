@@ -21,6 +21,54 @@ class ReplayResult:
     blocked_cycles: int = 0
 
 
+@dataclass
+class ReplayComparison:
+    replay_trades: int
+    backtest_trades: int
+    replay_return_pct: float
+    backtest_return_pct: float
+    notes: List[str] = field(default_factory=list)
+
+
+def compare_to_backtest(result: ReplayResult, backtest_result, initial_capital: float = 1000.0) -> ReplayComparison:
+    """Compara o resultado do replay (caminho de decisao real) contra um
+    backtest simples do mesmo par/periodo -- reusa run_backtest() ja
+    existente (spec 006), nao duplica simulacao. Notas fixas explicam
+    divergencias conhecidas, nunca inventam diferenca onde nao ha."""
+    replay_return_pct = (result.total_pnl / initial_capital * 100) if initial_capital else 0.0
+    backtest_return_pct = backtest_result.total_return_pct
+
+    notes: List[str] = []
+    if result.total_trades == backtest_result.total_trades:
+        notes.append("Sem divergencia no numero de trades entre replay e backtest.")
+    elif result.total_trades < backtest_result.total_trades:
+        notes.append(
+            f"Replay teve menos trades ({result.total_trades}) que o backtest "
+            f"({backtest_result.total_trades}) -- cooldown/MTF/circuit breaker do caminho real "
+            "podem ter bloqueado entradas que o backtest simplificado nao modela."
+        )
+    else:
+        notes.append(
+            f"Replay teve mais trades ({result.total_trades}) que o backtest "
+            f"({backtest_result.total_trades}) -- verificar se algum filtro esta desabilitado "
+            "no replay mas habilitado nos parametros usados pelo backtest."
+        )
+
+    notes.append(
+        "Limitacoes conhecidas: cooldown do replay usa relogio real (nao o timestamp do candle "
+        "historico) e MTF busca o timeframe de confirmacao mais recente disponivel, nao "
+        "point-in-time -- ver research.md da spec 008."
+    )
+
+    return ReplayComparison(
+        replay_trades=result.total_trades,
+        backtest_trades=backtest_result.total_trades,
+        replay_return_pct=replay_return_pct,
+        backtest_return_pct=backtest_return_pct,
+        notes=notes,
+    )
+
+
 @contextmanager
 def _isolated_order_manager_environment():
     """Isola OrderManager de todo I/O real durante um replay -- MUST nunca
