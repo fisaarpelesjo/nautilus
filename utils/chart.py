@@ -1,3 +1,4 @@
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dash import Dash, dcc, html, Input, Output
@@ -6,6 +7,7 @@ import threading
 
 from config.settings import TIMEFRAME, EMA_FAST, EMA_SLOW, EMA_TREND, RSI_OVERBOUGHT, RSI_OVERSOLD, PAIRS
 from data.fetcher import fetch_ohlcv
+from data.trade_store import load_recent_trades
 from strategy.ema_rsi import EmaRsiStrategy
 from backtesting.engine import precompute_signals
 from strategy.base import Signal
@@ -20,6 +22,45 @@ _EMA2 = "#ffeb3b"
 _EMA3 = "#ff5252"
 _BB   = "#4fc3f7"
 _RSI  = "#ce93d8"
+
+
+def _add_real_trade_markers(fig: go.Figure, symbol: str, dates):
+    """Segunda camada de marcadores: trades REALMENTE fechados
+    (data/trades.csv), distintos dos marcadores teoricos de sinal ja
+    existentes acima (calculados por precompute_signals para os parametros
+    atuais). Falha/ausencia de historico nao impede o restante do grafico
+    de ser exibido."""
+    try:
+        trades = load_recent_trades(n=100_000)
+    except Exception:
+        return
+    if not trades:
+        return
+
+    period_start, period_end = dates.min(), dates.max()
+    xs, ys = [], []
+    for t in trades:
+        if t.get("symbol") != symbol:
+            continue
+        closed_at = t.get("closed_at")
+        try:
+            ts = pd.Timestamp(closed_at)
+            exit_price = float(t.get("exit_price") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ts < period_start or ts > period_end:
+            continue
+        xs.append(ts)
+        ys.append(exit_price)
+
+    if not xs:
+        return
+
+    fig.add_trace(go.Scatter(
+        x=xs, y=ys, mode="markers",
+        marker=dict(symbol="diamond", size=10, color="#ffa726", line=dict(width=1, color="white")),
+        name="trade real",
+    ), row=1, col=1)
 
 
 def _build_figure(symbol: str, timeframe: str) -> go.Figure:
@@ -98,6 +139,8 @@ def _build_figure(symbol: str, timeframe: str) -> go.Figure:
             marker=dict(symbol="triangle-down", size=12, color=_DOWN),
             name="SELL",
         ), row=1, col=1)
+
+    _add_real_trade_markers(fig, symbol, dates)
 
     fig.add_hline(
         y=cur_price, line_dash="dash",

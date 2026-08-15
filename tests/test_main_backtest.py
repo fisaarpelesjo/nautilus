@@ -123,3 +123,25 @@ def test_cmd_painel_calls_trading_panel_print_panel(monkeypatch):
     main.cmd_painel()
 
     assert len(calls) == 1
+
+
+def test_performance_command_is_registered_with_pt_br_alias():
+    assert "performance" in main.COMMANDS
+    assert "desempenho" in main.COMMANDS
+    assert main.COMMANDS["performance"] is main.COMMANDS["desempenho"]
+
+
+def test_cmd_performance_builds_figures_and_opens_report(monkeypatch, tmp_path):
+    from data import trade_store
+
+    monkeypatch.setattr(trade_store, "load_recent_trades", lambda n=100000: [
+        {"symbol": "BTC/USDT", "pnl_usdt": "5.0", "closed_at": "2026-01-01", "balance_after": "1005.0"},
+    ])
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
+    monkeypatch.setattr(main, "PERFORMANCE_REPORT_PATH", str(tmp_path / "performance.html"))
+
+    main.cmd_performance()
+
+    assert len(opened) == 1
+    assert (tmp_path / "performance.html").exists()

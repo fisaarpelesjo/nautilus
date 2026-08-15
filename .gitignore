@@ -15,6 +15,7 @@ venv/
 data/signals.csv
 data/decisions.csv
 data/trades.csv
+data/performance_report.html
 data/state.json
 data/killswitch.json
 data/ohlcv/

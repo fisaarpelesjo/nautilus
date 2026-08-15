@@ -25,6 +25,8 @@ Uso:
 import sys
 from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
 
+PERFORMANCE_REPORT_PATH = "data/performance_report.html"
+
 def cmd_backtest():
     args = sys.argv[2:]
     if "--validate" in args:
@@ -190,6 +192,30 @@ def cmd_painel():
     manager = OrderManager()
     print_panel(manager)
 
+def cmd_performance():
+    import webbrowser
+    from backtesting.performance_charts import build_performance_figures
+    from data.trade_store import load_recent_trades
+
+    trades = load_recent_trades(n=100_000)
+    figures = build_performance_figures(trades)
+
+    if figures.status == "sem_dados":
+        print("Nenhum trade encontrado em data/trades.csv ainda -- nada para exibir.")
+        return
+
+    parts = [
+        figures.capital_curve.to_html(full_html=False, include_plotlyjs="cdn"),
+        figures.drawdown_curve.to_html(full_html=False, include_plotlyjs=False),
+        figures.pnl_by_pair.to_html(full_html=False, include_plotlyjs=False),
+    ]
+    html = "<html><body>" + "".join(parts) + "</body></html>"
+
+    with open(PERFORMANCE_REPORT_PATH, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    webbrowser.open(f"file://{PERFORMANCE_REPORT_PATH}")
+
 def cmd_debug():
     from data.fetcher import fetch_ohlcv
     from execution.order_manager import OrderManager
@@ -243,6 +269,8 @@ COMMANDS = {
     "resume":        cmd_resume,
     "painel":        cmd_painel,
     "debug":         cmd_debug,
+    "performance":   cmd_performance,
+    "desempenho":    cmd_performance,
     # aliases pt-br
     "analisar":      cmd_analisar,
     "decisoes":      cmd_decisions,
