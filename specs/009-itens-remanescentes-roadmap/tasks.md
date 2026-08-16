@@ -45,15 +45,15 @@ description: "Task list for 009-itens-remanescentes-roadmap"
 
 ## Phase 3: User Story 3 - Out-of-sample no edge (Priority: P3)
 
-- [ ] T009 [P] [US3] Teste: `run_edge_report(..., validate=True)` retorna treino + validação +
+- [X] T009 [P] [US3] Teste: `run_edge_report(..., validate=True)` retorna treino + validação +
       veredito calculado sobre a validação — novo teste em `tests/test_backtesting_validation.py`
       (arquivo já existente)
-- [ ] T010 [P] [US3] Teste: `run_edge_report(..., validate=False)` (default) mantém o
+- [X] T010 [P] [US3] Teste: `run_edge_report(..., validate=False)` (default) mantém o
       comportamento já existente — `tests/test_backtesting_validation.py`
-- [ ] T011 [US3] `backtesting/validation.py` `run_edge_report()`: parâmetro `validate: bool =
+- [X] T011 [US3] `backtesting/validation.py` `run_edge_report()`: parâmetro `validate: bool =
       False`, reusa `split_train_validation`/`simulate_backtest` quando `True` (depende de T009
       falhando, T010 falhando)
-- [ ] T012 [US3] `main.py` `cmd_edge()`: lê `--validate` de `sys.argv`, mesmo padrão já usado por
+- [X] T012 [US3] `main.py` `cmd_edge()`: lê `--validate` de `sys.argv`, mesmo padrão já usado por
       `cmd_backtest`/`cmd_otimizar` (depende de T011)
 
 **Checkpoint**: US1-US3 completas.
@@ -62,14 +62,14 @@ description: "Task list for 009-itens-remanescentes-roadmap"
 
 ## Phase 4: User Story 4 - Indicadores médios por decisão (Priority: P4)
 
-- [ ] T013 [P] [US4] Teste: `DecisionRecord` inclui `rsi`; linhas sem RSI não quebram o parsing —
+- [X] T013 [P] [US4] Teste: `DecisionRecord` inclui `rsi`; linhas sem RSI não quebram o parsing —
       novo teste em `tests/test_decisions_analysis.py` (arquivo já existente)
-- [ ] T014 [P] [US4] Teste: `analyze_decisions()` calcula RSI médio por sinal corretamente com
+- [X] T014 [P] [US4] Teste: `analyze_decisions()` calcula RSI médio por sinal corretamente com
       fixture sintética — `tests/test_decisions_analysis.py`
-- [ ] T015 [US4] `data/decisions_analysis.py`: `DecisionRecord.rsi`, `_load_decisions()` popula o
+- [X] T015 [US4] `data/decisions_analysis.py`: `DecisionRecord.rsi`, `_load_decisions()` popula o
       campo, `analyze_decisions()` calcula `avg_indicators_by_signal` (depende de T013 falhando,
       T014 falhando)
-- [ ] T016 [US4] `print_decisions_analysis()`: exibe a nova seção de indicadores médios por sinal
+- [X] T016 [US4] `print_decisions_analysis()`: exibe a nova seção de indicadores médios por sinal
       (depende de T015)
 
 **Checkpoint**: Todas as 4 User Stories completas.

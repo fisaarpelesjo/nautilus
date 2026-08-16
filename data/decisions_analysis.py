@@ -2,7 +2,7 @@ import csv
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from rich import box
 from rich.table import Table
@@ -16,6 +16,7 @@ class DecisionRecord:
     signal: str
     entry_opened: bool
     blockers: List[str] = field(default_factory=list)
+    rsi: Optional[float] = None
 
 
 @dataclass
@@ -25,6 +26,7 @@ class DecisionsAnalysisResult:
     signal_counts: Dict[str, int] = field(default_factory=dict)
     blocked_entries: int = 0
     blocker_counts: List[Tuple[str, int]] = field(default_factory=list)
+    avg_indicators_by_signal: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
 
 def analyze_decisions(path: str = DECISIONS_FILE) -> DecisionsAnalysisResult:
@@ -35,6 +37,7 @@ def analyze_decisions(path: str = DECISIONS_FILE) -> DecisionsAnalysisResult:
     signal_counts: Dict[str, int] = defaultdict(int)
     blocker_counter: Counter = Counter()
     blocked_entries = 0
+    rsi_by_signal: Dict[str, List[float]] = defaultdict(list)
 
     for record in records:
         if record.signal:
@@ -42,6 +45,13 @@ def analyze_decisions(path: str = DECISIONS_FILE) -> DecisionsAnalysisResult:
         if record.blockers:
             blocked_entries += 1
             blocker_counter.update(record.blockers)
+        if record.signal and record.rsi is not None:
+            rsi_by_signal[record.signal].append(record.rsi)
+
+    avg_indicators_by_signal = {
+        signal: {"rsi": sum(values) / len(values)}
+        for signal, values in rsi_by_signal.items()
+    }
 
     return DecisionsAnalysisResult(
         status="ok",
@@ -49,6 +59,7 @@ def analyze_decisions(path: str = DECISIONS_FILE) -> DecisionsAnalysisResult:
         signal_counts=dict(signal_counts),
         blocked_entries=blocked_entries,
         blocker_counts=blocker_counter.most_common(),
+        avg_indicators_by_signal=avg_indicators_by_signal,
     )
 
 
@@ -73,6 +84,7 @@ def print_decisions_analysis(result: DecisionsAnalysisResult):
     console.print()
 
     _print_signal_table(result)
+    _print_indicators_table(result)
     _print_blocker_table(result)
 
 
@@ -95,7 +107,9 @@ def _load_decisions(path: str) -> List[DecisionRecord]:
                 [b.strip() for b in raw_blockers.split(",") if b.strip()]
                 if raw_blockers else []
             )
-            records.append(DecisionRecord(signal=signal, entry_opened=entry_opened, blockers=blockers))
+            raw_rsi = (row.get("rsi") or "").strip()
+            rsi = float(raw_rsi) if raw_rsi else None
+            records.append(DecisionRecord(signal=signal, entry_opened=entry_opened, blockers=blockers, rsi=rsi))
         return records
 
 
@@ -106,6 +120,21 @@ def _print_signal_table(result: DecisionsAnalysisResult):
 
     for signal, count in sorted(result.signal_counts.items(), key=lambda item: item[1], reverse=True):
         table.add_row(f"  {signal}", str(count))
+
+    console.print(table)
+    console.print()
+
+
+def _print_indicators_table(result: DecisionsAnalysisResult):
+    if not result.avg_indicators_by_signal:
+        return
+
+    table = Table(box=box.SIMPLE, show_header=True, header_style="bold dim", border_style="dim", pad_edge=False)
+    table.add_column("  sinal", style="white", min_width=10)
+    table.add_column("rsi medio", justify="right", min_width=10)
+
+    for signal, indicators in sorted(result.avg_indicators_by_signal.items()):
+        table.add_row(f"  {signal}", f"{indicators['rsi']:.1f}")
 
     console.print(table)
     console.print()

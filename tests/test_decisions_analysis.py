@@ -4,7 +4,7 @@ from data.decisions_analysis import analyze_decisions
 
 _HEADERS = [
     "timestamp", "cycle_id", "symbol", "timeframe", "price", "signal",
-    "decision", "in_position", "entry_opened", "blockers",
+    "decision", "in_position", "entry_opened", "blockers", "rsi",
 ]
 
 
@@ -89,3 +89,37 @@ def test_analyze_decisions_tolerates_rows_with_missing_columns(tmp_path):
     assert result.signal_counts == {"BUY": 1, "HOLD": 1}
     assert result.blocked_entries == 0  # sem coluna blockers, nao pode contar bloqueio
     assert result.blocker_counts == []
+
+
+def test_analyze_decisions_computes_average_rsi_by_signal(tmp_path):
+    path = tmp_path / "decisions.csv"
+    _write_csv(path, [
+        {"signal": "BUY", "entry_opened": "True", "blockers": "", "rsi": "50.0"},
+        {"signal": "BUY", "entry_opened": "False", "blockers": "cooldown", "rsi": "60.0"},
+        {"signal": "SELL", "entry_opened": "False", "blockers": "", "rsi": "40.0"},
+        {"signal": "HOLD", "entry_opened": "False", "blockers": "", "rsi": ""},
+    ])
+
+    result = analyze_decisions(str(path))
+
+    assert result.avg_indicators_by_signal["BUY"]["rsi"] == 55.0
+    assert result.avg_indicators_by_signal["SELL"]["rsi"] == 40.0
+    # linha HOLD sem rsi (vazio) nao entra na media -- sem indicador nenhum
+    # nessa amostra, HOLD nao aparece no dict (nao inventa uma media de zero
+    # itens).
+    assert "HOLD" not in result.avg_indicators_by_signal
+
+
+def test_analyze_decisions_tolerates_rows_without_rsi_column(tmp_path):
+    # Schema antigo: linha sem a coluna "rsi" (arquivo girado antes dela existir).
+    path = tmp_path / "decisions.csv"
+    old_headers = ["timestamp", "cycle_id", "symbol", "timeframe", "price", "signal",
+                   "decision", "in_position", "entry_opened"]
+    _write_csv(path, [
+        {"signal": "BUY", "entry_opened": "True"},
+    ], headers=old_headers)
+
+    result = analyze_decisions(str(path))
+
+    assert result.status == "ok"
+    assert result.avg_indicators_by_signal == {}
