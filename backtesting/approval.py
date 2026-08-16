@@ -71,6 +71,20 @@ def diagnose_profile(result: BacktestResult) -> Optional[str]:
     )
     if is_defensive:
         return "perfil defensivo: preservou capital, mas capturou pouco da alta"
+
+    # "significativamente acima" = 50% do MODULO do buy-hold acima dele, nao
+    # `buy_hold * 1.5` puro -- com buy-hold negativo (ex: bear market, -30%)
+    # o multiplicador inverte o limiar (-30*1.5=-45, qualquer perda menor que
+    # -45% passaria como "bem acima"), rotulando estrategia perdedora como
+    # "agressiva" so por ter perdido menos que o benchmark (achado de
+    # /code-review medium).
+    aggressive_threshold = result.buy_hold_return_pct + abs(result.buy_hold_return_pct) * 0.5
+    is_aggressive = (
+        result.max_drawdown_pct > MAX_ACCEPTABLE_DRAWDOWN_PCT
+        and result.total_return_pct > aggressive_threshold
+    )
+    if is_aggressive:
+        return "perfil agressivo: retorno bem acima do buy-and-hold as custas de drawdown alto"
     return None
 
 

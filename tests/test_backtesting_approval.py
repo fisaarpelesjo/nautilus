@@ -133,6 +133,38 @@ def test_diagnose_profile_is_none_when_return_beats_buy_and_hold():
     assert diagnose_profile(result) is None
 
 
+def test_diagnose_profile_flags_aggressive_when_high_drawdown_and_return_well_above_buy_hold():
+    result = _result(total_trades=15, total_return_pct=45.0, buy_hold_return_pct=20.0,
+                      profit_factor=1.5, max_drawdown_pct=15.0, expectancy=1.0)
+
+    diagnosis = diagnose_profile(result)
+
+    assert diagnosis is not None
+    assert "agressivo" in diagnosis
+
+
+def test_diagnose_profile_is_none_when_drawdown_high_but_return_not_well_above_buy_hold():
+    # drawdown alto (reprova o perfil defensivo), mas retorno so um pouco acima
+    # do buy-hold (< 1.5x) -- nao deve ser rotulado agressivo so por ter tido
+    # drawdown alto, senao qualquer resultado ruim com drawdown alto vira
+    # "agressivo" por omissao.
+    result = _result(total_trades=15, total_return_pct=25.0, buy_hold_return_pct=20.0,
+                      profit_factor=1.5, max_drawdown_pct=15.0, expectancy=1.0)
+
+    assert diagnose_profile(result) is None
+
+
+def test_diagnose_profile_is_none_when_buy_hold_negative_and_strategy_just_lost_less():
+    # Achado de /code-review medium: `buy_hold * 1.5` inverte o limiar quando o
+    # buy-hold e negativo (bear market). Estrategia perdeu 20% mas o
+    # buy-and-hold perdeu 30% -- perder menos que um benchmark negativo nao e
+    # "retorno bem acima do buy-and-hold", nao pode virar "perfil agressivo".
+    result = _result(total_trades=15, total_return_pct=-20.0, buy_hold_return_pct=-30.0,
+                      profit_factor=0.9, max_drawdown_pct=15.0, expectancy=-1.0)
+
+    assert diagnose_profile(result) is None
+
+
 def _rankable(edge_score, profit_factor=1.0, trades=15):
     return SimpleNamespace(edge_score=edge_score, profit_factor=profit_factor, trades=trades)
 

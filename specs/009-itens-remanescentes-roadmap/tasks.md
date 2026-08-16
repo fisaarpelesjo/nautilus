@@ -31,12 +31,12 @@ description: "Task list for 009-itens-remanescentes-roadmap"
 
 ## Phase 2: User Story 2 - Diagnóstico agressivo (Priority: P2)
 
-- [ ] T006 [P] [US2] Teste: `diagnose_profile()` com drawdown alto e retorno bem acima do
+- [X] T006 [P] [US2] Teste: `diagnose_profile()` com drawdown alto e retorno bem acima do
       buy-hold retorna diagnóstico de perfil agressivo — `tests/test_backtesting_approval.py`
       (arquivo já existente)
-- [ ] T007 [P] [US2] Teste: `diagnose_profile()` com resultado nem defensivo nem agressivo continua
+- [X] T007 [P] [US2] Teste: `diagnose_profile()` com resultado nem defensivo nem agressivo continua
       retornando `None` — `tests/test_backtesting_approval.py`
-- [ ] T008 [US2] `backtesting/approval.py` `diagnose_profile()`: adiciona checagem de perfil
+- [X] T008 [US2] `backtesting/approval.py` `diagnose_profile()`: adiciona checagem de perfil
       agressivo (depende de T006 falhando, T007 falhando)
 
 **Checkpoint**: US1 e US2 completas.
