@@ -92,9 +92,14 @@ Objetivo: transformar o `python main.py edge` de um painel de metricas em uma de
      por qualidade nos dois comandos. Selecao dinamica (`market/selector.py`) nao foi tocada nesta
      spec.
 
-6. [ ] **Edge anualizado e retorno por exposicao**
+6. [x] **Edge anualizado e retorno por exposicao**
    - Calcular retorno anualizado da estrategia, buy-and-hold anualizado e retorno por tempo exposto.
    - Por que melhora: uma estrategia exposta apenas 7% do tempo precisa ser julgada tambem pela eficiencia do capital, nao so pelo retorno bruto.
+   - **Concluido** (`specs/004-advanced-risk-metrics`, mesmo item da Fase 3 item 3): `annualized_return_pct`
+     (juros compostos, base 365 dias) e `return_per_exposure_pct` (`None` explicito quando exposicao
+     e zero), exibidos em todo relatorio de backtest, incluindo `python main.py edge`. Item deixado
+     sem marcar por engano quando a spec 004 fechou — mesma entrega, referenciada duas vezes no
+     ROADMAP (aqui e na Fase 3).
 
 7. [ ] **Out-of-sample no relatorio de edge**
    - Mostrar edge separado entre periodo de treino e periodo de teste quando o backtest vier do otimizador ou de validacao walk-forward.
