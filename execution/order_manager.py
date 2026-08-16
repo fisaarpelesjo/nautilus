@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict
 import ccxt
 from config.settings import (
+    BACKTEST_FEE_RATE,
+    BACKTEST_SLIPPAGE_PCT,
     BINANCE_API_KEY,
     BINANCE_API_SECRET,
     LIVE_CONFIRMATION_TEXT,
@@ -53,6 +55,7 @@ class Position:
     take_profit: float
     atr: float = 0.0
     highest_price: float = 0.0
+    entry_fee: float = 0.0
     opened_at: datetime = field(default_factory=datetime.now)
     order_id: Optional[str] = None
     client_order_id: Optional[str] = None
@@ -177,6 +180,7 @@ class OrderManager:
                     take_profit   = pos["take_profit"],
                     atr           = pos.get("atr", 0.0),
                     highest_price = pos.get("highest_price", pos["entry_price"]),
+                    entry_fee     = pos.get("entry_fee", 0.0),
                     opened_at     = datetime.fromisoformat(pos["opened_at"]),
                     order_id      = pos.get("order_id"),
                     client_order_id = pos.get("client_order_id"),
@@ -446,15 +450,30 @@ class OrderManager:
             self._live_buy(symbol, risk)
 
     def close_position(self, symbol: str, reason: str, current_price: float = 0.0):
+        """Retorna (pnl, pnl_pct) reais (com slippage/fee ja aplicados em paper mode,
+        preco de preenchimento real em live) quando a venda e confirmada, ou None
+        quando a posicao nao existe ou a venda falha e a posicao e mantida local
+        para nova tentativa -- chamadores MUST usar esse retorno em vez de
+        recalcular pnl a partir do preco de mercado bruto (achado de code-review:
+        um pnl pre-calculado ficava dessincronizado do pnl real gravado em
+        data/trades.csv desde que paper mode passou a simular slippage/fee)."""
         if not self.has_position(symbol):
-            return
+            return None
         if TRADING_MODE == "paper":
-            self._paper_sell(symbol, reason, current_price)
+            return self._paper_sell(symbol, reason, current_price)
         else:
-            self._live_sell(symbol, reason, current_price)
+            return self._live_sell(symbol, reason, current_price)
 
     def _paper_buy(self, symbol: str, risk: RiskLevels):
-        cost = risk.quantity * risk.entry_price
+        # Slippage/fee espelham backtesting/engine.py (mesmas BACKTEST_FEE_RATE/
+        # BACKTEST_SLIPPAGE_PCT) para o paper mode nao ficar sistematicamente mais
+        # otimista que o backtest -- risk.quantity fica intocado (ja vem
+        # dimensionado por risk/manager.py), so o preco efetivo de preenchimento e
+        # o custo mudam. Ver specs/010-paridade-custos-paper/research.md.
+        entry_price = risk.entry_price * (1 + BACKTEST_SLIPPAGE_PCT)
+        notional = risk.quantity * entry_price
+        fee = notional * BACKTEST_FEE_RATE
+        cost = notional + fee
         if cost > self.paper_balance_usdt:
             log.warning(f"Saldo insuficiente para {symbol}: ${self.paper_balance_usdt:.2f}")
             return
@@ -463,12 +482,13 @@ class OrderManager:
         self.positions[symbol] = Position(
             symbol        = symbol,
             side          = "long",
-            entry_price   = risk.entry_price,
+            entry_price   = entry_price,
             quantity      = risk.quantity,
             stop_loss     = risk.stop_loss,
             take_profit   = risk.take_profit,
             atr           = risk.atr,
-            highest_price = risk.entry_price,
+            highest_price = entry_price,
+            entry_fee     = fee,
             client_order_id = client_order_id,
         )
         self._persist_state_with_retry(f"apos comprar (paper) {symbol}")
@@ -479,7 +499,7 @@ class OrderManager:
             mode=TRADING_MODE,
             symbol=symbol,
             side="long",
-            entry_price=risk.entry_price,
+            entry_price=entry_price,
             quantity=risk.quantity,
             stop_loss=risk.stop_loss,
             take_profit=risk.take_profit,
@@ -487,18 +507,32 @@ class OrderManager:
             client_order_id=client_order_id,
         ))
 
-        msg = f"[PAPER] COMPRA {symbol} | ${risk.entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
+        msg = f"[PAPER] COMPRA {symbol} | ${entry_price:.4f} | SL ${risk.stop_loss:.4f} | TP ${risk.take_profit:.4f}"
 
         _notify_safe(prefix, msg)
 
     def _paper_sell(self, symbol: str, reason: str, current_price: float = 0.0):
         pos = self.positions[symbol]
-        exit_price = current_price or (
+        exit_price_market = current_price or (
             pos.stop_loss if "stop" in reason.lower() else pos.take_profit
         )
-        pnl     = (exit_price - pos.entry_price) * pos.quantity
-        pnl_pct = (exit_price - pos.entry_price) / pos.entry_price * 100
-        self.paper_balance_usdt += pos.quantity * exit_price
+        # Mesma paridade de _paper_buy: slippage no preco de saida (tambem para
+        # saidas por stop/take, nao so por sinal com current_price explicito --
+        # backtesting/engine.py trata os dois casos igual) e fee sobre o valor
+        # bruto de saida. entry_cost reusa pos.entry_fee (a taxa REALMENTE paga
+        # na compra, persistida em Position/state.json) em vez de recalcular com
+        # o BACKTEST_FEE_RATE atual -- se o operador editar essa variavel no
+        # .env e reiniciar o bot com uma posicao ja aberta (achado de
+        # code-review), o PnL da venda continua correto em vez de usar a taxa
+        # nova retroativamente sobre uma compra antiga.
+        exit_price = exit_price_market * (1 - BACKTEST_SLIPPAGE_PCT)
+        entry_cost = pos.quantity * pos.entry_price + pos.entry_fee
+        gross_exit = pos.quantity * exit_price
+        exit_fee   = gross_exit * BACKTEST_FEE_RATE
+        net_exit   = gross_exit - exit_fee
+        pnl     = net_exit - entry_cost
+        pnl_pct = pnl / entry_cost * 100 if entry_cost else 0.0
+        self.paper_balance_usdt += net_exit
         self._check_daily_reset()
         self._check_weekly_reset()
         self._check_monthly_reset()
@@ -552,6 +586,7 @@ class OrderManager:
         msg = f"[PAPER] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | Saldo ${self.paper_balance_usdt:.2f}"
 
         _notify_safe(prefix, msg)
+        return pnl, pnl_pct
 
     def _live_buy(self, symbol: str, risk: RiskLevels):
         if self.exchange is None:
@@ -876,3 +911,4 @@ class OrderManager:
         msg = f"[LIVE] VENDA {symbol} | {reason} | PnL ${pnl:+.4f} ({pnl_pct:+.2f}%) | ID={order['id']}"
 
         _notify_safe(prefix, msg)
+        return pnl, pnl_pct

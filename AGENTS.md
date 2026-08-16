@@ -118,6 +118,8 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Weekly loss limit (10% of the weekly reference balance); must be ≥ `DAILY_DRAWDOWN_LIMIT` |
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Monthly loss limit (20% of the monthly reference balance); must be ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Consecutive losses (`pnl < 0`) before the circuit breaker trips; resets on a trade with `pnl > 0` |
+| `BACKTEST_FEE_RATE` | `0.001` | Exchange fee on entry/exit notional value — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already pays a real fee) |
+| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
 | `BB_PERIOD` | `20` | Bollinger Bands period |
 | `BB_STD` | `2.0` | Bollinger Bands standard deviations |
@@ -179,6 +181,11 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 - Fallback (if ATR = 0): fixed SL at `STOP_LOSS_PCT` (1.5%), fixed TP at `TAKE_PROFIT_PCT` (6%)
 - Minimum SL: never below 50% of entry price
 - Default risk/reward ratio with ATR: 1:2 (1.5× ATR risk, 3× ATR target)
+- **Execution cost in paper mode** (`execution/order_manager.py` `_paper_buy`/`_paper_sell`):
+  slippage (`BACKTEST_SLIPPAGE_PCT`) applied to entry/exit price and fee (`BACKTEST_FEE_RATE`) on
+  the notional value — same formula as the backtest (`backtesting/engine.py`), so the
+  `data/trades.csv` history in paper mode isn't systematically more optimistic than reality.
+  `TRADING_MODE=live` is unaffected (real execution already pays real market cost).
 
 ---
 

@@ -18,9 +18,10 @@ class _FakeSignal:
 
 
 class _FakeManager:
-    def __init__(self, close_succeeds=True, persist_raises=False):
+    def __init__(self, close_succeeds=True, persist_raises=False, close_result=(-1.0, -1.0)):
         self._close_succeeds = close_succeeds
         self._persist_raises = persist_raises
+        self._close_result = close_result
         self.positions = {"BTC/USDT": None}
         self.paper_balance_usdt = 1000.0
         self.cooldown_calls = []
@@ -31,6 +32,8 @@ class _FakeManager:
         self.close_calls.append((symbol, reason, price))
         if self._close_succeeds:
             del self.positions[symbol]
+            return self._close_result
+        return None
 
     def has_position(self, symbol):
         return symbol in self.positions
@@ -359,6 +362,28 @@ def test_handle_open_position_take_profit_does_not_report_close_when_close_fails
 
     assert row["decision"] == "fechamento falhou: take profit (posicao mantida para nova tentativa)"
     assert trade_events == []
+
+
+def test_attempt_close_uses_real_pnl_from_close_position_not_naive_market_price_diff():
+    # Regressao de code-review (spec 010): em paper mode, o preco/custo real de
+    # preenchimento (slippage + fee) diverge do preco de mercado bruto. Um pnl
+    # pre-calculado a partir de (current_price - pos.entry_price) ficaria
+    # dessincronizado do pnl real que close_position() retorna (o mesmo gravado
+    # em data/trades.csv) -- aqui o preco de mercado sugere lucro (+0.2%), mas
+    # o pnl real retornado e um prejuizo, e a decisao de cooldown/o evento
+    # reportado MUST seguir o pnl real, nao o calculo ingenuo.
+    manager = _FakeManager(close_succeeds=True, close_result=(-0.10, -0.0998))
+    pos = _FakePosition(entry_price=100.0, stop_loss=90.0, take_profit=120.0)
+    row = {"in_pos": True}
+    trade_events = []
+
+    position_lifecycle.handle_open_position(
+        manager, "BTC/USDT", pos, _FakeSignal(Signal.SELL), 100.2, row, trade_events,
+    )
+
+    assert manager.cooldown_calls == ["BTC/USDT"]  # on_loss dispara com o pnl real negativo
+    assert trade_events[0][2] == -0.10
+    assert trade_events[0][3] == -0.0998
 
 
 def test_handle_open_position_sell_signal_does_not_report_close_when_close_fails():

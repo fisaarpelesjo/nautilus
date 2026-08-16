@@ -24,7 +24,12 @@ Coluna **Autonomia**:
 | 007 | Observabilidade operacional / forward test | Parcial | ✅ Parte autônoma concluída (`specs/007-observabilidade-operacional-capacidades/`, US1-US5 + Polish); forward test formal e comparação paper-vs-backtest (Fase 5 itens 1 e 4) seguem pendentes — dependem de operação paper real |
 | 008 | Replay acelerado do loop real | Sozinho | ✅ Concluída (`specs/008-replay-acelerado-loop/`, US1-US2 + Polish) — fora do backlog original, criada em resposta a uma pergunta do operador sobre alternativas a esperar operação paper real; aproximação parcial de 007 item 4, não substitui |
 | 009 | Itens remanescentes do ROADMAP (relatórios, diagnóstico agressivo, edge out-of-sample, indicadores médios) | Sozinho | ✅ Concluída (`specs/009-itens-remanescentes-roadmap/`, US1-US4 + Polish) — fora do backlog original, criada após auditoria completa do `ROADMAP.md` (não só deste arquivo) revelar 4 itens pequenos genuinamente não implementados |
-| 010 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
+| 010 | Paridade de custos entre paper e backtest (fee/slippage em `_paper_buy`/`_paper_sell`) | Sozinho | ✅ Concluída (`specs/010-paridade-custos-paper/`, US1-US2 + Polish) — fora do backlog original, achado crítico de uma auditoria completa de código (não só docs) cruzada com pesquisa de boas práticas de bots de trading; o paper mode rodando na VPS desde 2026-08-16 estava registrando PnL sistematicamente ~0,3%/round-trip mais otimista que a realidade |
+| 011 | Singleton do exchange + retry/backoff de rate limit (`data/fetcher.py`) | Sozinho | 📋 Candidata — mesma auditoria da spec 010; risco operacional real pro deploy de 26 pares na VPS (`get_exchange()` cria uma instância `ccxt` nova a cada chamada, zerando o rate-limiter interno) |
+| 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | 📋 Candidata — mesma auditoria; MTF hoje falha *aberto* (assume tendência confirmada) num erro de rede, inconsistente com o resto de `position_lifecycle.py`, que sempre falha fechado |
+| 013 | Risco de correlação entre posições simultâneas | Sozinho | 📋 Candidata — gap de pesquisa (não da auditoria de código): `MAX_POSITIONS` limita quantidade, não exposição correlacionada entre pares que se movem juntos |
+| 014 | Refresh periódico de pares dinâmicos (`DYNAMIC_PAIRS_ENABLED`) | Sozinho | 📋 Candidata — baixa urgência (não é a config atual), mas relevante dado o padrão comprovado de VPS de longa duração |
+| 015 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
 
 ## 002 — Decisão de aprovação multi-par
 
@@ -95,15 +100,33 @@ não implementados, que não tinham entrado no backlog original:
 Também corrigiu um item já entregue pela spec 004 (edge anualizado/retorno por exposição, Fase 1.1
 item 6) que tinha ficado sem marcar por engano no `ROADMAP.md`.
 
+## 010 — Paridade de custos entre paper e backtest
+
+Achado crítico de uma auditoria completa do projeto (código + pesquisa de boas práticas de bots de
+trading retail, não só releitura do `ROADMAP.md`): `execution/order_manager.py`
+`_paper_buy()`/`_paper_sell()` calculavam custo/proceeds sem aplicar `BACKTEST_FEE_RATE`/
+`BACKTEST_SLIPPAGE_PCT`, já usados em todo `backtesting/engine.py`. O bot em paper mode (rodando
+na VPS desde 2026-08-16, coletando os dados que vão validar a estratégia) registrava PnL
+sistematicamente ~0,3%/round-trip mais otimista que a realidade — capaz de inverter o sinal de
+trades marginais.
+
+- Slippage no preço de entrada/saída, inclusive em saídas por stop/take (não só por sinal) — US1
+- Taxa sobre o valor nocional de entrada/saída, saldo insuficiente considera custo total — US2
+- `_live_buy`/`_live_sell` intocados — execução real já paga custo real
+- Paridade verificada em percentual (`pnl_pct`) contra `simulate_backtest()`, não em dólar
+  absoluto — as duas funções usam convenções de sizing diferentes (nocional fixo no backtest,
+  quantidade fixa no paper) que produzem o mesmo `pnl_pct` mas não o mesmo `pnl` em dólar
+
 ## Ordem sugerida
 
-002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009
+002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010
 
-**Status (2026-08-16)**: 001-005, 008 e 009 concluídas. 006 e 007 com a parte autônoma concluída —
-resta apenas o que depende do operador: "validar preset operacional atual" (006, Fase 4 item 1),
-forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos exigem
-histórico real de operação paper rodando por um período. O bot está em operação paper contínua
-desde 2026-08-16 (26 pares, VPS dedicada) — essas duas pendências agora têm um relógio real
-correndo, não são mais bloqueio indefinido.
+**Status (2026-08-16)**: 001-005, 008, 009 e 010 concluídas. 006 e 007 com a parte autônoma
+concluída — resta apenas o que depende do operador: "validar preset operacional atual" (006, Fase
+4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos
+exigem histórico real de operação paper rodando por um período. O bot está em operação paper
+contínua desde 2026-08-16 (26 pares, VPS dedicada), agora com custo de execução realista (spec
+010) — essas duas pendências têm um relógio real correndo, não são mais bloqueio indefinido.
 
-010 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.
+011-014 são candidatas da mesma auditoria (ver tabela acima), ainda não especificadas em detalhe.
+015 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.

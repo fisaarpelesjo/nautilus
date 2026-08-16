@@ -132,6 +132,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Limite de perda semanal (10% do saldo de referência semanal); deve ser ≥ `DAILY_DRAWDOWN_LIMIT` |
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Limite de perda mensal (20% do saldo de referência mensal); deve ser ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Perdas seguidas (`pnl < 0`) até ativar o circuit breaker; reseta em trade com `pnl > 0` |
+| `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional de entrada/saída — usada no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já paga taxa real) |
+| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já sofre slippage real) |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
 | `BB_PERIOD` | `20` | Período das Bollinger Bands |
 | `BB_STD` | `2.0` | Desvios padrão das Bollinger Bands |
@@ -193,6 +195,12 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - Fallback (se ATR = 0): SL fixo em `STOP_LOSS_PCT` (1.5%), TP fixo em `TAKE_PROFIT_PCT` (6%)
 - SL mínimo: nunca abaixo de 50% do preço de entrada
 - Risk/reward ratio padrão com ATR: 1:2 (1.5× ATR de risco, 3× ATR de alvo)
+- **Custo de execução em paper mode** (`execution/order_manager.py` `_paper_buy`/`_paper_sell`):
+  slippage (`BACKTEST_SLIPPAGE_PCT`) aplicado ao preço de entrada/saída e taxa
+  (`BACKTEST_FEE_RATE`) sobre o valor nocional — mesma fórmula do backtest (`backtesting/
+  engine.py`), para o histórico de `data/trades.csv` em paper mode não ficar sistematicamente
+  mais otimista que a realidade. `TRADING_MODE=live` não é afetado (execução real já paga custo
+  real de mercado).
 
 ---
 

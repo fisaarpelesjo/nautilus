@@ -26,14 +26,19 @@ def handle_open_position(manager: OrderManager, symbol: str, pos, signal, curren
 
 
 def _attempt_close(manager, symbol, pos, current_price, reason, label, row, trade_events, cooldown):
-    pnl, pnl_pct_val = position_pnl(pos, current_price)
-    manager.close_position(symbol, reason, current_price)
+    # pnl/pnl_pct vem do retorno de close_position(), nao de um pre-calculo a
+    # partir do preco de mercado bruto -- em paper mode o preco/custo real de
+    # preenchimento (slippage + fee, ver execution/order_manager.py) diverge do
+    # preco de mercado, entao um pre-calculo aqui ficaria dessincronizado do
+    # pnl real gravado em data/trades.csv (achado de code-review da spec 010).
+    result = manager.close_position(symbol, reason, current_price)
     if manager.has_position(symbol):
         # close_position pode falhar silenciosamente (ex: erro de rede em
         # live) e manter a posicao local de proposito -- ver
         # execution/order_manager.py _live_sell. Nao reportar como fechada.
         row["decision"] = f"fechamento falhou: {label} (posicao mantida para nova tentativa)"
         return
+    pnl, pnl_pct_val = result
     if cooldown == "always" or (cooldown == "on_loss" and pnl < 0):
         manager.set_cooldown(symbol)
     row["in_pos"] = False
@@ -128,12 +133,6 @@ def handle_entry_candidate(
     if opened:
         trade_events.append(("buy", symbol, risk.entry_price, risk.quantity, risk.stop_loss, risk.take_profit))
     return opened
-
-
-def position_pnl(pos, current_price: float):
-    pnl = (current_price - pos.entry_price) * pos.quantity
-    pnl_pct = (current_price - pos.entry_price) / pos.entry_price * 100
-    return pnl, pnl_pct
 
 
 def mtf_confirmed(symbol: str, price: float, strategy) -> bool:

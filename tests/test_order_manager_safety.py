@@ -61,6 +61,13 @@ def _paper_manager(monkeypatch, logged_trades=None):
     monkeypatch.setattr(order_manager, "save_state", lambda state: None)
     monkeypatch.setattr(order_manager, "send_telegram", lambda msg: None)
     monkeypatch.setattr(order_manager, "log_trade", lambda trade: (logged_trades if logged_trades is not None else []).append(trade))
+    # Fee/slippage zerados por padrao (spec 010): a maioria dos testes deste
+    # arquivo verifica contadores/circuit breaker/limites, nao aritmetica de
+    # custo, e depende de valores exatos de entry/exit price (ex: pnl==0 num
+    # trade "breakeven"). Testes que exercitam custo real sobrescrevem essas
+    # duas variaveis explicitamente.
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.0)
+    monkeypatch.setattr(order_manager, "BACKTEST_SLIPPAGE_PCT", 0.0)
     return OrderManager()
 
 
@@ -110,6 +117,181 @@ def test_paper_sell_removes_position_even_if_log_trade_fails(monkeypatch):
     # symbol) nao deve fazer nada, pois a posicao ja nao existe mais.
     manager.close_position("BTC/USDT", "take_profit", current_price=110.0)
     assert manager.total_trades == 1
+
+
+def test_paper_buy_applies_slippage_to_entry_price(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+    monkeypatch.setattr(order_manager, "BACKTEST_SLIPPAGE_PCT", 0.0005)
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+
+    pos = manager.get_position("BTC/USDT")
+    assert pos.entry_price == pytest.approx(100.0 * 1.0005)
+
+
+def test_paper_sell_applies_slippage_to_exit_price_with_current_price(monkeypatch):
+    logged_trades = []
+    manager = _paper_manager(monkeypatch, logged_trades)
+    monkeypatch.setattr(order_manager, "BACKTEST_SLIPPAGE_PCT", 0.0005)
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+    manager.open_long("BTC/USDT", risk)
+
+    manager.close_position("BTC/USDT", "sinal de venda", current_price=110.0)
+
+    assert logged_trades[0]["exit_price"] == pytest.approx(110.0 * (1 - 0.0005))
+
+
+def test_paper_sell_applies_slippage_to_fallback_stop_take_price(monkeypatch):
+    # backtesting/engine.py aplica slippage tambem quando a saida e por
+    # stop/take (nao so por sinal com current_price explicito) -- mesmo
+    # tratamento aqui, senao a paridade com o backtest fica so parcial.
+    logged_trades = []
+    manager = _paper_manager(monkeypatch, logged_trades)
+    monkeypatch.setattr(order_manager, "BACKTEST_SLIPPAGE_PCT", 0.0005)
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+    manager.open_long("BTC/USDT", risk)
+
+    manager.close_position("BTC/USDT", "take_profit")  # sem current_price -> usa pos.take_profit
+
+    assert logged_trades[0]["exit_price"] == pytest.approx(110.0 * (1 - 0.0005))
+
+
+def test_paper_buy_sell_price_unchanged_when_slippage_zero(monkeypatch):
+    # FR-008: BACKTEST_SLIPPAGE_PCT=0 (ja o default de _paper_manager) nao
+    # pode mudar o preco de entrada/saida em relacao ao comportamento anterior
+    # a esta spec.
+    logged_trades = []
+    manager = _paper_manager(monkeypatch, logged_trades)
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+    assert manager.get_position("BTC/USDT").entry_price == 100.0
+
+    manager.close_position("BTC/USDT", "sinal de venda", current_price=110.0)
+    assert logged_trades[0]["exit_price"] == 110.0
+
+
+def test_paper_buy_deducts_fee_from_balance(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.001)
+    saldo_inicial = manager.paper_balance_usdt
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+
+    notional = 1.0 * 100.0
+    custo_esperado = notional + notional * 0.001
+    assert manager.paper_balance_usdt == pytest.approx(saldo_inicial - custo_esperado)
+
+
+def test_paper_sell_deducts_fee_from_proceeds_and_pnl(monkeypatch):
+    logged_trades = []
+    manager = _paper_manager(monkeypatch, logged_trades)
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.001)
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+    manager.open_long("BTC/USDT", risk)
+    saldo_apos_compra = manager.paper_balance_usdt
+
+    manager.close_position("BTC/USDT", "sinal de venda", current_price=110.0)
+
+    gross_exit = 1.0 * 110.0
+    proceeds_esperado = gross_exit - gross_exit * 0.001
+    assert manager.paper_balance_usdt == pytest.approx(saldo_apos_compra + proceeds_esperado)
+
+    entrada_custo = 100.0 + 100.0 * 0.001
+    pnl_esperado = proceeds_esperado - entrada_custo
+    assert logged_trades[0]["pnl_usdt"] == pytest.approx(pnl_esperado)
+
+
+def test_paper_buy_blocks_when_balance_covers_notional_but_not_fee(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.001)
+    manager.paper_balance_usdt = 100.0  # cobre so o nocional, nao a taxa
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+
+    assert not manager.has_position("BTC/USDT")
+    assert manager.paper_balance_usdt == 100.0  # nada foi debitado
+
+
+def test_paper_buy_sell_cost_unchanged_when_fee_zero(monkeypatch):
+    # FR-008: BACKTEST_FEE_RATE=0 (ja o default de _paper_manager) nao pode
+    # mudar o custo/proceeds em relacao ao comportamento anterior a esta spec.
+    manager = _paper_manager(monkeypatch)
+    saldo_inicial = manager.paper_balance_usdt
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+
+    manager.open_long("BTC/USDT", risk)
+
+    assert manager.paper_balance_usdt == pytest.approx(saldo_inicial - 100.0)
+
+
+def test_paper_sell_uses_fee_actually_paid_at_entry_not_current_rate(monkeypatch):
+    # Achado de code-review (spec 010): BACKTEST_FEE_RATE e uma constante de
+    # modulo lida no processo -- se o operador editar o .env e reiniciar o bot
+    # com uma posicao ja aberta, a taxa "atual" no momento da venda pode nao
+    # ser mais a taxa realmente paga na compra. pos.entry_fee (persistido em
+    # Position/state.json) precisa ser reusado, nao recalculado com a taxa nova.
+    logged_trades = []
+    manager = _paper_manager(monkeypatch, logged_trades)
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.001)
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+    manager.open_long("BTC/USDT", risk)
+
+    # Simula reinicio do bot com a taxa mudada no .env (0.001 -> 0.01) antes
+    # da posicao fechar.
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.01)
+    manager.close_position("BTC/USDT", "sinal de venda", current_price=110.0)
+
+    gross_exit = 1.0 * 110.0
+    proceeds_com_taxa_nova = gross_exit - gross_exit * 0.01  # taxa de saida usa a taxa atual mesmo
+    entrada_custo_taxa_original = 100.0 + 100.0 * 0.001  # mas a taxa de entrada tem que ser a original
+    pnl_esperado = proceeds_com_taxa_nova - entrada_custo_taxa_original
+    assert logged_trades[0]["pnl_usdt"] == pytest.approx(pnl_esperado)
+
+
+def test_paper_trade_pnl_pct_matches_backtest_engine_for_same_price_pair(monkeypatch):
+    # SC-001: paridade percentual com simulate_backtest() para o mesmo par de
+    # precos de mercado e mesmos fee_rate/slippage_pct -- ver research.md
+    # sobre por que a comparacao e percentual, nao em dolar absoluto (as duas
+    # convencoes de sizing -- nocional fixo no backtest, quantidade fixa aqui
+    # -- produzem o mesmo pnl_pct, nao o mesmo pnl em dolar).
+    from backtesting.engine import _close_trade
+
+    fee_rate, slippage_pct = 0.001, 0.0005
+    market_entry, market_exit = 100.0, 110.0
+
+    logged_trades = []
+    manager = _paper_manager(monkeypatch, logged_trades)
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", fee_rate)
+    monkeypatch.setattr(order_manager, "BACKTEST_SLIPPAGE_PCT", slippage_pct)
+    risk = RiskLevels(entry_price=market_entry, stop_loss=90.0, take_profit=120.0, quantity=1.0, risk_usdt=5.0)
+    manager.open_long("BTC/USDT", risk)
+    manager.close_position("BTC/USDT", "sinal de venda", current_price=market_exit)
+
+    paper_entry_cost = market_entry * (1 + slippage_pct) * (1 + fee_rate)
+    paper_pnl_pct = logged_trades[0]["pnl_usdt"] / paper_entry_cost * 100
+
+    # backtesting/engine.py fixa um valor nocional em dolar (order_size) e deriva
+    # a quantidade a partir dele (quantity = order_size / entry_price_com_slippage)
+    # -- convencao diferente da do paper (quantidade fixa, nocional deriva), mas
+    # pnl_pct e invariante a essa escolha (fee/slippage sao proporcionais). Usar
+    # order_size=100 aqui e so um valor de conveniencia, nao precisa bater com
+    # market_entry.
+    order_size = 100.0
+    backtest_entry_price = market_entry * (1 + slippage_pct)
+    backtest_quantity = order_size / backtest_entry_price
+    backtest_entry_fee = order_size * fee_rate
+    backtest_entry_cost = order_size + backtest_entry_fee
+    _, backtest_trade = _close_trade(
+        capital=1000.0, entry_price=backtest_entry_price, exit_price=market_exit * (1 - slippage_pct),
+        quantity=backtest_quantity, entry_cost=backtest_entry_cost, entry_fee=backtest_entry_fee,
+        entry_time=None, exit_time=None, exit_reason="teste", fee_rate=fee_rate,
+    )
+
+    assert paper_pnl_pct == pytest.approx(backtest_trade.pnl_pct, rel=1e-6)
 
 
 def _open_and_close(manager, symbol, entry_price, exit_price, reason="stop_loss"):
