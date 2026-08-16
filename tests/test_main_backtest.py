@@ -20,9 +20,24 @@ def test_cmd_backtest_runs_plain_backtest_by_default(monkeypatch):
 
 
 def test_cmd_backtest_runs_validation_split_with_flag(monkeypatch):
+    from dataclasses import dataclass
+
+    @dataclass
+    class _FakeResult:
+        total_trades: int = 0
+
+    @dataclass
+    class _FakeVerdict:
+        status: str = "inconclusivo"
+
     calls = []
     monkeypatch.setattr(sys, "argv", ["main.py", "backtest", "--validate"])
-    monkeypatch.setattr(backtesting.validation, "run_backtest_with_validation", lambda *a, **k: calls.append(("validate", a, k)))
+    monkeypatch.setattr(
+        backtesting.validation, "run_backtest_with_validation",
+        lambda *a, **k: calls.append(("validate", a, k)) or (_FakeResult(), _FakeResult(), _FakeVerdict()),
+    )
+    import utils.report_export as report_export_mod
+    monkeypatch.setattr(report_export_mod, "export_report", lambda *a, **k: None)
 
     main.cmd_backtest()
 
@@ -168,3 +183,101 @@ def test_cmd_performance_opens_valid_file_uri_from_relative_path(monkeypatch, tm
     assert opened[0].startswith("file:///")
     assert "performance_report.html" in opened[0]
     assert (tmp_path / "data" / "performance_report.html").exists()
+
+
+def test_cmd_backtest_exports_report(monkeypatch):
+    from types import SimpleNamespace
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["main.py", "backtest"])
+    fake_result = SimpleNamespace(trades=[])
+    monkeypatch.setattr(backtesting.engine, "run_backtest", lambda *a, **k: fake_result)
+    import utils.report_export as report_export_mod
+    monkeypatch.setattr(report_export_mod, "export_report", lambda name, params, result, ranking=None: calls.append((name, params, result)))
+
+    main.cmd_backtest()
+
+    assert len(calls) == 1
+    assert calls[0][0] == "backtest"
+    assert calls[0][2] is fake_result
+
+
+def test_cmd_scan_exports_report(monkeypatch):
+    import backtesting.scanner as scanner_mod
+    calls = []
+    monkeypatch.setattr(scanner_mod, "run_scan", lambda: ["fake_scan_result"])
+    monkeypatch.setattr(scanner_mod, "print_scan", lambda results: None)
+    import utils.report_export as report_export_mod
+    monkeypatch.setattr(report_export_mod, "export_report", lambda name, params, result, ranking=None: calls.append((name, ranking)))
+
+    main.cmd_scan()
+
+    assert len(calls) == 1
+    assert calls[0][0] == "scan"
+    assert calls[0][1] == ["fake_scan_result"]
+
+
+def test_cmd_multibacktest_exports_report(monkeypatch):
+    import backtesting.multi as multi_mod
+    calls = []
+    monkeypatch.setattr(multi_mod, "run_all", lambda: ["fake_multi_result"])
+    monkeypatch.setattr(multi_mod, "print_results", lambda results: None)
+    import utils.report_export as report_export_mod
+    monkeypatch.setattr(report_export_mod, "export_report", lambda name, params, result, ranking=None: calls.append((name, ranking)))
+
+    main.cmd_multibacktest()
+
+    assert len(calls) == 1
+    assert calls[0][0] == "multibacktest"
+    assert calls[0][1] == ["fake_multi_result"]
+
+
+def test_cmd_backtest_validate_exports_report(monkeypatch):
+    # Regressao: cmd_backtest() retornava antes de alcancar export_report() no
+    # caminho --validate -- achado de code-review (unico caminho de backtest
+    # sem historico auditavel em reports/).
+    from dataclasses import dataclass
+
+    @dataclass
+    class _FakeBacktestResult:
+        total_trades: int
+
+    @dataclass
+    class _FakeVerdict:
+        status: str
+
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["main.py", "backtest", "--validate"])
+    fake_train = _FakeBacktestResult(total_trades=5)
+    fake_validation = _FakeBacktestResult(total_trades=2)
+    fake_verdict = _FakeVerdict(status="aprovado")
+    monkeypatch.setattr(
+        backtesting.validation, "run_backtest_with_validation",
+        lambda *a, **k: (fake_train, fake_validation, fake_verdict),
+    )
+    import utils.report_export as report_export_mod
+    monkeypatch.setattr(report_export_mod, "export_report", lambda name, params, result, ranking=None: calls.append((name, params, result)))
+
+    main.cmd_backtest()
+
+    assert len(calls) == 1
+    assert calls[0][0] == "backtest_validate"
+    assert calls[0][2]["train"]["total_trades"] == 5
+    assert calls[0][2]["validation"]["total_trades"] == 2
+    assert calls[0][2]["verdict"]["status"] == "aprovado"
+
+
+def test_cmd_otimizar_exports_report(monkeypatch):
+    import backtesting.optimizer as optimizer_mod
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["main.py", "optimize"])
+    monkeypatch.setattr(optimizer_mod, "_optimize_multi", lambda dfs, validate=False: ["fake_optimize_result"])
+    monkeypatch.setattr(optimizer_mod, "_print_results", lambda results, symbols, validate=False: None)
+    monkeypatch.setattr(optimizer_mod, "fetch_ohlcv", lambda sym, timeframe, limit=2000: None)
+    import utils.report_export as report_export_mod
+    monkeypatch.setattr(report_export_mod, "export_report", lambda name, params, result, ranking=None: calls.append((name, ranking)))
+
+    main.cmd_otimizar()
+
+    assert len(calls) == 1
+    assert calls[0][0] == "optimize"
+    assert calls[0][1] == ["fake_optimize_result"]

@@ -28,16 +28,28 @@ from config.settings import SYMBOL, TIMEFRAME, TRADING_MODE
 PERFORMANCE_REPORT_PATH = "data/performance_report.html"
 
 def cmd_backtest():
+    from utils.report_export import export_report
+
     args = sys.argv[2:]
     if "--validate" in args:
+        import dataclasses
         from backtesting.validation import run_backtest_with_validation
-        run_backtest_with_validation(SYMBOL, TIMEFRAME)
+        train_result, validation_result, verdict = run_backtest_with_validation(SYMBOL, TIMEFRAME)
+        export_report(
+            "backtest_validate", {"symbol": SYMBOL, "timeframe": TIMEFRAME},
+            {
+                "train": dataclasses.asdict(train_result),
+                "validation": dataclasses.asdict(validation_result) if validation_result else None,
+                "verdict": dataclasses.asdict(verdict),
+            },
+        )
         return
     from backtesting.engine import run_backtest
     result = run_backtest(SYMBOL, TIMEFRAME)
     if "--montecarlo" in args:
         from backtesting.robustness import run_monte_carlo_report
         run_monte_carlo_report(result.trades)
+    export_report("backtest", {"symbol": SYMBOL, "timeframe": TIMEFRAME}, result)
 
 def cmd_edge():
     from backtesting.validation import run_edge_report
@@ -45,11 +57,17 @@ def cmd_edge():
 
 def cmd_multibacktest():
     from backtesting.multi import run
-    run()
+    from utils.report_export import export_report
+
+    results = run()
+    export_report("multibacktest", {}, {"total_pairs": len(results)}, ranking=results)
 
 def cmd_scan():
     from backtesting.scanner import run
-    run()
+    from utils.report_export import export_report
+
+    results = run()
+    export_report("scan", {}, {"total_pairs": len(results)}, ranking=results)
 
 def cmd_comparar():
     from backtesting.compare import run
@@ -65,10 +83,17 @@ def cmd_decisions():
 
 def cmd_otimizar():
     from backtesting.optimizer import run
+    from utils.report_export import export_report
+
     args = sys.argv[2:]
     walk_forward = "--walk-forward" in args
     validate = walk_forward or "--validate" in args
-    run(validate=validate, walk_forward=walk_forward)
+    results = run(validate=validate, walk_forward=walk_forward)
+    if results is not None:
+        export_report(
+            "optimize", {"validate": validate, "walk_forward": walk_forward},
+            {"total_results": len(results)}, ranking=results,
+        )
 
 def cmd_selecionar():
     from market.commands import run

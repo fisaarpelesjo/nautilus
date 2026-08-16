@@ -197,3 +197,4 @@ def _print_table(title: str, results: List[ScanResult], highlight: bool):
 def run():
     results = run_scan()
     print_scan(results)
+    return results

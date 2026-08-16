@@ -1,6 +1,10 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
+import backtesting.optimizer as optimizer_mod
+import backtesting.robustness as robustness_mod
 from backtesting.engine import precompute_signals, simulate_backtest
 from backtesting.optimizer import _optimize_multi
 from backtesting.validation import split_train_validation
@@ -106,3 +110,40 @@ def test_optimize_multi_without_validate_leaves_validation_fields_at_default():
     assert item.validation_avg_drawdown is None
     assert item.validation_total_trades == 0
     assert item.validation_symbols_skipped == []
+
+
+@dataclass
+class _FakeOptimizeResult:
+    params: str
+
+
+def test_run_with_walk_forward_calls_walk_forward_report_and_returns_results(monkeypatch):
+    # Regressao: `return results` foi inserido antes do bloco `if walk_forward`,
+    # tornando o relatorio de walk-forward codigo morto -- achado de code-review.
+    calls = []
+    fake_results = [_FakeOptimizeResult(params="fake_params")]
+
+    monkeypatch.setattr(optimizer_mod, "fetch_ohlcv", lambda sym, tf, limit=2000: _synthetic_ohlcv_df(50))
+    monkeypatch.setattr(optimizer_mod, "_optimize_multi", lambda dfs, validate=False: fake_results)
+    monkeypatch.setattr(optimizer_mod, "_print_results", lambda results, symbols, validate=False: None)
+    monkeypatch.setattr(robustness_mod, "run_walk_forward_report", lambda dfs, params: calls.append(params))
+
+    results = optimizer_mod.run(symbols=["FAKE/USDT"], walk_forward=True)
+
+    assert calls == ["fake_params"]
+    assert results == fake_results
+
+
+def test_run_without_walk_forward_does_not_call_walk_forward_report(monkeypatch):
+    calls = []
+    fake_results = [_FakeOptimizeResult(params="fake_params")]
+
+    monkeypatch.setattr(optimizer_mod, "fetch_ohlcv", lambda sym, tf, limit=2000: _synthetic_ohlcv_df(50))
+    monkeypatch.setattr(optimizer_mod, "_optimize_multi", lambda dfs, validate=False: fake_results)
+    monkeypatch.setattr(optimizer_mod, "_print_results", lambda results, symbols, validate=False: None)
+    monkeypatch.setattr(robustness_mod, "run_walk_forward_report", lambda dfs, params: calls.append(params))
+
+    results = optimizer_mod.run(symbols=["FAKE/USDT"], walk_forward=False)
+
+    assert calls == []
+    assert results == fake_results

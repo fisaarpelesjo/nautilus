@@ -20,6 +20,7 @@ data/state.json
 data/killswitch.json
 data/ohlcv/
 .coverage
+reports/
 
 # local research papers and full-text conversions
 /*.pdf

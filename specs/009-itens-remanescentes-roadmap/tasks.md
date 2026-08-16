@@ -13,16 +13,16 @@ description: "Task list for 009-itens-remanescentes-roadmap"
 
 ## Phase 1: User Story 1 - Exportação de relatórios (Priority: P1) 🎯 MVP
 
-- [ ] T001 [P] [US1] Teste: `export_report(name, params, result)` gera 3 arquivos
+- [X] T001 [P] [US1] Teste: `export_report(name, params, result)` gera 3 arquivos
       (`.json`/`.csv`/`.md`) em `reports/` com timestamp no nome — novo `tests/test_report_export.py`
-- [ ] T002 [P] [US1] Teste: `export_report` cria `reports/` se não existir — `tests/test_report_export.py`
-- [ ] T003 [P] [US1] Teste: duas chamadas seguidas produzem arquivos distintos (timestamps
+- [X] T002 [P] [US1] Teste: `export_report` cria `reports/` se não existir — `tests/test_report_export.py`
+- [X] T003 [P] [US1] Teste: duas chamadas seguidas produzem arquivos distintos (timestamps
       diferentes), sem sobrescrever — `tests/test_report_export.py`
-- [ ] T004 [US1] Novo `utils/report_export.py`: `export_report(name, params, result,
+- [X] T004 [US1] Novo `utils/report_export.py`: `export_report(name, params, result,
       ranking=None)` — `dataclasses.asdict(result)`, `Path("reports").mkdir(parents=True,
       exist_ok=True)`, escreve JSON/CSV/Markdown (depende de T001 falhando, T002 falhando, T003
       falhando)
-- [ ] T005 [US1] `main.py`: `cmd_backtest`/`cmd_scan`/`cmd_multibacktest`/`cmd_otimizar` chamam
+- [X] T005 [US1] `main.py`: `cmd_backtest`/`cmd_scan`/`cmd_multibacktest`/`cmd_otimizar` chamam
       `export_report()` com params relevantes após a execução (depende de T004)
 
 **Checkpoint**: US1 completa — MVP desta spec.
@@ -83,7 +83,7 @@ description: "Task list for 009-itens-remanescentes-roadmap"
 - [ ] T018 [P] Atualizar `specs/BACKLOG.md` com a spec 009
 - [ ] T019 Sincronizar `CLAUDE.md`/`AGENTS.md` com `reports/`, `edge --validate`, indicadores
       médios por decisão
-- [ ] T020 Adicionar `reports/` ao `.gitignore` (artefato de runtime, mesmo padrão de
+- [X] T020 Adicionar `reports/` ao `.gitignore` (artefato de runtime, mesmo padrão de
       `data/trades.csv` etc.)
 
 ---

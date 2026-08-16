@@ -169,3 +169,4 @@ def _print_summary(results: List[MultiResult]):
 def run():
     results = run_all()
     print_results(results)
+    return results

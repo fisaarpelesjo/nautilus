@@ -87,6 +87,8 @@ def run(symbols: list = None, timeframe: str = TIMEFRAME, candle_limit: int = 20
         from backtesting.robustness import run_walk_forward_report
         run_walk_forward_report(dfs, results[0].params)
 
+    return results
+
 
 def _indicator_key(params: EmaRsiParams) -> tuple:
     return (params.ema_fast, params.ema_slow, params.ema_trend,
