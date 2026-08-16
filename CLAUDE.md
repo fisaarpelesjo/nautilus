@@ -54,11 +54,13 @@ Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via 
 python main.py backtest             # backtest no par principal (PAIRS[0])
 python main.py backtest --validate  # backtest com split treino/validação out-of-sample + veredito
 python main.py edge                 # relatório de vantagem contra buy-and-hold
+python main.py edge --validate      # relatório de edge sobre a fatia de validação out-of-sample (treino + validação lado a lado)
 python main.py multibacktest        # backtest em lista fixa de pares
 python main.py scan                 # backtest nos top 30 pares por volume na Binance
 python main.py compare              # compara multiplas estrategias/presets lado a lado
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
+python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal
 python main.py select               # ranqueia candidatos de pares dinâmicos
 python main.py chart [PAR] [TF]     # gráfico interativo no browser (Dash/Plotly)
 python main.py bot                  # inicia o bot multi-par
@@ -247,6 +249,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `data/state.json` | JSON | Estado atual: saldo, posição aberta, contadores |
 | `logs/YYYY-MM-DD.log` | texto | Log textual completo do dia |
 | `logs/events-YYYY-MM-DD.jsonl` | JSONL | Eventos estruturados de ordens, erros e ciclo operacional |
+| `reports/{comando}_{timestamp}.{json,csv,md}` | JSON/CSV/Markdown | Histórico auditável de cada execução de `backtest`/`scan`/`multibacktest`/`optimize` (params, período, métricas, ranking) |
 
 O bot restaura o estado do `state.json` ao reiniciar — posição aberta e saldo paper são preservados.
 
@@ -278,6 +281,20 @@ O bot restaura o estado do `state.json` ao reiniciar — posição aberta e sald
   resultado contra um backtest simples do mesmo período. Aproximação parcial de "comparar paper vs
   backtest" (`ROADMAP.md` Fase 5 item 4) — não substitui operação paper real, tem limitações
   conhecidas (cooldown por relógio real, MTF não point-in-time).
+- **Exportação de relatórios** (`utils/report_export.py` `export_report()`): `backtest` (incluindo
+  `--validate`), `scan`, `multibacktest` e `optimize` (incluindo `--walk-forward`) salvam o
+  resultado em `reports/` (JSON/CSV/Markdown, timestamp no nome evita sobrescrita). Reusa
+  `dataclasses.asdict()` sobre o resultado já existente em vez de um schema paralelo.
+- **Diagnóstico de perfil agressivo** (`backtesting/approval.py` `diagnose_profile()`): complementa
+  o perfil "defensivo" já existente — drawdown acima do aceitável e retorno significativamente
+  acima do buy-and-hold (limiar `buy_hold + abs(buy_hold) * 0.5`, robusto a buy-hold negativo).
+- **`python main.py edge --validate`**: reusa `run_backtest_with_validation()` (mesmo caminho de
+  `backtest --validate`) e calcula o veredito de aprovação sobre a fatia de validação out-of-sample
+  em vez do resultado de janela única, mostrando treino e validação lado a lado. Sem a flag,
+  comportamento idêntico ao já existente.
+- **Indicadores médios por sinal** (`data/decisions_analysis.py`): `python main.py decisions` exibe
+  RSI médio agrupado por sinal (`BUY`/`SELL`/`HOLD`), a partir dos valores já registrados em
+  `data/decisions.csv`.
 
 ---
 

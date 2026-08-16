@@ -56,11 +56,13 @@ Runtime artifacts (`data/signals.csv`, `data/trades.csv`, `data/state.json`, `da
 python main.py backtest             # backtest on main pair (PAIRS[0])
 python main.py backtest --validate  # backtest with train/out-of-sample split + verdict
 python main.py edge                 # profitability edge report vs buy-and-hold
+python main.py edge --validate      # edge report on the out-of-sample validation slice (train + validation side by side)
 python main.py multibacktest        # backtest on fixed pair list
 python main.py scan                 # backtest on top 30 Binance pairs by volume
 python main.py compare              # compare multiple strategies/presets side by side
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
+python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal
 python main.py select               # rank dynamic pair candidates
 python main.py chart [PAIR] [TF]    # interactive browser chart (Dash/Plotly)
 python main.py bot                  # start multi-pair trading loop
@@ -233,6 +235,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `data/state.json` | JSON | Current state: balance, open position, counters |
 | `logs/YYYY-MM-DD.log` | text | Full daily text log |
 | `logs/events-YYYY-MM-DD.jsonl` | JSONL | Structured events: orders, errors, operational cycle |
+| `reports/{command}_{timestamp}.{json,csv,md}` | JSON/CSV/Markdown | Auditable history of each `backtest`/`scan`/`multibacktest`/`optimize` run (params, period, metrics, ranking) |
 
 Bot restores state from `state.json` on restart — open position and paper balance are preserved.
 
@@ -264,6 +267,21 @@ Bot restores state from `state.json` on restart — open position and paper bala
   error). Compares the result against a simple backtest of the same period. Partial approximation
   of "compare paper vs backtest" (`ROADMAP.md` Fase 5 item 4) — does not replace real paper
   operation, has known limitations (real-clock-based cooldown, non-point-in-time MTF).
+- **Report export** (`utils/report_export.py` `export_report()`): `backtest` (including
+  `--validate`), `scan`, `multibacktest`, and `optimize` (including `--walk-forward`) save their
+  result to `reports/` (JSON/CSV/Markdown, timestamp in the filename avoids overwrites). Reuses
+  `dataclasses.asdict()` on the already-existing result instead of a parallel schema.
+- **Aggressive profile diagnosis** (`backtesting/approval.py` `diagnose_profile()`): complements
+  the already-existing "defensive" profile — drawdown above the acceptable threshold and return
+  significantly above buy-and-hold (threshold `buy_hold + abs(buy_hold) * 0.5`, robust to a
+  negative buy-hold).
+- **`python main.py edge --validate`**: reuses `run_backtest_with_validation()` (same path as
+  `backtest --validate`) and computes the approval verdict on the out-of-sample validation slice
+  instead of the single-window result, showing train and validation side by side. Without the
+  flag, behavior is identical to before.
+- **Average indicators by signal** (`data/decisions_analysis.py`): `python main.py decisions`
+  shows average RSI grouped by signal (`BUY`/`SELL`/`HOLD`), from values already recorded in
+  `data/decisions.csv`.
 
 ---
 

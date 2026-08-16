@@ -23,7 +23,8 @@ Coluna **Autonomia**:
 | 006 | Evolução da estratégia | Parcial | ✅ Parte autônoma concluída (`specs/006-evolucao-estrategia-novas/`, US1-US5 + Polish); "validar preset operacional atual" (Fase 4 item 1) segue pendente — depende de operação paper real |
 | 007 | Observabilidade operacional / forward test | Parcial | ✅ Parte autônoma concluída (`specs/007-observabilidade-operacional-capacidades/`, US1-US5 + Polish); forward test formal e comparação paper-vs-backtest (Fase 5 itens 1 e 4) seguem pendentes — dependem de operação paper real |
 | 008 | Replay acelerado do loop real | Sozinho | ✅ Concluída (`specs/008-replay-acelerado-loop/`, US1-US2 + Polish) — fora do backlog original, criada em resposta a uma pergunta do operador sobre alternativas a esperar operação paper real; aproximação parcial de 007 item 4, não substitui |
-| 009 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
+| 009 | Itens remanescentes do ROADMAP (relatórios, diagnóstico agressivo, edge out-of-sample, indicadores médios) | Sozinho | ✅ Concluída (`specs/009-itens-remanescentes-roadmap/`, US1-US4 + Polish) — fora do backlog original, criada após auditoria completa do `ROADMAP.md` (não só deste arquivo) revelar 4 itens pequenos genuinamente não implementados |
+| 010 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
 
 ## 002 — Decisão de aprovação multi-par
 
@@ -81,13 +82,28 @@ Continuação direta de US1/US2 da spec 001.
 - Precisa do operador: forward test formal e comparação paper-vs-backtest exigem histórico real de
   paper mode rodando por um período — não dá para gerar esse dado, só a ferramenta que o analisa
 
+## 009 — Itens remanescentes do ROADMAP
+
+Auditoria completa do `ROADMAP.md` (não só deste arquivo) revelou 4 itens pequenos, genuinamente
+não implementados, que não tinham entrado no backlog original:
+
+- Exportação de relatórios de backtest/scan/multibacktest/optimize em `reports/` (Fase 1 item 4)
+- Diagnóstico de perfil "agressivo" complementando o "defensivo" já existente (Fase 1.1 item 4)
+- Out-of-sample no relatório de edge via `edge --validate` (Fase 1.1 item 7)
+- Indicadores médios por sinal em `python main.py decisions` (Fase 3 item 4)
+
+Também corrigiu um item já entregue pela spec 004 (edge anualizado/retorno por exposição, Fase 1.1
+item 6) que tinha ficado sem marcar por engano no `ROADMAP.md`.
+
 ## Ordem sugerida
 
-002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho)
+002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009
 
-**Status (2026-08-15)**: 001-007 com a parte autônoma concluída. Resta apenas o que depende do
-operador: "validar preset operacional atual" (006, Fase 4 item 1), forward test formal e
-comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos exigem histórico real de operação
-paper rodando por um período, não são tarefas que dá para adiantar sem esse dado.
+**Status (2026-08-16)**: 001-005, 008 e 009 concluídas. 006 e 007 com a parte autônoma concluída —
+resta apenas o que depende do operador: "validar preset operacional atual" (006, Fase 4 item 1),
+forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos exigem
+histórico real de operação paper rodando por um período. O bot está em operação paper contínua
+desde 2026-08-16 (26 pares, VPS dedicada) — essas duas pendências agora têm um relógio real
+correndo, não são mais bloqueio indefinido.
 
-008 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.
+010 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.

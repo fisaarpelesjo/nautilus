@@ -78,10 +78,10 @@ description: "Task list for 009-itens-remanescentes-roadmap"
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T017 [P] Atualizar `ROADMAP.md`: Fase 1 item 4, Fase 1.1 item 4 (parcial → completo), Fase
+- [X] T017 [P] Atualizar `ROADMAP.md`: Fase 1 item 4, Fase 1.1 item 4 (parcial → completo), Fase
       1.1 item 7, Fase 3 item 4 (parcial → completo)
-- [ ] T018 [P] Atualizar `specs/BACKLOG.md` com a spec 009
-- [ ] T019 Sincronizar `CLAUDE.md`/`AGENTS.md` com `reports/`, `edge --validate`, indicadores
+- [X] T018 [P] Atualizar `specs/BACKLOG.md` com a spec 009
+- [X] T019 Sincronizar `CLAUDE.md`/`AGENTS.md` com `reports/`, `edge --validate`, indicadores
       médios por decisão
 - [X] T020 Adicionar `reports/` ao `.gitignore` (artefato de runtime, mesmo padrão de
       `data/trades.csv` etc.)

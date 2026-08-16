@@ -44,10 +44,13 @@ Objetivo: evitar otimizar no escuro. Antes de mexer muito na estrategia, o bot p
      Unificar ficaria fora do escopo desta spec — candidato para uma proxima iteracao de "Qualidade
      de Codigo".
 
-4. [ ] **Exportacao de relatorios em `reports/`**
+4. [x] **Exportacao de relatorios em `reports/`**
    - Salvar resultados de backtest, scan, otimizacao e analise nos formatos JSON, CSV e Markdown.
    - Incluir parametros usados, periodo testado, custos, slippage, metricas e ranking.
    - Por que melhora: cria historico auditavel. Sem relatorios versionados por execucao local, fica dificil comparar experimentos e evitar repetir testes.
+   - Implementado na spec 009 (US1): novo `utils/report_export.py` `export_report()`, chamado por
+     `cmd_backtest` (incluindo `--validate`), `cmd_scan`, `cmd_multibacktest` e `cmd_otimizar`
+     (incluindo `--walk-forward`). `reports/` no `.gitignore`.
 
 ## Fase 1.1 - Evoluir o relatorio de edge
 
@@ -76,13 +79,17 @@ Objetivo: transformar o `python main.py edge` de um painel de metricas em uma de
      (default `10`, nao `30` como o exemplo original sugeria -- mesmo valor ja usado desde a spec
      001 para nao mudar comportamento default; ajustar para 30 e so trocar a variavel).
 
-4. [ ] **Diagnostico defensivo vs agressivo**
+4. [x] **Diagnostico defensivo vs agressivo**
    - Classificar casos em que a estrategia tem baixo drawdown e expectativa positiva, mas perde muito para buy-and-hold.
    - Exemplo: `Perfil defensivo: preservou capital, mas capturou pouco da alta`.
    - Por que melhora: diferencia uma estrategia ruim de uma estrategia conservadora que talvez sirva para mercados laterais ou de queda, mas nao para bull market.
    - **Parcial** (`specs/002-multi-pair-approval`): `backtesting/approval.py` `diagnose_profile()`
      implementa so o lado "defensivo" (o unico exemplo citado aqui). O lado "agressivo" (ex: alto
      drawdown mas retorno muito acima do buy-hold) nao foi escopado nesta spec.
+   - **Concluido** (`specs/009-itens-remanescentes-roadmap`, US2): lado "agressivo" adicionado a
+     `diagnose_profile()` (drawdown acima do limite aceitavel e retorno significativamente acima do
+     buy-and-hold, usando `buy_hold + abs(buy_hold) * 0.5` como limiar -- robusto a buy-hold
+     negativo, achado de code-review corrigido antes do merge).
 
 5. [x] **Edge por par e timeframe**
    - Levar as metricas de edge para `multibacktest`, `scan` e selecao dinamica.
@@ -101,9 +108,13 @@ Objetivo: transformar o `python main.py edge` de um painel de metricas em uma de
      sem marcar por engano quando a spec 004 fechou — mesma entrega, referenciada duas vezes no
      ROADMAP (aqui e na Fase 3).
 
-7. [ ] **Out-of-sample no relatorio de edge**
+7. [x] **Out-of-sample no relatorio de edge**
    - Mostrar edge separado entre periodo de treino e periodo de teste quando o backtest vier do otimizador ou de validacao walk-forward.
    - Por que melhora: edge em dados usados para escolher parametros pode ser overfitting. O dado fora da amostra e o que mais importa.
+   - **Concluido** (`specs/009-itens-remanescentes-roadmap`, US3): `python main.py edge --validate`
+     reusa `run_backtest_with_validation()` (mesmo caminho de `backtest --validate`), calcula o
+     veredito sobre a fatia de validacao out-of-sample e mostra treino/validacao lado a lado. Sem a
+     flag, comportamento identico ao ja existente.
 
 8. [x] **Refinar o `edge_score`**
    - Transformar o score atual em escala interpretavel, por exemplo 0-100 ou faixas `Forte`, `Medio`, `Fraco`, `Reprovado`.
@@ -171,7 +182,7 @@ Objetivo: medir qualidade do retorno, nao apenas retorno bruto.
      365 dias) e `return_per_exposure_pct` (`None` explicito quando exposicao e zero), exibidos em
      todo relatorio de backtest. Exposicao (`exposure_pct`) ja existia antes desta spec.
 
-4. [ ] **Analise automatica de `data/decisions.csv`**
+4. [x] **Analise automatica de `data/decisions.csv`**
    - Criar comando para resumir sinais, decisoes finais, bloqueios, filtros que mais impediram entrada e indicadores medios por decisao.
    - Por que melhora: mostra se o bot esta parado por excesso de filtro, entrando em contexto ruim ou bloqueando bons sinais por uma regra especifica.
    - **Parcial** (`specs/004-advanced-risk-metrics`): `python main.py decisions` resume contagem de
@@ -179,6 +190,10 @@ Objetivo: medir qualidade do retorno, nao apenas retorno bruto.
      `data/decisions_analysis.py`. "Indicadores medios por decisao" (ex: RSI medio em ciclos HOLD vs
      BUY) nao foi escopado nesta spec — candidato para uma proxima iteracao. Validado só com fixture
      sintética neste ambiente (sem `data/decisions.csv` real — bot nunca rodou continuamente aqui).
+   - **Concluido** (`specs/009-itens-remanescentes-roadmap`, US4): `DecisionRecord.rsi` e
+     `DecisionsAnalysisResult.avg_indicators_by_signal` (RSI medio agrupado por sinal), exibido em
+     nova tabela por `print_decisions_analysis()`. Bot em operacao continua real (paper mode, VPS)
+     desde 2026-08-16, gerando `data/decisions.csv` real pela primeira vez.
 
 ## Fase 4 - Validar e evoluir a estrategia atual
 

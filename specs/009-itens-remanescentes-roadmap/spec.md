@@ -4,7 +4,7 @@
 
 **Created**: 2026-08-15
 
-**Status**: Draft
+**Status**: Concluída (US1-US4 implementadas, revisadas e commitadas; Polish completo)
 
 **Input**: User description: "Itens remanescentes do ROADMAP.md Fases 1, 1.1 e 3 que ficaram
 pendentes desde antes deste backlog SDD começar, achados numa auditoria completa do documento (não
