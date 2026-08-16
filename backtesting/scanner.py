@@ -1,4 +1,3 @@
-import ccxt
 import io
 import sys
 from typing import List, Optional
@@ -13,6 +12,7 @@ from config.settings import (
     BLACKLIST_PAIRS, EMA_FAST, EMA_SLOW, EMA_TREND,
     ATR_SL_MULTIPLIER, ATR_TP_MULTIPLIER,
 )
+from data.fetcher import fetch_ticker, fetch_tickers
 from market.selector import is_blacklisted
 from utils.logger import get_logger
 
@@ -49,8 +49,7 @@ class ScanResult:
 
 def get_top_pairs() -> List[str]:
     console.print("  [dim cyan]buscando mercados da Binance...[/dim cyan]")
-    exchange = ccxt.binance({"enableRateLimit": True, "options": {"fetchCurrencies": False}})
-    tickers  = exchange.fetch_tickers()
+    tickers = fetch_tickers()
 
     pairs = []
     for symbol, ticker in tickers.items():
@@ -110,8 +109,11 @@ def run_scan() -> List[ScanResult]:
 
 def _get_volume(pair: str) -> float:
     try:
-        exchange = ccxt.binance({"enableRateLimit": True, "options": {"fetchCurrencies": False}})
-        t = exchange.fetch_ticker(pair)
+        # data.fetcher.fetch_ticker() reusa o singleton de exchange e ja tenta
+        # de novo em erro de rate limit -- sem isso, chamar por ate 30 pares
+        # nesse loop instanciava uma exchange nova a cada iteracao (achado de
+        # auditoria, specs/011-rate-limit-hardening).
+        t = fetch_ticker(pair)
         return t.get("quoteVolume") or 0
     except Exception:
         return 0

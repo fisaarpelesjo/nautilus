@@ -25,7 +25,7 @@ Coluna **Autonomia**:
 | 008 | Replay acelerado do loop real | Sozinho | ✅ Concluída (`specs/008-replay-acelerado-loop/`, US1-US2 + Polish) — fora do backlog original, criada em resposta a uma pergunta do operador sobre alternativas a esperar operação paper real; aproximação parcial de 007 item 4, não substitui |
 | 009 | Itens remanescentes do ROADMAP (relatórios, diagnóstico agressivo, edge out-of-sample, indicadores médios) | Sozinho | ✅ Concluída (`specs/009-itens-remanescentes-roadmap/`, US1-US4 + Polish) — fora do backlog original, criada após auditoria completa do `ROADMAP.md` (não só deste arquivo) revelar 4 itens pequenos genuinamente não implementados |
 | 010 | Paridade de custos entre paper e backtest (fee/slippage em `_paper_buy`/`_paper_sell`) | Sozinho | ✅ Concluída (`specs/010-paridade-custos-paper/`, US1-US2 + Polish) — fora do backlog original, achado crítico de uma auditoria completa de código (não só docs) cruzada com pesquisa de boas práticas de bots de trading; o paper mode rodando na VPS desde 2026-08-16 estava registrando PnL sistematicamente ~0,3%/round-trip mais otimista que a realidade |
-| 011 | Singleton do exchange + retry/backoff de rate limit (`data/fetcher.py`) | Sozinho | 📋 Candidata — mesma auditoria da spec 010; risco operacional real pro deploy de 26 pares na VPS (`get_exchange()` cria uma instância `ccxt` nova a cada chamada, zerando o rate-limiter interno) |
+| 011 | Singleton do exchange + retry/backoff de rate limit (`data/fetcher.py`) | Sozinho | ✅ Concluída (`specs/011-rate-limit-hardening/`, US1-US2 + Polish) — risco operacional real pro deploy de 26 pares na VPS; escopo ampliado durante a especificação ao descobrir que `backtesting/scanner.py` tinha o mesmo problema fora de `data/fetcher.py` |
 | 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | 📋 Candidata — mesma auditoria; MTF hoje falha *aberto* (assume tendência confirmada) num erro de rede, inconsistente com o resto de `position_lifecycle.py`, que sempre falha fechado |
 | 013 | Risco de correlação entre posições simultâneas | Sozinho | 📋 Candidata — gap de pesquisa (não da auditoria de código): `MAX_POSITIONS` limita quantidade, não exposição correlacionada entre pares que se movem juntos |
 | 014 | Refresh periódico de pares dinâmicos (`DYNAMIC_PAIRS_ENABLED`) | Sozinho | 📋 Candidata — baixa urgência (não é a config atual), mas relevante dado o padrão comprovado de VPS de longa duração |
@@ -117,16 +117,33 @@ trades marginais.
   absoluto — as duas funções usam convenções de sizing diferentes (nocional fixo no backtest,
   quantidade fixa no paper) que produzem o mesmo `pnl_pct` mas não o mesmo `pnl` em dólar
 
+## 011 — Singleton de exchange + retry de rate limit
+
+`data/fetcher.py` `get_exchange()` instanciava um `ccxt.binance` novo a cada chamada, zerando o
+rate-limiter interno do ccxt — sem proteção real contra limite de taxa da Binance. Risco
+operacional direto pro deploy de 26 pares na VPS (vários chamadas por ciclo de 60s).
+
+- `get_exchange()` cacheia uma instância por modo (`sandbox`/produção), com `reset_exchange_cache()`
+  explícito para testes — US1
+- Retry com backoff curto (3 tentativas) especificamente para `ccxt.RateLimitExceeded`/
+  `ccxt.DDoSProtection` (HTTP 429/418) nas 4 funções públicas de `data/fetcher.py`; qualquer outro
+  erro propaga sem retry — US2
+- Escopo ampliado durante a especificação: `backtesting/scanner.py` também instanciava
+  `ccxt.binance` direto (`get_top_pairs()`, e `_get_volume()` dentro de um loop por par, pior que
+  o problema original) — corrigido para reusar `get_exchange()`/`fetch_ticker()`, mesma causa
+  raiz, mesmo tamanho de mudança
+
 ## Ordem sugerida
 
-002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010
+002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
 
-**Status (2026-08-16)**: 001-005, 008, 009 e 010 concluídas. 006 e 007 com a parte autônoma
+**Status (2026-08-16)**: 001-005, 008, 009, 010 e 011 concluídas. 006 e 007 com a parte autônoma
 concluída — resta apenas o que depende do operador: "validar preset operacional atual" (006, Fase
 4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos
 exigem histórico real de operação paper rodando por um período. O bot está em operação paper
 contínua desde 2026-08-16 (26 pares, VPS dedicada), agora com custo de execução realista (spec
-010) — essas duas pendências têm um relógio real correndo, não são mais bloqueio indefinido.
+010) e conexão resiliente a rate limit (spec 011) — essas duas pendências têm um relógio real
+correndo, não são mais bloqueio indefinido.
 
-011-014 são candidatas da mesma auditoria (ver tabela acima), ainda não especificadas em detalhe.
+012-014 são candidatas da mesma auditoria (ver tabela acima), ainda não especificadas em detalhe.
 015 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.
