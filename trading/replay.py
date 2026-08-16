@@ -19,6 +19,7 @@ class ReplayResult:
     total_trades: int = 0
     total_pnl: float = 0.0
     blocked_cycles: int = 0
+    cycles_run: int = 0
 
 
 @dataclass
@@ -39,6 +40,22 @@ def compare_to_backtest(result: ReplayResult, backtest_result, initial_capital: 
     backtest_return_pct = backtest_result.total_return_pct
 
     notes: List[str] = []
+    if result.cycles_run == 0:
+        # Historico insuficiente para passar do warmup dos indicadores --
+        # ambos os lados dao 0 trades por falta de dado, nao por ausencia
+        # real de divergencia. Relatar "sem divergencia" aqui seria
+        # enganoso (achado de code-review): pareceria uma comparacao
+        # conclusiva quando na verdade nada foi testado.
+        notes.append(
+            "Historico insuficiente para rodar o replay (menos candles que o warmup minimo dos "
+            "indicadores) -- resultado nao e conclusivo, aumente candle_limit ou escolha um par "
+            "com mais historico disponivel."
+        )
+        return ReplayComparison(
+            replay_trades=result.total_trades, backtest_trades=backtest_result.total_trades,
+            replay_return_pct=replay_return_pct, backtest_return_pct=backtest_return_pct, notes=notes,
+        )
+
     if result.total_trades == backtest_result.total_trades:
         notes.append("Sem divergencia no numero de trades entre replay e backtest.")
     elif result.total_trades < backtest_result.total_trades:
@@ -142,7 +159,9 @@ def run_replay(symbol: str, timeframe: Optional[str] = None, candle_limit: int =
                     blocked_cycles += 1
 
     total_pnl = sum(float(t.get("pnl_usdt") or 0.0) for t in collected_trades)
+    cycles_run = max(0, len(df) - START_INDEX)
     return ReplayResult(
         symbol=symbol, timeframe=timeframe, trades=collected_trades,
         total_trades=len(collected_trades), total_pnl=total_pnl, blocked_cycles=blocked_cycles,
+        cycles_run=cycles_run,
     )

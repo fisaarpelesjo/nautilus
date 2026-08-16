@@ -221,7 +221,7 @@ def cmd_replay():
     from data.fetcher import fetch_ohlcv
     from strategy.ema_rsi import EmaRsiStrategy
     from trading.replay import compare_to_backtest, run_replay
-    from utils.display import C_CYAN, C_DIM, C_LABEL, C_POS, C_NEG, console, header
+    from utils.display import C_CYAN, C_DIM, C_LABEL, console, header, _pct_color
 
     args = sys.argv[2:]
     symbol = args[0] if args else SYMBOL
@@ -255,11 +255,14 @@ def cmd_replay():
     backtest_result = simulate_backtest(prepared, strategy, initial_capital=initial_capital)
     comparison = compare_to_backtest(result, backtest_result, initial_capital=initial_capital)
 
+    # _pct_color (mesma usada em outros relatorios do bot) trata exatamente
+    # 0% como neutro (C_DIM), nao positivo -- um ternario inline aqui
+    # divergiria dessa convencao ja estabelecida (achado de code-review).
     console.print(f"  [{C_LABEL}]replay[/{C_LABEL}]    trades [white]{comparison.replay_trades}[/white]"
-                  f"   retorno [{C_POS if comparison.replay_return_pct >= 0 else C_NEG}]{comparison.replay_return_pct:+.2f}%[/]"
+                  f"   retorno [{_pct_color(comparison.replay_return_pct)}]{comparison.replay_return_pct:+.2f}%[/]"
                   f"   bloqueios [white]{result.blocked_cycles}[/white]")
     console.print(f"  [{C_LABEL}]backtest[/{C_LABEL}]  trades [white]{comparison.backtest_trades}[/white]"
-                  f"   retorno [{C_POS if comparison.backtest_return_pct >= 0 else C_NEG}]{comparison.backtest_return_pct:+.2f}%[/]")
+                  f"   retorno [{_pct_color(comparison.backtest_return_pct)}]{comparison.backtest_return_pct:+.2f}%[/]")
     console.print()
     for note in comparison.notes:
         console.print(f"  [{C_DIM}]- {note}[/{C_DIM}]")

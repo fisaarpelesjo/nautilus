@@ -151,7 +151,7 @@ def test_compare_to_backtest_reports_trade_counts_and_returns():
     result = replay.ReplayResult(
         symbol="BTC/USDT", timeframe="4h",
         trades=[{"pnl_usdt": "10.0"}, {"pnl_usdt": "-5.0"}],
-        total_trades=2, total_pnl=5.0, blocked_cycles=1,
+        total_trades=2, total_pnl=5.0, blocked_cycles=1, cycles_run=50,
     )
     backtest_result = _fake_backtest_result(total_trades=5, total_return_pct=3.0)
 
@@ -167,10 +167,38 @@ def test_compare_to_backtest_reports_trade_counts_and_returns():
 def test_compare_to_backtest_notes_no_divergence_when_trade_counts_match():
     result = replay.ReplayResult(
         symbol="BTC/USDT", timeframe="4h",
-        trades=[{"pnl_usdt": "10.0"}], total_trades=1, total_pnl=10.0, blocked_cycles=0,
+        trades=[{"pnl_usdt": "10.0"}], total_trades=1, total_pnl=10.0, blocked_cycles=0, cycles_run=50,
     )
     backtest_result = _fake_backtest_result(total_trades=1, total_return_pct=1.0)
 
     comparison = replay.compare_to_backtest(result, backtest_result, initial_capital=1000.0)
 
     assert any("sem divergencia" in note.lower() or "nenhuma divergencia" in note.lower() for note in comparison.notes)
+
+
+def test_run_replay_reports_zero_cycles_when_history_too_short(monkeypatch):
+    # Regressao (achado de code-review): compare_to_backtest() relatava
+    # "sem divergencia" mesmo quando os dois lados tiveram 0 trades por
+    # falta de candles suficientes para passar do warmup (START_INDEX) --
+    # confundindo "nao ha divergencia real" com "nao deu pra testar nada".
+    short_df = _synthetic_ohlcv(n=50)  # menor que START_INDEX (100)
+    monkeypatch.setattr(replay, "fetch_ohlcv", lambda symbol, timeframe, limit=2000: short_df)
+
+    result = replay.run_replay("BTC/USDT", "4h")
+
+    assert result.cycles_run == 0
+    assert result.total_trades == 0
+
+
+def test_compare_to_backtest_flags_insufficient_data_instead_of_no_divergence():
+    result = replay.ReplayResult(
+        symbol="BTC/USDT", timeframe="4h", trades=[], total_trades=0, total_pnl=0.0,
+        blocked_cycles=0, cycles_run=0,
+    )
+    backtest_result = _fake_backtest_result(total_trades=0, total_return_pct=0.0)
+
+    comparison = replay.compare_to_backtest(result, backtest_result, initial_capital=1000.0)
+
+    joined_notes = " ".join(comparison.notes).lower()
+    assert "insuficiente" in joined_notes
+    assert "sem divergencia" not in joined_notes and "nenhuma divergencia" not in joined_notes
