@@ -113,11 +113,33 @@ def run_edge_report(
     timeframe: str,
     initial_capital: float = 1000.0,
     candle_limit: int = 2000,
-) -> Tuple[BacktestResult, ApprovalVerdict]:
+    validate: bool = False,
+):
     """Roda um backtest de janela unica (sem split treino/validacao -- isso e
     `backtest --validate`) e calcula o veredito de aprovacao sobre o resultado
     inteiro. Usado por `python main.py edge`, que ate esta spec era um alias
-    literal de `backtest`."""
+    literal de `backtest`.
+
+    Com `validate=True`, reusa run_backtest_with_validation() (mesmo caminho de
+    `backtest --validate`) e calcula o veredito sobre a fatia de validacao
+    out-of-sample em vez do resultado de janela unica -- FR-004. Banner de
+    contexto e diagnostico de perfil sao mostrados aqui (fora de
+    run_backtest_with_validation, que tambem serve `backtest --validate` sem
+    esses dois elementos) para o `edge` manter o mesmo nivel de informacao com
+    ou sem a flag (achado de /code-review medium)."""
+    if validate:
+        context_df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
+        simulation_context_banner(symbol, timeframe, context_df.index[0], context_df.index[-1], initial_capital)
+        train_result, validation_result, verdict = run_backtest_with_validation(
+            symbol, timeframe, initial_capital=initial_capital, candle_limit=candle_limit,
+        )
+        if verdict.status == "reprovado" and validation_result is not None:
+            diagnosis = diagnose_profile(validation_result)
+            if diagnosis:
+                console.print(f"[{C_CYAN}]  {diagnosis}[/]")
+                log.info(f"  {diagnosis}")
+        return train_result, validation_result, verdict
+
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
     simulation_context_banner(symbol, timeframe, df.index[0], df.index[-1], initial_capital)
     strategy = EmaRsiStrategy()

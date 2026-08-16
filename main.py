@@ -53,7 +53,8 @@ def cmd_backtest():
 
 def cmd_edge():
     from backtesting.validation import run_edge_report
-    run_edge_report(SYMBOL, TIMEFRAME)
+    validate = "--validate" in sys.argv[2:]
+    run_edge_report(SYMBOL, TIMEFRAME, validate=validate)
 
 def cmd_multibacktest():
     from backtesting.multi import run

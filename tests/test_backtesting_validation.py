@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from backtesting.engine import precompute_signals, simulate_backtest
-from backtesting.validation import run_edge_report, split_train_validation
+from backtesting.validation import run_backtest_with_validation, run_edge_report, split_train_validation
 from strategy.base import Signal
 from strategy.ema_rsi import EmaRsiParams, EmaRsiStrategy
 
@@ -93,4 +93,43 @@ def test_run_edge_report_runs_single_window_backtest_without_split(monkeypatch):
 
     assert result.total_trades == expected.total_trades
     assert result.total_return_pct == expected.total_return_pct
+    assert verdict.status in {"aprovado", "reprovado", "inconclusivo"}
+
+
+def test_run_edge_report_with_validate_returns_train_validation_and_verdict_on_validation_slice(monkeypatch):
+    df = _synthetic_ohlcv_df(600)
+    monkeypatch.setattr(
+        "backtesting.validation.fetch_ohlcv",
+        lambda symbol, timeframe, limit: df,
+    )
+
+    result = run_edge_report("FAKE/USDT", "4h", validate=True)
+    expected = run_backtest_with_validation("FAKE/USDT", "4h")
+
+    train_result, validation_result, verdict = result
+    expected_train, expected_validation, expected_verdict = expected
+
+    assert train_result.total_trades == expected_train.total_trades
+    assert validation_result.total_trades == expected_validation.total_trades
+    assert verdict.status == expected_verdict.status
+    # veredito calculado sobre a fatia de validacao (out-of-sample), nao sobre
+    # o resultado de janela unica -- FR-004.
+    from backtesting.approval import evaluate_approval
+    assert verdict.status == evaluate_approval(validation_result).status
+
+
+def test_run_edge_report_without_validate_flag_keeps_existing_single_window_behavior(monkeypatch):
+    # FR-005: comportamento default (sem --validate) precisa continuar identico
+    # ao ja existente antes desta spec.
+    df = _synthetic_ohlcv_df(300)
+    monkeypatch.setattr(
+        "backtesting.validation.fetch_ohlcv",
+        lambda symbol, timeframe, limit: df,
+    )
+
+    result = run_edge_report("FAKE/USDT", "4h", validate=False)
+
+    assert len(result) == 2
+    backtest_result, verdict = result
+    assert backtest_result.total_trades >= 0
     assert verdict.status in {"aprovado", "reprovado", "inconclusivo"}

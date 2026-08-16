@@ -46,12 +46,23 @@ def test_cmd_backtest_runs_validation_split_with_flag(monkeypatch):
 
 def test_cmd_edge_runs_edge_report_not_plain_backtest(monkeypatch):
     calls = []
+    monkeypatch.setattr(sys, "argv", ["main.py", "edge"])
     monkeypatch.setattr(backtesting.validation, "run_edge_report", lambda *a, **k: calls.append(("edge", a, k)))
     monkeypatch.setattr(backtesting.engine, "run_backtest", lambda *a, **k: calls.append(("plain", a, k)))
 
     main.cmd_edge()
 
-    assert calls == [("edge", (main.SYMBOL, main.TIMEFRAME), {})]
+    assert calls == [("edge", (main.SYMBOL, main.TIMEFRAME), {"validate": False})]
+
+
+def test_cmd_edge_passes_validate_flag_through(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sys, "argv", ["main.py", "edge", "--validate"])
+    monkeypatch.setattr(backtesting.validation, "run_edge_report", lambda *a, **k: calls.append(("edge", a, k)))
+
+    main.cmd_edge()
+
+    assert calls == [("edge", (main.SYMBOL, main.TIMEFRAME), {"validate": True})]
 
 
 def test_cmd_otimizar_runs_plain_by_default(monkeypatch):
