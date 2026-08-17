@@ -118,7 +118,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Weekly loss limit (10% of the weekly reference balance); must be ≥ `DAILY_DRAWDOWN_LIMIT` |
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Monthly loss limit (20% of the monthly reference balance); must be ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Consecutive losses (`pnl < 0`) before the circuit breaker trips; resets on a trade with `pnl > 0` |
-| `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `24` | Hours after the circuit breaker trips before it auto-deactivates even with no profitable trade |
+| `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `4` | Hours after the circuit breaker trips before it auto-deactivates even with no profitable trade |
 | `BACKTEST_FEE_RATE` | `0.001` | Exchange fee on entry/exit notional value — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already pays a real fee) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |

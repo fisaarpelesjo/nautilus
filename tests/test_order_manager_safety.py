@@ -351,7 +351,7 @@ def test_circuit_breaker_deactivates_when_counter_resets(monkeypatch):
 
 def test_circuit_breaker_auto_resets_after_cooldown_with_no_open_positions(monkeypatch):
     monkeypatch.setattr(order_manager, "MAX_CONSECUTIVE_LOSSES", 2)
-    monkeypatch.setattr(order_manager, "CIRCUIT_BREAKER_COOLDOWN_HOURS", 24)
+    monkeypatch.setattr(order_manager, "CIRCUIT_BREAKER_COOLDOWN_HOURS", 4)
     manager = _paper_manager(monkeypatch)
 
     _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
@@ -362,7 +362,7 @@ def test_circuit_breaker_auto_resets_after_cooldown_with_no_open_positions(monke
     manager.check_circuit_breaker_timeout()
     assert manager.circuit_breaker_active is True  # ainda dentro da janela de cooldown
 
-    manager.circuit_breaker_triggered_at -= timedelta(hours=24, minutes=1)
+    manager.circuit_breaker_triggered_at -= timedelta(hours=4, minutes=1)
     manager.check_circuit_breaker_timeout()
     assert manager.circuit_breaker_active is False
     assert manager.consecutive_losses == 0

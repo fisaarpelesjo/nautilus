@@ -57,7 +57,7 @@ MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "3"))
 # nenhum trade lucrativo -- evita travamento permanente quando o breaker ativa
 # sem nenhuma posicao aberta (sem trade para gerar o lucro que resetaria o
 # contador via _update_consecutive_losses).
-CIRCUIT_BREAKER_COOLDOWN_HOURS = float(os.getenv("CIRCUIT_BREAKER_COOLDOWN_HOURS", "24"))
+CIRCUIT_BREAKER_COOLDOWN_HOURS = float(os.getenv("CIRCUIT_BREAKER_COOLDOWN_HOURS", "4"))
 
 # Numero minimo de trades para o veredito de aprovacao de backtest (edge/multibacktest/scan/
 # backtest --validate) ser conclusivo -- amostra abaixo disso vira "inconclusivo".
