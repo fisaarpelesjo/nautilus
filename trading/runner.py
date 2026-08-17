@@ -158,6 +158,9 @@ def run():
             if manager.pending_limit_orders:
                 safe_step(log, "Falha ao checar ordens limit pendentes",
                           manager.check_pending_limit_orders)
+            if manager.circuit_breaker_active:
+                safe_step(log, "Falha ao checar timeout do circuit breaker",
+                          manager.check_circuit_breaker_timeout)
             pair_rows = []
             trade_events = []
             new_entries = 0

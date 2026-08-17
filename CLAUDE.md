@@ -132,6 +132,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Limite de perda semanal (10% do saldo de referência semanal); deve ser ≥ `DAILY_DRAWDOWN_LIMIT` |
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Limite de perda mensal (20% do saldo de referência mensal); deve ser ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Perdas seguidas (`pnl < 0`) até ativar o circuit breaker; reseta em trade com `pnl > 0` |
+| `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `24` | Horas após a ativação do circuit breaker até ele se autodesativar mesmo sem nenhum trade lucrativo |
 | `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional de entrada/saída — usada no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já paga taxa real) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já sofre slippage real) |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
@@ -215,7 +216,11 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - **Circuit breaker** (`execution/order_manager.py`): contador global `consecutive_losses` de trades
   fechados com `pnl < 0`, reseta só em `pnl > 0`. Ao atingir `MAX_CONSECUTIVE_LOSSES`,
   `circuit_breaker_active=true` bloqueia novas entradas (posições abertas continuam geridas
-  normalmente). Independente e cumulativo com `DAILY_DRAWDOWN_LIMIT`.
+  normalmente). Independente e cumulativo com `DAILY_DRAWDOWN_LIMIT`. Também se autodesativa
+  sozinho após `CIRCUIT_BREAKER_COOLDOWN_HOURS` (`check_circuit_breaker_timeout()`, chamado uma vez
+  por ciclo pelo `trading/runner.py` quando o breaker está ativo) — sem esse timeout, um breaker
+  ativado sem nenhuma posição aberta travaria o bot para sempre, já que não sobraria trade nenhum
+  para gerar o lucro que reseta o contador.
 - **Kill switch** (`data/killswitch_store.py`): flag manual em `data/killswitch.json` — arquivo
   próprio, não em `state.json`, para que uma escrita normal do bot em execução não sobrescreva uma
   ativação externa via `python main.py kill`. Ativa/desativa via `kill`/`resume`; o bot lê o arquivo

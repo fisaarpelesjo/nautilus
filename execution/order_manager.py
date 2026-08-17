@@ -18,6 +18,7 @@ from config.settings import (
     WEEKLY_DRAWDOWN_LIMIT,
     MONTHLY_DRAWDOWN_LIMIT,
     MAX_CONSECUTIVE_LOSSES,
+    CIRCUIT_BREAKER_COOLDOWN_HOURS,
     USE_LIMIT_ORDERS,
 )
 from data.fetcher import fetch_balance, get_exchange
@@ -98,6 +99,7 @@ class OrderManager:
         self.pending_limit_orders: Dict[str, PendingLimitOrder] = {}
         self.consecutive_losses: int = 0
         self.circuit_breaker_active: bool = False
+        self.circuit_breaker_triggered_at: Optional[datetime] = None
         if TRADING_MODE == "live":
             self._assert_live_trading_allowed()
             self.exchange = get_exchange()
@@ -137,6 +139,8 @@ class OrderManager:
                 )
         self.consecutive_losses = state.get("consecutive_losses", 0)
         self.circuit_breaker_active = state.get("circuit_breaker_active", False)
+        triggered_at = state.get("circuit_breaker_triggered_at")
+        self.circuit_breaker_triggered_at = datetime.fromisoformat(triggered_at) if triggered_at else None
         for symbol, ts in state.get("cooldowns", {}).items():
             self.cooldowns[symbol] = datetime.fromisoformat(ts)
         today = datetime.now().strftime("%Y-%m-%d")
@@ -239,6 +243,9 @@ class OrderManager:
             },
             "consecutive_losses": self.consecutive_losses,
             "circuit_breaker_active": self.circuit_breaker_active,
+            "circuit_breaker_triggered_at": (
+                self.circuit_breaker_triggered_at.isoformat() if self.circuit_breaker_triggered_at else None
+            ),
             "updated_at":         datetime.now().isoformat(),
         })
 
@@ -280,18 +287,43 @@ class OrderManager:
             if self.consecutive_losses >= MAX_CONSECUTIVE_LOSSES:
                 if not self.circuit_breaker_active:
                     self.circuit_breaker_active = True
+                    self.circuit_breaker_triggered_at = datetime.now()
                     log.warning(f"Circuit breaker ativado: {self.consecutive_losses} perdas seguidas")
                     safe_step(log, "Falha ao publicar evento de circuit breaker", lambda: log_event(
                         "circuit_breaker_triggered", mode=TRADING_MODE, consecutive_losses=self.consecutive_losses,
                     ))
                     safe_step(log, "Falha ao enviar alerta de circuit breaker", lambda: send_telegram(
-                        f"Circuit breaker ATIVADO: {self.consecutive_losses} perdas seguidas. Novas entradas suspensas."
+                        f"Circuit breaker ATIVADO: {self.consecutive_losses} perdas seguidas. Novas entradas suspensas "
+                        f"por ate {CIRCUIT_BREAKER_COOLDOWN_HOURS}h ou ate o proximo trade lucrativo."
                     ))
         elif pnl > 0:
             if self.circuit_breaker_active:
                 log.info("Circuit breaker desativado (trade positivo resetou o contador)")
             self.consecutive_losses = 0
             self.circuit_breaker_active = False
+            self.circuit_breaker_triggered_at = None
+
+    def check_circuit_breaker_timeout(self):
+        """Autodesativa o circuit breaker apos CIRCUIT_BREAKER_COOLDOWN_HOURS, mesmo sem
+        nenhum trade lucrativo -- sem isso, o breaker ativando com zero posicoes abertas
+        trava o bot permanentemente (nenhum trade sobra para gerar o lucro que resetaria
+        o contador em _update_consecutive_losses). Chamado uma vez por ciclo pelo runner."""
+        if not self.circuit_breaker_active or not self.circuit_breaker_triggered_at:
+            return
+        elapsed = datetime.now() - self.circuit_breaker_triggered_at
+        if elapsed >= timedelta(hours=CIRCUIT_BREAKER_COOLDOWN_HOURS):
+            self.consecutive_losses = 0
+            self.circuit_breaker_active = False
+            self.circuit_breaker_triggered_at = None
+            log.info(f"Circuit breaker desativado automaticamente apos {CIRCUIT_BREAKER_COOLDOWN_HOURS}h")
+            self._persist_state_with_retry("ao desativar circuit breaker por timeout")
+            safe_step(log, "Falha ao publicar evento de timeout do circuit breaker", lambda: log_event(
+                "circuit_breaker_timeout_reset", mode=TRADING_MODE,
+            ))
+            safe_step(log, "Falha ao enviar alerta de timeout do circuit breaker", lambda: send_telegram(
+                f"Circuit breaker desativado automaticamente apos {CIRCUIT_BREAKER_COOLDOWN_HOURS}h sem trade lucrativo. "
+                "Novas entradas liberadas."
+            ))
 
     def _reference_balance(self) -> Optional[float]:
         """Saldo real em USDT, para uso como referencia dos limites de perda

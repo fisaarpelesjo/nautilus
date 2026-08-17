@@ -53,6 +53,11 @@ DAILY_DRAWDOWN_LIMIT = float(os.getenv("DAILY_DRAWDOWN_LIMIT", "0.05"))  # 5% do
 WEEKLY_DRAWDOWN_LIMIT = float(os.getenv("WEEKLY_DRAWDOWN_LIMIT", "0.10"))  # 10% do saldo de referencia semanal
 MONTHLY_DRAWDOWN_LIMIT = float(os.getenv("MONTHLY_DRAWDOWN_LIMIT", "0.20"))  # 20% do saldo de referencia mensal
 MAX_CONSECUTIVE_LOSSES = int(os.getenv("MAX_CONSECUTIVE_LOSSES", "3"))
+# Horas apos a ativacao do circuit breaker ate ele se autodesativar mesmo sem
+# nenhum trade lucrativo -- evita travamento permanente quando o breaker ativa
+# sem nenhuma posicao aberta (sem trade para gerar o lucro que resetaria o
+# contador via _update_consecutive_losses).
+CIRCUIT_BREAKER_COOLDOWN_HOURS = float(os.getenv("CIRCUIT_BREAKER_COOLDOWN_HOURS", "24"))
 
 # Numero minimo de trades para o veredito de aprovacao de backtest (edge/multibacktest/scan/
 # backtest --validate) ser conclusivo -- amostra abaixo disso vira "inconclusivo".
@@ -162,6 +167,8 @@ def validate_config():
         errors.append("MONTHLY_DRAWDOWN_LIMIT deve ser maior ou igual a WEEKLY_DRAWDOWN_LIMIT.")
     if MAX_CONSECUTIVE_LOSSES < 1:
         errors.append("MAX_CONSECUTIVE_LOSSES deve ser pelo menos 1.")
+    if CIRCUIT_BREAKER_COOLDOWN_HOURS < 0:
+        errors.append("CIRCUIT_BREAKER_COOLDOWN_HOURS nao pode ser negativo.")
     if EDGE_MIN_TRADES < 1:
         errors.append("EDGE_MIN_TRADES deve ser pelo menos 1.")
     if not 0 <= DAILY_REPORT_HOUR <= 23:

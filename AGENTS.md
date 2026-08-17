@@ -118,6 +118,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `WEEKLY_DRAWDOWN_LIMIT` | `0.10` | Weekly loss limit (10% of the weekly reference balance); must be ≥ `DAILY_DRAWDOWN_LIMIT` |
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Monthly loss limit (20% of the monthly reference balance); must be ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Consecutive losses (`pnl < 0`) before the circuit breaker trips; resets on a trade with `pnl > 0` |
+| `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `24` | Hours after the circuit breaker trips before it auto-deactivates even with no profitable trade |
 | `BACKTEST_FEE_RATE` | `0.001` | Exchange fee on entry/exit notional value — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already pays a real fee) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
@@ -200,7 +201,11 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 - **Circuit breaker** (`execution/order_manager.py`): global `consecutive_losses` counter over
   closed trades with `pnl < 0`, resets only on `pnl > 0`. Once `MAX_CONSECUTIVE_LOSSES` is reached,
   `circuit_breaker_active=true` blocks new entries (open positions keep being managed normally).
-  Independent of and additive with `DAILY_DRAWDOWN_LIMIT`.
+  Independent of and additive with `DAILY_DRAWDOWN_LIMIT`. Also auto-deactivates on its own after
+  `CIRCUIT_BREAKER_COOLDOWN_HOURS` (`check_circuit_breaker_timeout()`, called once per cycle by
+  `trading/runner.py` while the breaker is active) — without this timeout, a breaker that trips with
+  zero open positions would lock the bot forever, since no trade would remain to generate the profit
+  that resets the counter.
 - **Kill switch** (`data/killswitch_store.py`): manual flag in its own `data/killswitch.json` file,
   not in `state.json` — keeps a normal write from the running bot from overwriting an external
   activation via `python main.py kill`. Toggled via `kill`/`resume`; the bot reads the file from disk

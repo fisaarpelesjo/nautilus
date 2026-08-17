@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -347,6 +347,32 @@ def test_circuit_breaker_deactivates_when_counter_resets(monkeypatch):
     _open_and_close(manager, "BTC/USDT", 100.0, 110.0)  # lucro reseta
     assert manager.circuit_breaker_active is False
     assert manager.consecutive_losses == 0
+
+
+def test_circuit_breaker_auto_resets_after_cooldown_with_no_open_positions(monkeypatch):
+    monkeypatch.setattr(order_manager, "MAX_CONSECUTIVE_LOSSES", 2)
+    monkeypatch.setattr(order_manager, "CIRCUIT_BREAKER_COOLDOWN_HOURS", 24)
+    manager = _paper_manager(monkeypatch)
+
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
+    _open_and_close(manager, "BTC/USDT", 100.0, 90.0)
+    assert manager.circuit_breaker_active is True
+    assert manager.positions == {}  # nenhuma posicao sobra para gerar o trade lucrativo do reset normal
+
+    manager.check_circuit_breaker_timeout()
+    assert manager.circuit_breaker_active is True  # ainda dentro da janela de cooldown
+
+    manager.circuit_breaker_triggered_at -= timedelta(hours=24, minutes=1)
+    manager.check_circuit_breaker_timeout()
+    assert manager.circuit_breaker_active is False
+    assert manager.consecutive_losses == 0
+    assert manager.circuit_breaker_triggered_at is None
+
+
+def test_circuit_breaker_timeout_noop_when_not_active(monkeypatch):
+    manager = _paper_manager(monkeypatch)
+    manager.check_circuit_breaker_timeout()  # nao deve levantar excecao nem mexer em nada
+    assert manager.circuit_breaker_active is False
 
 
 def _freeze_current_periods(manager):
