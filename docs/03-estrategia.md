@@ -105,7 +105,7 @@ Estratégia alternativa, não usada em produção por padrão — disponível pa
 
 ## Adicionando uma estratégia nova
 
-Ver [12 — Desenvolvimento](12-desenvolvimento.md#adicionar-uma-estrategia-nova).
+Ver [12 — Desenvolvimento](12-desenvolvimento.md#adicionar-uma-estratégia-nova).
 
 ## Próximo capítulo
 

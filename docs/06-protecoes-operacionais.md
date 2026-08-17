@@ -2,7 +2,7 @@
 
 [← Sumário](README.md)
 
-Quatro camadas de proteção, independentes e cumulativas entre si — nenhuma substitui outra. Os limites de drawdown já foram cobertos em [04](04-gestao-risco.md#limites-de-drawdown-diario--semanal--mensal); este capítulo cobre as demais.
+Quatro camadas de proteção, independentes e cumulativas entre si — nenhuma substitui outra. Os limites de drawdown já foram cobertos em [04](04-gestao-risco.md#limites-de-drawdown-diário--semanal--mensal); este capítulo cobre as demais.
 
 ## Circuit breaker
 
