@@ -7,6 +7,7 @@ from config.settings import (
     TAKE_PROFIT_PCT,
     ATR_SL_MULTIPLIER,
     ATR_TP_MULTIPLIER,
+    MAX_STOP_LOSS_PCT,
     MAX_ORDER_SIZE_USDT,
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
@@ -384,7 +385,10 @@ def edge_score_band(score: float) -> str:
 
 def _stop_price(entry_price: float, atr: float, stop_loss_pct: float, atr_sl_multiplier: float) -> float:
     if atr > 0:
-        return max(entry_price - atr_sl_multiplier * atr, entry_price * 0.5)
+        # Mesmo teto de risk/manager.py calculate_risk() -- sem isso o backtest
+        # simula um SL mais largo do que o bot realmente usaria em paper/live
+        # num par de alta volatilidade, distorcendo o veredito de aprovacao.
+        return max(entry_price - atr_sl_multiplier * atr, entry_price * (1 - MAX_STOP_LOSS_PCT))
     return entry_price * (1 - stop_loss_pct)
 
 

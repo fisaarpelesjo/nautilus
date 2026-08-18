@@ -56,6 +56,31 @@ def test_simulate_backtest_applies_fees_and_slippage_on_take_profit():
     assert trade.fees > 0
 
 
+def test_simulate_backtest_caps_atr_stop_loss_at_max_stop_loss_pct(monkeypatch):
+    # Achado de auditoria: _stop_price() tinha seu proprio piso independente
+    # (entry_price * 0.5), desalinhado do teto MAX_STOP_LOSS_PCT que
+    # risk/manager.py calculate_risk() aplica em paper/live -- um backtest
+    # simulava o bot sobrevivendo a quedas bem piores do que o bot real
+    # toleraria num par de ATR largo, distorcendo o veredito de aprovacao.
+    monkeypatch.setattr(engine, "MAX_STOP_LOSS_PCT", 0.08)
+    data = _df([
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0, "atr": 13.3},
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0, "atr": 13.3},
+        {"open": 90.0, "high": 95.0, "low": 85.0, "close": 90.0, "volume": 1.0, "atr": 13.3},
+    ])
+    strategy = SequenceStrategy([Signal.BUY, Signal.HOLD])
+
+    # ATR_SL_MULTIPLIER default (1.5) x atr=13.3 colocaria o stop em ~80.05 (-20%),
+    # que o low=85 do candle de saida NAO alcancaria -- so o teto de 8% (stop=92)
+    # faz esse trade fechar por Stop Loss neste candle.
+    result = simulate_backtest(data, strategy, start_index=1, fee_rate=0.0, slippage_pct=0.0)
+
+    assert result.total_trades == 1
+    trade = result.trades[0]
+    assert trade.exit_reason == "Stop Loss"
+    assert trade.exit_price == pytest.approx(92.0)
+
+
 def test_simulate_backtest_closes_open_position_at_period_end():
     data = _df([
         {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0},
