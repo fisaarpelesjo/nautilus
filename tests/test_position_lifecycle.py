@@ -86,6 +86,20 @@ class _FakeEntryManager:
         return symbol in self.positions
 
 
+def test_mtf_confirmed_fails_closed_on_network_error(monkeypatch):
+    # Achado de auditoria (candidato spec 012 do BACKLOG.md): mtf_confirmed()
+    # era a unica excecao fail-open deste arquivo -- toda checagem irma
+    # (saldo, liquidez, limites de drawdown) falha fechada no mesmo tipo de
+    # erro. Um erro de rede buscando o candle MTF nao pode virar "tendencia
+    # confirmada" por omissao.
+    monkeypatch.setattr(
+        position_lifecycle, "fetch_ohlcv",
+        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
+    )
+
+    assert position_lifecycle.mtf_confirmed("BTC/USDT", 100.0, strategy=None) is False
+
+
 def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
     # Regressao: saldo desconhecido nao pode virar 0.0 silenciosamente --
     # isso mandaria uma ordem de quantidade zero de verdade para a exchange.
@@ -94,12 +108,10 @@ def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
         position_lifecycle, "fetch_balance",
         lambda: (_ for _ in ()).throw(RuntimeError("timeout")),
     )
-    # MTF roda antes do saldo (mesma ordem de antes desta spec); mocka para
-    # nao bater na rede de verdade no teste.
-    monkeypatch.setattr(
-        position_lifecycle, "fetch_ohlcv",
-        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
-    )
+    # MTF roda antes do saldo (mesma ordem de antes desta spec); mocka
+    # diretamente para nao bater na rede de verdade e nao acoplar este teste
+    # (que e sobre saldo, nao MTF) ao comportamento fail-closed do MTF.
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",
         lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
@@ -120,10 +132,7 @@ def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
 
 
 def test_handle_entry_candidate_opens_when_balance_known(monkeypatch):
-    monkeypatch.setattr(
-        position_lifecycle, "fetch_ohlcv",
-        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
-    )
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",
         lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
@@ -159,10 +168,7 @@ def test_handle_entry_candidate_blocks_when_circuit_breaker_active():
 
 
 def test_handle_entry_candidate_blocks_when_liquidity_check_fails(monkeypatch):
-    monkeypatch.setattr(
-        position_lifecycle, "fetch_ohlcv",
-        lambda symbol, timeframe: (_ for _ in ()).throw(RuntimeError("sem rede no teste")),
-    )
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",
         lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(

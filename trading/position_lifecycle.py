@@ -136,12 +136,16 @@ def handle_entry_candidate(
 
 
 def mtf_confirmed(symbol: str, price: float, strategy) -> bool:
+    """Confirma tendencia no timeframe maior. Falha FECHADA (bloqueia a entrada)
+    em qualquer erro -- mesmo principio ja usado para saldo/liquidez desconhecidos
+    neste arquivo; um candle MTF que nao pode ser buscado nao pode ser tratado
+    como "tendencia confirmada" por omissao (achado de auditoria de codigo)."""
     try:
         df = fetch_ohlcv(symbol, MTF_TIMEFRAME)
         ind = strategy.calculate_indicators(df).iloc[-1]
         return price > ind["ema_trend"]
     except Exception:
-        return True
+        return False
 
 
 def _current_balance(manager: OrderManager):
