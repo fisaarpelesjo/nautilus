@@ -73,8 +73,12 @@ def compare_to_backtest(result: ReplayResult, backtest_result, initial_capital: 
 
     notes.append(
         "Limitacoes conhecidas: cooldown do replay usa relogio real (nao o timestamp do candle "
-        "historico) e MTF busca o timeframe de confirmacao mais recente disponivel, nao "
-        "point-in-time -- ver research.md da spec 008."
+        "historico), MTF busca o timeframe de confirmacao mais recente disponivel, nao "
+        "point-in-time, e os resets de drawdown diario/semanal/mensal e o timeout do circuit "
+        "breaker tambem usam relogio real -- um replay de meses de historico roda em segundos, "
+        "entao esses periodos raramente viram de verdade durante a simulacao (podendo entender "
+        "bloqueios em periodos de perda mais longos que o real produziria) -- ver research.md "
+        "da spec 008."
     )
 
     return ReplayComparison(
