@@ -194,8 +194,19 @@ def run():
                         row = _build_pair_row(symbol, signal, indicators, previous, current_price, pos, strategy)
                         pair_rows.append(row)
 
+                        has_pending_entry = (
+                            symbol in manager.pending_limit_orders
+                            or symbol in manager.pending_open_client_order_ids
+                        )
                         if pos:
                             handle_open_position(manager, symbol, pos, signal, current_price, row, trade_events)
+                        elif has_pending_entry:
+                            # Sem isso, um par com ordem limit ainda nao preenchida (ou tentativa
+                            # de compra pendente) cai aqui de novo no proximo ciclo -- open_long()
+                            # so verifica has_position (posicao ja preenchida), nao ordem pendente,
+                            # entao uma segunda ordem real seria enviada em cima da primeira todo
+                            # ciclo ate check_pending_limit_orders() resolver (achado de auditoria).
+                            row["decision"] = "aguardando preenchimento de ordem limit pendente"
                         else:
                             opened = handle_entry_candidate(
                                 manager, symbol, signal, indicators, current_price, strategy,
