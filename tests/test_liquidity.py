@@ -41,6 +41,21 @@ def test_check_liquidity_treats_network_failure_as_blocked(monkeypatch):
     assert result.reason == "liquidez indisponivel"
 
 
+def test_check_liquidity_blocks_on_corrupted_best_ask(monkeypatch):
+    # Achado de auditoria: so bids[0][0] <= 0 era validado -- um best_ask
+    # corrompido (0 ou negativo) fazia spread_pct sair negativo, passando
+    # trivialmente pelo limite de spread em vez de virar "liquidez indisponivel"
+    # como a corrupcao equivalente do lado bid ja tratava.
+    monkeypatch.setattr(liquidity, "MAX_SPREAD_PCT_ENTRY", 0.005)
+    monkeypatch.setattr(liquidity, "MIN_ORDERBOOK_DEPTH_USDT", 100.0)
+    monkeypatch.setattr(liquidity, "fetch_order_book", lambda symbol, limit=20: _book(bid=100.0, ask=0.0))
+
+    result = liquidity.check_liquidity("BTC/USDT", order_size_usdt=50.0)
+
+    assert result.approved is False
+    assert result.reason == "liquidez indisponivel"
+
+
 def test_check_liquidity_approves_within_limits(monkeypatch):
     monkeypatch.setattr(liquidity, "MAX_SPREAD_PCT_ENTRY", 0.005)
     monkeypatch.setattr(liquidity, "MIN_ORDERBOOK_DEPTH_USDT", 100.0)

@@ -30,7 +30,11 @@ def check_liquidity(symbol: str, order_size_usdt: float) -> LiquidityCheck:
 
     bids = book.get("bids") or []
     asks = book.get("asks") or []
-    if not bids or not asks or bids[0][0] <= 0:
+    # asks[0][0] <= 0 e checado tao explicitamente quanto bids[0][0] -- um best_ask
+    # corrompido (0 ou negativo) faria spread_pct sair negativo, passando trivialmente
+    # pelo limite MAX_SPREAD_PCT_ENTRY, e viraria limit_price de uma ordem real
+    # (position_lifecycle.py) se USE_LIMIT_ORDERS estiver ligado (achado de auditoria).
+    if not bids or not asks or bids[0][0] <= 0 or asks[0][0] <= 0:
         return LiquidityCheck(approved=False, reason="liquidez indisponivel", spread_pct=0.0, depth_usdt=0.0)
 
     best_bid = bids[0][0]
