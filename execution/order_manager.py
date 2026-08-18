@@ -205,6 +205,7 @@ class OrderManager:
                 "take_profit":   pos.take_profit,
                 "atr":           pos.atr,
                 "highest_price": pos.highest_price,
+                "entry_fee":     pos.entry_fee,
                 "opened_at":     pos.opened_at.isoformat(),
                 "order_id":      pos.order_id,
                 "client_order_id": pos.client_order_id,

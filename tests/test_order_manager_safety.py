@@ -252,6 +252,32 @@ def test_paper_sell_uses_fee_actually_paid_at_entry_not_current_rate(monkeypatch
     assert logged_trades[0]["pnl_usdt"] == pytest.approx(pnl_esperado)
 
 
+def test_entry_fee_survives_a_restart(monkeypatch):
+    # Achado de auditoria: _persist_state() nao gravava "entry_fee" no dict da
+    # posicao, entao _restore_state() sempre voltava com entry_fee=0.0 apos
+    # qualquer restart -- reintroduzindo silenciosamente o mesmo vies de PnL
+    # otimista demais que a spec 010 corrigiu, mas so para posicoes que
+    # sobrevivem a um restart (exatamente o caso do deploy 24/7 na VPS).
+    saved_states = []
+    monkeypatch.setattr(order_manager, "TRADING_MODE", "paper")
+    monkeypatch.setattr(order_manager, "load_state", lambda: {})
+    monkeypatch.setattr(order_manager, "save_state", lambda state: saved_states.append(state))
+    monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.001)
+
+    manager = OrderManager()
+    risk = RiskLevels(entry_price=100.0, stop_loss=95.0, take_profit=110.0, quantity=1.0, risk_usdt=5.0)
+    manager.open_long("BTC/USDT", risk)
+    original_fee = manager.positions["BTC/USDT"].entry_fee
+    assert original_fee > 0  # sanity check: a taxa de entrada foi cobrada de verdade
+
+    assert saved_states[-1]["positions"]["BTC/USDT"]["entry_fee"] == original_fee
+
+    monkeypatch.setattr(order_manager, "load_state", lambda: saved_states[-1])
+    restarted = OrderManager()  # simula o bot reiniciando com a posicao ainda aberta
+
+    assert restarted.positions["BTC/USDT"].entry_fee == original_fee
+
+
 def test_paper_trade_pnl_pct_matches_backtest_engine_for_same_price_pair(monkeypatch):
     # SC-001: paridade percentual com simulate_backtest() para o mesmo par de
     # precos de mercado e mesmos fee_rate/slippage_pct -- ver research.md
