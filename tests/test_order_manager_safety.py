@@ -401,6 +401,30 @@ def test_circuit_breaker_timeout_noop_when_not_active(monkeypatch):
     assert manager.circuit_breaker_active is False
 
 
+def test_restore_state_backfills_missing_triggered_at_when_breaker_active(monkeypatch):
+    # Achado de auditoria: circuit_breaker_active=true com
+    # circuit_breaker_triggered_at ausente (schema anterior a este campo,
+    # edicao manual, rollback com o breaker ja ativo) travaria o breaker para
+    # sempre -- check_circuit_breaker_timeout() exige os dois campos
+    # preenchidos antes de agir. _restore_state() precisa comecar a contagem
+    # na hora em vez de deixar sem nenhum caminho de saida automatico.
+    monkeypatch.setattr(order_manager, "TRADING_MODE", "paper")
+    monkeypatch.setattr(order_manager, "save_state", lambda state: None)
+    monkeypatch.setattr(order_manager, "load_state", lambda: {
+        "circuit_breaker_active": True,
+        "consecutive_losses": 3,
+        # circuit_breaker_triggered_at ausente de proposito
+    })
+
+    manager = OrderManager()
+
+    assert manager.circuit_breaker_active is True
+    assert manager.circuit_breaker_triggered_at is not None
+    # A contagem comecou agora, entao o timeout ainda nao deve ter passado.
+    manager.check_circuit_breaker_timeout()
+    assert manager.circuit_breaker_active is True
+
+
 def _freeze_current_periods(manager):
     # _restore_state() sai cedo quando load_state() retorna {} (instalacao
     # nova), deixando *_reset_date="" -- na producao isso e inofensivo (a

@@ -141,6 +141,15 @@ class OrderManager:
         self.circuit_breaker_active = state.get("circuit_breaker_active", False)
         triggered_at = state.get("circuit_breaker_triggered_at")
         self.circuit_breaker_triggered_at = datetime.fromisoformat(triggered_at) if triggered_at else None
+        if self.circuit_breaker_active and self.circuit_breaker_triggered_at is None:
+            # Estado inconsistente (schema anterior a este campo, edicao manual, ou
+            # rollback com o breaker ja ativo) travaria o breaker para sempre --
+            # check_circuit_breaker_timeout() exige os dois campos preenchidos para
+            # agir. Comeca a contagem agora em vez de deixar sem nenhum caminho de
+            # saida automatico (achado de auditoria de codigo).
+            self.circuit_breaker_triggered_at = datetime.now()
+            log.warning("circuit_breaker_active sem circuit_breaker_triggered_at ao restaurar estado -- "
+                        "iniciando contagem do timeout agora")
         for symbol, ts in state.get("cooldowns", {}).items():
             self.cooldowns[symbol] = datetime.fromisoformat(ts)
         today = datetime.now().strftime("%Y-%m-%d")
