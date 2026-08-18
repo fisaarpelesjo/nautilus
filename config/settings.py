@@ -46,6 +46,14 @@ ATR_TP_MULTIPLIER = float(os.getenv("ATR_TP_MULTIPLIER", "3.0"))
 # (STOP_LOSS_PCT), que ja fica bem abaixo deste teto.
 MAX_STOP_LOSS_PCT = float(os.getenv("MAX_STOP_LOSS_PCT", "0.08"))
 
+# Bloqueia uma entrada nova se os retornos do par candidato estiverem altamente
+# correlacionados com os de uma posicao ja aberta -- MAX_POSITIONS limita
+# quantidade de posicoes, nao exposicao direcional: varios altcoins que se movem
+# junto com o mesmo movimento de mercado contam como posicoes "diferentes" mas
+# se comportam como uma unica posicao grande concentrada numa queda geral.
+MAX_POSITION_CORRELATION = float(os.getenv("MAX_POSITION_CORRELATION", "0.7"))
+CORRELATION_LOOKBACK = int(os.getenv("CORRELATION_LOOKBACK", "50"))
+
 VOLUME_MA_PERIOD  = int(os.getenv("VOLUME_MA_PERIOD", "20"))
 VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.0"))
 
@@ -176,6 +184,10 @@ def validate_config():
         errors.append("MAX_CONSECUTIVE_LOSSES deve ser pelo menos 1.")
     if CIRCUIT_BREAKER_COOLDOWN_HOURS < 0:
         errors.append("CIRCUIT_BREAKER_COOLDOWN_HOURS nao pode ser negativo.")
+    if not 0 < MAX_POSITION_CORRELATION <= 1:
+        errors.append("MAX_POSITION_CORRELATION deve estar entre 0 e 1.")
+    if CORRELATION_LOOKBACK < 10:
+        errors.append("CORRELATION_LOOKBACK deve ser pelo menos 10.")
     if EDGE_MIN_TRADES < 1:
         errors.append("EDGE_MIN_TRADES deve ser pelo menos 1.")
     if not 0 <= DAILY_REPORT_HOUR <= 23:

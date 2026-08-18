@@ -96,6 +96,8 @@ Todos os três filtros aditivos (regime, volatilidade, Bollinger adaptativo) só
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Limite de perda mensal (deve ser ≥ semanal) |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Perdas seguidas até ativar o circuit breaker |
 | `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `4` | Horas até o circuit breaker se autodesativar mesmo sem lucro |
+| `MAX_POSITION_CORRELATION` | `0.7` | Correlação de retornos acima da qual uma entrada é bloqueada por já haver posição correlacionada aberta |
+| `CORRELATION_LOOKBACK` | `50` | Nº de candles usados no cálculo de correlação entre pares |
 
 ## Backtest e paper mode
 

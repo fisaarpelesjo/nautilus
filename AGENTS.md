@@ -129,6 +129,8 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Monthly loss limit (20% of the monthly reference balance); must be ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Consecutive losses (`pnl < 0`) before the circuit breaker trips; resets on a trade with `pnl > 0` |
 | `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `4` | Hours after the circuit breaker trips before it auto-deactivates even with no profitable trade |
+| `MAX_POSITION_CORRELATION` | `0.7` | Return correlation (over `CORRELATION_LOOKBACK`) above which a new entry is blocked for already having a correlated open position |
+| `CORRELATION_LOOKBACK` | `50` | Number of candles used to compute correlation between pairs |
 | `BACKTEST_FEE_RATE` | `0.001` | Exchange fee on entry/exit notional value — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already pays a real fee) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
@@ -237,6 +239,13 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
   real order book and blocks with a specific reason (`"liquidez: ..."`) when the spread exceeds
   `MAX_SPREAD_PCT_ENTRY` or ask-side depth falls below `MIN_ORDERBOOK_DEPTH_USDT`. A failure to fetch
   the order book also blocks (`"liquidez indisponivel"`) — never approval by omission.
+- **Position correlation risk** (`risk/correlation.py`): before each entry, `check_correlated_exposure`
+  compares the candidate pair's returns (`CORRELATION_LOOKBACK` window) against every already-open
+  position's; correlation ≥ `MAX_POSITION_CORRELATION` blocks with reason `"correlacionado com
+  {pair}"`. `MAX_POSITIONS` limits position *count*, not directional exposure — several correlated
+  altcoins open at once behave like one large concentrated position during a broad market drop.
+  Unlike the other checks in this file, this one fails **open** per individual comparison (doesn't
+  block the whole entry just because one specific open position's history failed to fetch).
 - **Limit orders with partial-fill tracking** (`execution/order_manager.py`): opt-in via
   `USE_LIMIT_ORDERS` (default `false`, preserves the market-order behavior). When enabled, the entry
   uses the best ask already fetched by the liquidity check as the limit price; the order sits in

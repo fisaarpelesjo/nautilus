@@ -78,14 +78,18 @@ flowchart LR
     G -->|Sim| Z
     G -->|Não| H{MTF confirmado?}
     H -->|Não| Z
-    H -->|Sim| I{Liquidez aprovada?<br/>spread + profundidade}
+    H -->|Sim| H2{Correlacionado com<br/>posição já aberta?}
+    H2 -->|Sim| Z
+    H2 -->|Não| I{Liquidez aprovada?<br/>spread + profundidade}
     I -->|Não| Z
     I -->|Sim| J{Saldo disponível?}
     J -->|Não| Z
     J -->|Sim| K([Calcular risco e abrir])
 ```
 
-`MTF_TIMEFRAME` (default `1d`) confirma que o preço também está acima da EMA de tendência no timeframe maior antes de liberar a entrada — ver `mtf_confirmed()`. **Limitação conhecida:** se a busca do candle MTF falhar (erro de rede), `mtf_confirmed()` retorna `True` (falha aberta), inconsistente com o resto do arquivo, que sempre falha fechado em caso de dado desconhecido (saldo indisponível, liquidez indisponível). Está catalogado como gap pendente — ver `specs/BACKLOG.md`.
+`MTF_TIMEFRAME` (default `1d`) confirma que o preço também está acima da EMA de tendência no timeframe maior antes de liberar a entrada — ver `mtf_confirmed()`. Falha fechada em erro de rede (corrigido em auditoria de código — antes falhava aberta, inconsistente com o resto do arquivo).
+
+**Risco de correlação** (`risk/correlation.py::check_correlated_exposure`): `MAX_POSITIONS` limita quantidade de posições simultâneas, não exposição direcional — vários altcoins que se movem juntos (a maioria correlaciona com BTC) contam como posições "diferentes" mas se comportam como uma única posição grande concentrada numa queda geral. Compara os retornos do par candidato contra os de cada posição já aberta (janela `CORRELATION_LOOKBACK`, default 50 candles); correlação ≥ `MAX_POSITION_CORRELATION` (default `0.7`) bloqueia. Diferente das demais checagens deste diagrama, **falha aberta por comparação individual** — se o histórico de uma posição já aberta específica falhar ao buscar, só aquela comparação é pulada, não a entrada inteira.
 
 ## Limites de drawdown (diário / semanal / mensal)
 

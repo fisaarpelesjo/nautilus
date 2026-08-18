@@ -190,6 +190,34 @@ def test_handle_entry_candidate_blocks_when_liquidity_check_fails(monkeypatch):
     assert "liquidez" in row["blockers"]
 
 
+def test_handle_entry_candidate_blocks_when_correlated_with_open_position(monkeypatch):
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
+    liquidity_calls = []
+    monkeypatch.setattr(
+        position_lifecycle, "check_liquidity",
+        lambda symbol, order_size_usdt: liquidity_calls.append(symbol) or position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
+    )
+    monkeypatch.setattr(
+        position_lifecycle, "check_correlated_exposure",
+        lambda symbol, timeframe, open_symbols: "ETH/USDT" if "ETH/USDT" in open_symbols else None,
+    )
+    manager = _FakeEntryManager(balance=1000.0)
+    manager.positions["ETH/USDT"] = object()
+    row = {}
+    trade_events = []
+
+    opened = position_lifecycle.handle_entry_candidate(
+        manager, "BTC/USDT", _FakeSignal(Signal.BUY), {"atr": 1.0}, 100.0,
+        strategy=None, row=row, trade_events=trade_events,
+        new_entries=0, max_entries_per_cycle=1,
+    )
+
+    assert opened is False
+    assert manager.open_calls == []
+    assert "correlacionado com ETH/USDT" in row["blockers"]
+    assert liquidity_calls == []  # bloqueador mais barato ja descartou -- nunca gasta a chamada de liquidez
+
+
 def test_handle_entry_candidate_blocks_when_weekly_limit_hit():
     manager = _FakeEntryManager(weekly_limit_hit=True)
     row = {}

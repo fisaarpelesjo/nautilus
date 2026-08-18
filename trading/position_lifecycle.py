@@ -1,9 +1,10 @@
 from typing import Optional
 
-from config.settings import ATR_SL_MULTIPLIER, MAX_ORDER_SIZE_USDT, MAX_POSITIONS, MTF_TIMEFRAME, TRADING_MODE
+from config.settings import ATR_SL_MULTIPLIER, MAX_ORDER_SIZE_USDT, MAX_POSITIONS, MTF_TIMEFRAME, TIMEFRAME, TRADING_MODE
 from data.fetcher import fetch_balance, fetch_ohlcv
 from execution.liquidity import LiquidityCheck, check_liquidity
 from execution.order_manager import OrderManager
+from risk.correlation import check_correlated_exposure
 from risk.manager import calculate_risk, should_stop_loss, should_take_profit
 from strategy.base import Signal
 
@@ -87,6 +88,14 @@ def handle_entry_candidate(
         row["mtf_ok"] = mtf_confirmed(symbol, current_price, strategy)
         if not row["mtf_ok"]:
             blockers.append("MTF negado")
+
+    if not blockers:
+        # MAX_POSITIONS limita quantidade de posicoes, nao exposicao direcional --
+        # varios altcoins correlacionados abertos ao mesmo tempo se comportam como
+        # uma unica posicao grande concentrada numa queda geral de mercado.
+        correlated_with = check_correlated_exposure(symbol, TIMEFRAME, manager.positions.keys())
+        if correlated_with:
+            blockers.append(f"correlacionado com {correlated_with}")
 
     liquidity: Optional[LiquidityCheck] = None
     if not blockers:

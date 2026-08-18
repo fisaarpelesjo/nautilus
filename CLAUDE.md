@@ -143,6 +143,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `MONTHLY_DRAWDOWN_LIMIT` | `0.20` | Limite de perda mensal (20% do saldo de referência mensal); deve ser ≥ `WEEKLY_DRAWDOWN_LIMIT` |
 | `MAX_CONSECUTIVE_LOSSES` | `3` | Perdas seguidas (`pnl < 0`) até ativar o circuit breaker; reseta em trade com `pnl > 0` |
 | `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `4` | Horas após a ativação do circuit breaker até ele se autodesativar mesmo sem nenhum trade lucrativo |
+| `MAX_POSITION_CORRELATION` | `0.7` | Correlação de retornos (janela `CORRELATION_LOOKBACK`) acima da qual uma entrada nova é bloqueada por já haver posição correlacionada aberta |
+| `CORRELATION_LOOKBACK` | `50` | Nº de candles usados no cálculo de correlação entre pares |
 | `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional de entrada/saída — usada no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já paga taxa real) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já sofre slippage real) |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
@@ -253,6 +255,14 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
   excede `MAX_SPREAD_PCT_ENTRY` ou a profundidade do lado ask fica abaixo de
   `MIN_ORDERBOOK_DEPTH_USDT`. Falha ao buscar o order book também bloqueia (`"liquidez
   indisponivel"`) — nunca aprovação por omissão.
+- **Risco de correlação entre posições** (`risk/correlation.py`): antes de cada entrada,
+  `check_correlated_exposure` compara os retornos do par candidato (janela `CORRELATION_LOOKBACK`)
+  contra os de cada posição já aberta; correlação ≥ `MAX_POSITION_CORRELATION` bloqueia com motivo
+  `"correlacionado com {par}"`. `MAX_POSITIONS` limita quantidade de posições, não exposição
+  direcional — vários altcoins correlacionados abertos ao mesmo tempo se comportam como uma única
+  posição grande concentrada numa queda geral de mercado. Diferente das demais checagens deste
+  arquivo, falha **aberta** por comparação individual (não bloqueia a entrada inteira só porque o
+  histórico de uma posição já aberta específica falhou ao buscar).
 - **Ordens limit com preenchimento parcial** (`execution/order_manager.py`): opcional via
   `USE_LIMIT_ORDERS` (default `false`, preserva o comportamento a mercado). Quando ligado, a entrada
   usa o melhor preço de venda do order book (já obtido pela checagem de liquidez) como preço limite;
