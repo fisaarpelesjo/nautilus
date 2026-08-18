@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via `ccxt`. Suporta modo **paper** (simulado) e **live** (dinheiro real). Estratégia principal: EMA crossover (12/21) com filtro de tendência EMA50 e confirmação RSI.
+Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via `ccxt`. Suporta modo **paper** (simulado) e **live** (dinheiro real). Estratégia principal: EMA crossover (default 9/21, configurável) com filtro de tendência EMA50, confirmação RSI e entrada por pullback em tendência.
 
 ---
 
@@ -125,8 +125,17 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
 | `MAX_STOP_LOSS_PCT` | `0.08` | Teto de perda por trade quando o SL vem do ATR (protege pares de alta volatilidade onde `ATR_SL_MULTIPLIER` puro não tem limite prático) |
+| `EMA_FAST` | `9` | Período da EMA rápida |
+| `EMA_SLOW` | `21` | Período da EMA lenta |
+| `EMA_TREND` | `50` | Período da EMA de tendência |
+| `RSI_PERIOD` | `14` | Período do RSI |
+| `RSI_OVERSOLD` | `35` | RSI mínimo para permitir sinal de venda |
+| `RSI_OVERBOUGHT` | `70` | RSI máximo para permitir entrada |
+| `PULLBACK_ENTRY_ENABLED` | `true` | Ativa entrada por pullback em tendência (além do crossover) |
+| `PULLBACK_RSI_MIN` | `45` | RSI mínimo para entrada por pullback |
+| `PULLBACK_MAX_DISTANCE_PCT` | `0.01` | Distância máxima entre a mínima do candle e a EMA lenta no pullback |
 | `VOLUME_MA_PERIOD` | `20` | Janela da média de volume para filtro |
-| `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |
+| `VOLUME_MIN_RATIO` | `1.0` | Volume mínimo = média × ratio para BUY |
 | `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Horas de bloqueio de reentrada após stop loss |
 | `DAILY_DRAWDOWN_LIMIT` | `0.05` | Limite de perda diária (5% do saldo de referência diário) |
@@ -154,11 +163,11 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 **Arquivo:** `strategy/ema_rsi.py`
 
-**Indicadores calculados:**
-- `ema_fast` — EMA(12)
-- `ema_slow` — EMA(21)
-- `ema_trend` — EMA(50), filtro de tendência
-- `rsi` — RSI(14)
+**Indicadores calculados** (períodos configuráveis via `.env`, ver seção Configuração):
+- `ema_fast` — EMA(`EMA_FAST`, default 9)
+- `ema_slow` — EMA(`EMA_SLOW`, default 21)
+- `ema_trend` — EMA(`EMA_TREND`, default 50), filtro de tendência
+- `rsi` — RSI(`RSI_PERIOD`, default 14)
 - `macd` — MACD diff (logado, não usado no sinal ainda)
 - `atr` — ATR(14), usado pelo risk manager para SL/TP dinâmico
 - `atr_ratio` — ATR14 / close, indicador de volatilidade relativa
@@ -171,8 +180,9 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 | Sinal | Condição |
 |---|---|
-| BUY | EMA12 cruza acima EMA21 **e** preço > EMA50 **e** RSI < 60 **e** volume > 1.2× média(20) **e** preço > EMA50 no timeframe diário (MTF) **e** preço ≤ BB superior (não sobreextendido, ou `ADAPTIVE_BOLLINGER_ENABLED` com tendência/volume fortes) |
-| SELL | EMA12 cruza abaixo EMA21 **e** RSI > 35 |
+| BUY (crossover) | EMA rápida cruza acima da EMA lenta **e** preço > EMA de tendência **e** RSI < `RSI_OVERBOUGHT` (default 70) **e** volume ≥ média×`VOLUME_MIN_RATIO` (default 1.0) **e** preço > EMA de tendência no timeframe MTF **e** preço ≤ BB superior (não sobreextendido, ou `ADAPTIVE_BOLLINGER_ENABLED` com tendência/volume fortes) |
+| BUY (pullback) | Alternativa ao crossover, ativa por padrão (`PULLBACK_ENTRY_ENABLED=true`): tendência já estabelecida (EMA rápida > EMA lenta > EMA de tendência), RSI entre `PULLBACK_RSI_MIN` (default 45) e `RSI_OVERBOUGHT`, mínima do candle perto da EMA lenta (`PULLBACK_MAX_DISTANCE_PCT`), preço já recuperado acima da EMA rápida, candle de alta — mesmos filtros de volume/Bollinger do crossover |
+| SELL | EMA rápida cruza abaixo da EMA lenta **e** RSI > `RSI_OVERSOLD` (default 35) |
 | HOLD | nenhuma das anteriores, **ou** bloqueado por `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED` (só para novas entradas — sinal de venda de uma posição já aberta nunca é bloqueado por esses filtros) |
 
 **Filtros opcionais** (todos desligados por padrão, aditivos — ver `specs/006-evolucao-estrategia-novas/`): regime de mercado via ADX (`REGIME_FILTER_ENABLED`), volatilidade elevada via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`) e filtro Bollinger adaptativo (`ADAPTIVE_BOLLINGER_ENABLED`). Aplicados tanto no caminho por candle (`generate_signal`) quanto no vetorizado (`precompute_signals`, usado por `optimize`/`backtest --validate`/`optimize --walk-forward`) — os dois caminhos precisam ficar sincronizados sempre que um filtro novo for adicionado.
@@ -192,7 +202,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 
 ## Gestão de risco — risk/manager.py
 
-- Tamanho da ordem: `min(MAX_ORDER_SIZE_USDT, saldo * 0.95)`
+- Tamanho da ordem: `min(MAX_ORDER_SIZE_USDT, (saldo / slots_livres_restantes) * 0.95)` — `trading/position_lifecycle.py` reserva o saldo proporcionalmente aos slots ainda livres (`MAX_POSITIONS - posições abertas`) antes de chamar `risk/manager.py`, não `saldo * 0.95` puro
 - **SL/TP dinâmico via ATR:** `SL = entrada - ATR_SL_MULTIPLIER × ATR14` / `TP = entrada + ATR_TP_MULTIPLIER × ATR14`
 - Fallback (se ATR = 0): SL fixo em `STOP_LOSS_PCT` (1.5%), TP fixo em `TAKE_PROFIT_PCT` (6%)
 - SL mínimo: nunca abaixo de `MAX_STOP_LOSS_PCT` (8%) do preço de entrada, mesmo com ATR largo em pares de alta volatilidade

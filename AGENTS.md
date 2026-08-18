@@ -2,7 +2,7 @@
 
 ## Overview
 
-Algorithmic trading bot for crypto written in Python. Connects to Binance via `ccxt`. Supports **paper** (simulated) and **live** (real money) modes. Main strategy: EMA crossover (12/21) with EMA50 trend filter and RSI confirmation.
+Algorithmic trading bot for crypto written in Python. Connects to Binance via `ccxt`. Supports **paper** (simulated) and **live** (real money) modes. Main strategy: EMA crossover (default 9/21, configurable) with EMA50 trend filter, RSI confirmation, and trend-pullback entry.
 
 ---
 
@@ -111,8 +111,17 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `ATR_SL_MULTIPLIER` | `1.5` | ATR multiplier for stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | ATR multiplier for take profit |
 | `MAX_STOP_LOSS_PCT` | `0.08` | Per-trade loss cap when SL comes from ATR (protects high-volatility pairs where a raw `ATR_SL_MULTIPLIER` has no practical limit) |
+| `EMA_FAST` | `9` | Fast EMA period |
+| `EMA_SLOW` | `21` | Slow EMA period |
+| `EMA_TREND` | `50` | Trend EMA period |
+| `RSI_PERIOD` | `14` | RSI period |
+| `RSI_OVERSOLD` | `35` | Minimum RSI to allow a sell signal |
+| `RSI_OVERBOUGHT` | `70` | Maximum RSI to allow an entry |
+| `PULLBACK_ENTRY_ENABLED` | `true` | Enables trend-pullback entry (in addition to crossover) |
+| `PULLBACK_RSI_MIN` | `45` | Minimum RSI for a pullback entry |
+| `PULLBACK_MAX_DISTANCE_PCT` | `0.01` | Max distance between the candle's low and the slow EMA on a pullback |
 | `VOLUME_MA_PERIOD` | `20` | Volume moving average window for filter |
-| `VOLUME_MIN_RATIO` | `1.2` | Minimum volume = average × ratio for BUY |
+| `VOLUME_MIN_RATIO` | `1.0` | Minimum volume = average × ratio for BUY |
 | `MTF_TIMEFRAME` | `1d` | Trend confirmation timeframe (multi-timeframe) |
 | `COOLDOWN_HOURS` | `4` | Re-entry block hours after stop loss |
 | `DAILY_DRAWDOWN_LIMIT` | `0.05` | Daily loss limit (5% of the daily reference balance) |
@@ -140,11 +149,11 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 
 **File:** `strategy/ema_rsi.py`
 
-**Calculated indicators:**
-- `ema_fast` — EMA(12)
-- `ema_slow` — EMA(21)
-- `ema_trend` — EMA(50), trend filter
-- `rsi` — RSI(14)
+**Calculated indicators** (configurable periods via `.env`, see Configuration section):
+- `ema_fast` — EMA(`EMA_FAST`, default 9)
+- `ema_slow` — EMA(`EMA_SLOW`, default 21)
+- `ema_trend` — EMA(`EMA_TREND`, default 50), trend filter
+- `rsi` — RSI(`RSI_PERIOD`, default 14)
 - `macd` — MACD diff (logged, not yet used in signal)
 - `atr` — ATR(14), used by risk manager for dynamic SL/TP
 - `atr_ratio` — ATR14 / close, relative volatility indicator
@@ -157,8 +166,9 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 
 | Signal | Condition |
 |---|---|
-| BUY | EMA12 crosses above EMA21 **and** price > EMA50 **and** RSI < 60 **and** volume > 1.2× avg(20) **and** price > EMA50 on daily timeframe (MTF) **and** price ≤ BB upper (not overextended, or `ADAPTIVE_BOLLINGER_ENABLED` with strong trend/volume) |
-| SELL | EMA12 crosses below EMA21 **and** RSI > 35 |
+| BUY (crossover) | Fast EMA crosses above slow EMA **and** price > trend EMA **and** RSI < `RSI_OVERBOUGHT` (default 70) **and** volume ≥ avg×`VOLUME_MIN_RATIO` (default 1.0) **and** price > trend EMA on the MTF timeframe **and** price ≤ BB upper (not overextended, or `ADAPTIVE_BOLLINGER_ENABLED` with strong trend/volume) |
+| BUY (pullback) | Alternative to crossover, on by default (`PULLBACK_ENTRY_ENABLED=true`): trend already established (fast EMA > slow EMA > trend EMA), RSI between `PULLBACK_RSI_MIN` (default 45) and `RSI_OVERBOUGHT`, candle low near the slow EMA (`PULLBACK_MAX_DISTANCE_PCT`), price already recovered above the fast EMA, bullish candle — same volume/Bollinger filters as crossover |
+| SELL | Fast EMA crosses below slow EMA **and** RSI > `RSI_OVERSOLD` (default 35) |
 | HOLD | none of the above, **or** blocked by `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED` (new entries only — a sell signal for an already-open position is never blocked by these filters) |
 
 **Optional filters** (all off by default, additive — see `specs/006-evolucao-estrategia-novas/`): market regime via ADX (`REGIME_FILTER_ENABLED`), high volatility via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`), and the adaptive Bollinger filter (`ADAPTIVE_BOLLINGER_ENABLED`). Applied both in the per-candle path (`generate_signal`) and the vectorized one (`precompute_signals`, used by `optimize`/`backtest --validate`/`optimize --walk-forward`) — the two paths must stay in sync whenever a new filter is added.
@@ -178,7 +188,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 
 ## Risk Management — risk/manager.py
 
-- Order size: `min(MAX_ORDER_SIZE_USDT, balance * 0.95)`
+- Order size: `min(MAX_ORDER_SIZE_USDT, (balance / remaining_slots) * 0.95)` — `trading/position_lifecycle.py` reserves balance proportionally to the slots still free (`MAX_POSITIONS - open positions`) before calling `risk/manager.py`, not plain `balance * 0.95`
 - **Dynamic SL/TP via ATR:** `SL = entry - ATR_SL_MULTIPLIER × ATR14` / `TP = entry + ATR_TP_MULTIPLIER × ATR14`
 - Fallback (if ATR = 0): fixed SL at `STOP_LOSS_PCT` (1.5%), fixed TP at `TAKE_PROFIT_PCT` (6%)
 - Minimum SL: never below `MAX_STOP_LOSS_PCT` (8%) of entry price, even with a wide ATR on high-volatility pairs
