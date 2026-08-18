@@ -83,6 +83,7 @@ Todos os três filtros aditivos (regime, volatilidade, Bollinger adaptativo) só
 | `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo — fallback quando ATR indisponível (6%) |
 | `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador de ATR para stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador de ATR para take profit |
+| `MAX_STOP_LOSS_PCT` | `0.08` | Teto de perda por trade quando o SL vem do ATR (protege pares de alta volatilidade) |
 
 ## Proteções operacionais
 

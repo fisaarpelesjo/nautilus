@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from config.settings import STOP_LOSS_PCT, TAKE_PROFIT_PCT, MAX_ORDER_SIZE_USDT, ATR_SL_MULTIPLIER, ATR_TP_MULTIPLIER
+from config.settings import (
+    STOP_LOSS_PCT, TAKE_PROFIT_PCT, MAX_ORDER_SIZE_USDT,
+    ATR_SL_MULTIPLIER, ATR_TP_MULTIPLIER, MAX_STOP_LOSS_PCT,
+)
 from utils.logger import get_logger
 
 log = get_logger("risk")
@@ -20,7 +23,10 @@ def calculate_risk(entry_price: float, available_usdt: float, atr: float = 0.0) 
     if atr > 0:
         stop_loss   = entry_price - ATR_SL_MULTIPLIER * atr
         take_profit = entry_price + ATR_TP_MULTIPLIER * atr
-        stop_loss   = max(stop_loss, entry_price * 0.5)  # nunca mais de 50% de perda
+        # Teto pratico de perda (MAX_STOP_LOSS_PCT, default 8%) -- ATR_SL_MULTIPLIER puro
+        # nao tem limite em pares de alta volatilidade (ATR largo em % do preco); sem
+        # isso, um SL calculado so por ATR podia passar de -20% em altcoins volateis.
+        stop_loss   = max(stop_loss, entry_price * (1 - MAX_STOP_LOSS_PCT))
     else:
         stop_loss   = entry_price * (1 - STOP_LOSS_PCT)
         take_profit = entry_price * (1 + TAKE_PROFIT_PCT)

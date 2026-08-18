@@ -110,6 +110,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `TAKE_PROFIT_PCT` | `0.06` | Fixed take profit (fallback without ATR) |
 | `ATR_SL_MULTIPLIER` | `1.5` | ATR multiplier for stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | ATR multiplier for take profit |
+| `MAX_STOP_LOSS_PCT` | `0.08` | Per-trade loss cap when SL comes from ATR (protects high-volatility pairs where a raw `ATR_SL_MULTIPLIER` has no practical limit) |
 | `VOLUME_MA_PERIOD` | `20` | Volume moving average window for filter |
 | `VOLUME_MIN_RATIO` | `1.2` | Minimum volume = average × ratio for BUY |
 | `MTF_TIMEFRAME` | `1d` | Trend confirmation timeframe (multi-timeframe) |
@@ -180,7 +181,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 - Order size: `min(MAX_ORDER_SIZE_USDT, balance * 0.95)`
 - **Dynamic SL/TP via ATR:** `SL = entry - ATR_SL_MULTIPLIER × ATR14` / `TP = entry + ATR_TP_MULTIPLIER × ATR14`
 - Fallback (if ATR = 0): fixed SL at `STOP_LOSS_PCT` (1.5%), fixed TP at `TAKE_PROFIT_PCT` (6%)
-- Minimum SL: never below 50% of entry price
+- Minimum SL: never below `MAX_STOP_LOSS_PCT` (8%) of entry price, even with a wide ATR on high-volatility pairs
 - Default risk/reward ratio with ATR: 1:2 (1.5× ATR risk, 3× ATR target)
 - **Execution cost in paper mode** (`execution/order_manager.py` `_paper_buy`/`_paper_sell`):
   slippage (`BACKTEST_SLIPPAGE_PCT`) applied to entry/exit price and fee (`BACKTEST_FEE_RATE`) on

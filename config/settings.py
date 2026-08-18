@@ -40,6 +40,11 @@ STOP_LOSS_PCT = float(os.getenv("STOP_LOSS_PCT", "0.015"))
 TAKE_PROFIT_PCT = float(os.getenv("TAKE_PROFIT_PCT", "0.06"))
 ATR_SL_MULTIPLIER = float(os.getenv("ATR_SL_MULTIPLIER", "1.5"))
 ATR_TP_MULTIPLIER = float(os.getenv("ATR_TP_MULTIPLIER", "3.0"))
+# Teto de perda por trade quando o SL vem do ATR (pares de alta volatilidade tem ATR
+# largo em % do preco, e ATR_SL_MULTIPLIER puro nao tem limite pratico -- so o piso de
+# 50% existia antes, largo demais pra uso diario). Nao afeta o fallback fixo
+# (STOP_LOSS_PCT), que ja fica bem abaixo deste teto.
+MAX_STOP_LOSS_PCT = float(os.getenv("MAX_STOP_LOSS_PCT", "0.08"))
 
 VOLUME_MA_PERIOD  = int(os.getenv("VOLUME_MA_PERIOD", "20"))
 VOLUME_MIN_RATIO  = float(os.getenv("VOLUME_MIN_RATIO", "1.0"))
@@ -141,6 +146,8 @@ def validate_config():
         errors.append("STOP_LOSS_PCT e TAKE_PROFIT_PCT devem ser maiores que zero.")
     if ATR_SL_MULTIPLIER <= 0 or ATR_TP_MULTIPLIER <= 0:
         errors.append("ATR_SL_MULTIPLIER e ATR_TP_MULTIPLIER devem ser maiores que zero.")
+    if not 0 < MAX_STOP_LOSS_PCT <= 1:
+        errors.append("MAX_STOP_LOSS_PCT deve estar entre 0 e 1.")
     if VOLUME_MA_PERIOD < 1 or VOLUME_MIN_RATIO <= 0:
         errors.append("Configuracao de volume invalida.")
     if not (EMA_FAST > 0 and EMA_SLOW > 0 and EMA_TREND > 0 and EMA_FAST < EMA_SLOW):

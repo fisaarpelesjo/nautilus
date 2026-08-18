@@ -12,7 +12,7 @@ flowchart TD
     B --> C["quantity = order_size / entry_price"]
     C --> D{ATR > 0?}
     D -->|Sim| E["SL = entrada − ATR_SL_MULTIPLIER × ATR<br/>TP = entrada + ATR_TP_MULTIPLIER × ATR"]
-    E --> F["SL = max(SL, entrada × 0.5)<br/>nunca mais de 50% de perda"]
+    E --> F["SL = max(SL, entrada × (1 − MAX_STOP_LOSS_PCT))<br/>nunca mais de 8% de perda"]
     D -->|Não — fallback| G["SL = entrada × (1 − STOP_LOSS_PCT)<br/>TP = entrada × (1 + TAKE_PROFIT_PCT)"]
     F --> H["risk_usdt = quantity × (entrada − SL)"]
     G --> H
@@ -26,8 +26,10 @@ flowchart TD
 | Take Profit (ATR disponível) | `entrada + ATR_TP_MULTIPLIER × ATR14` | `3.0×` ATR |
 | Stop Loss (fallback, ATR=0) | `entrada × (1 − STOP_LOSS_PCT)` | `−1.5%` |
 | Take Profit (fallback, ATR=0) | `entrada × (1 + TAKE_PROFIT_PCT)` | `+6.0%` |
-| SL mínimo absoluto | nunca abaixo de `entrada × 0.5` | — |
+| SL mínimo absoluto (teto de perda) | nunca abaixo de `entrada × (1 − MAX_STOP_LOSS_PCT)` | `8%` |
 | Risk/reward (com ATR) | `1.5×` risco / `3.0×` alvo → **1:2** | — |
+
+`MAX_STOP_LOSS_PCT` existe porque `ATR_SL_MULTIPLIER` puro não tem limite prático em pares de alta volatilidade — um caso real em paper mode (ACE/USDT) teve o SL inicial calculado ~20% abaixo da entrada, porque o ATR em % do preço daquele altcoin é grande. O teto trava o pior caso sem alterar o comportamento em pares de volatilidade normal, onde o SL via ATR já fica bem dentro de 8%.
 
 O `saldo_disponível` usado no dimensionamento não é o saldo total — é `saldo_atual / slots_livres_restantes` (calculado em `handle_entry_candidate`, `trading/position_lifecycle.py`), reservando espaço proporcional para as demais posições que ainda podem abrir no mesmo ciclo.
 

@@ -124,6 +124,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `TAKE_PROFIT_PCT` | `0.06` | Take profit fixo (fallback sem ATR) |
 | `ATR_SL_MULTIPLIER` | `1.5` | Multiplicador ATR para stop loss |
 | `ATR_TP_MULTIPLIER` | `3.0` | Multiplicador ATR para take profit |
+| `MAX_STOP_LOSS_PCT` | `0.08` | Teto de perda por trade quando o SL vem do ATR (protege pares de alta volatilidade onde `ATR_SL_MULTIPLIER` puro não tem limite prático) |
 | `VOLUME_MA_PERIOD` | `20` | Janela da média de volume para filtro |
 | `VOLUME_MIN_RATIO` | `1.2` | Volume mínimo = média × ratio para BUY |
 | `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
@@ -194,7 +195,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - Tamanho da ordem: `min(MAX_ORDER_SIZE_USDT, saldo * 0.95)`
 - **SL/TP dinâmico via ATR:** `SL = entrada - ATR_SL_MULTIPLIER × ATR14` / `TP = entrada + ATR_TP_MULTIPLIER × ATR14`
 - Fallback (se ATR = 0): SL fixo em `STOP_LOSS_PCT` (1.5%), TP fixo em `TAKE_PROFIT_PCT` (6%)
-- SL mínimo: nunca abaixo de 50% do preço de entrada
+- SL mínimo: nunca abaixo de `MAX_STOP_LOSS_PCT` (8%) do preço de entrada, mesmo com ATR largo em pares de alta volatilidade
 - Risk/reward ratio padrão com ATR: 1:2 (1.5× ATR de risco, 3× ATR de alvo)
 - **Custo de execução em paper mode** (`execution/order_manager.py` `_paper_buy`/`_paper_sell`):
   slippage (`BACKTEST_SLIPPAGE_PCT`) aplicado ao preço de entrada/saída e taxa
