@@ -59,6 +59,8 @@ Todo default abaixo foi conferido linha a linha contra `config/settings.py` nest
 | `HIGH_VOLATILITY_ATR_RATIO` | `0.05` | `ATR14/close` acima do qual o candle é "volatilidade elevada" |
 | `HIGH_VOLATILITY_FILTER_ENABLED` | `false` | Bloqueia novas entradas em candles de volatilidade elevada |
 | `ADAPTIVE_BOLLINGER_ENABLED` | `false` | Permite entrada acima da banda superior com tendência/volume fortes |
+| `ADAPTIVE_RSI_ENABLED` | `false` | Libera o crossover acima de `RSI_OVERBOUGHT` quando o volume confirma um pico real |
+| `ADAPTIVE_RSI_VOLUME_RATIO` | `2.0` | Volume mínimo (× média) para o RSI adaptativo liberar a entrada |
 | `MTF_TIMEFRAME` | `1d` | Timeframe de confirmação de tendência (multi-timeframe) |
 | `BREAKOUT_WINDOW` | `150` | Janela padrão da `BreakoutStrategy` (Donchian channel) |
 

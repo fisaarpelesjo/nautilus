@@ -145,6 +145,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `4` | Horas após a ativação do circuit breaker até ele se autodesativar mesmo sem nenhum trade lucrativo |
 | `MAX_POSITION_CORRELATION` | `0.7` | Correlação de retornos (janela `CORRELATION_LOOKBACK`) acima da qual uma entrada nova é bloqueada por já haver posição correlacionada aberta |
 | `CORRELATION_LOOKBACK` | `50` | Nº de candles usados no cálculo de correlação entre pares |
+| `ADAPTIVE_RSI_ENABLED` | `false` | Libera o crossover acima de `RSI_OVERBOUGHT` quando o volume confirma um pico real |
+| `ADAPTIVE_RSI_VOLUME_RATIO` | `2.0` | Volume mínimo (× média) para o RSI adaptativo liberar a entrada |
 | `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional de entrada/saída — usada no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já paga taxa real) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já sofre slippage real) |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
@@ -187,7 +189,7 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | SELL | EMA rápida cruza abaixo da EMA lenta **e** RSI > `RSI_OVERSOLD` (default 35) |
 | HOLD | nenhuma das anteriores, **ou** bloqueado por `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED` (só para novas entradas — sinal de venda de uma posição já aberta nunca é bloqueado por esses filtros) |
 
-**Filtros opcionais** (todos desligados por padrão, aditivos — ver `specs/006-evolucao-estrategia-novas/`): regime de mercado via ADX (`REGIME_FILTER_ENABLED`), volatilidade elevada via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`) e filtro Bollinger adaptativo (`ADAPTIVE_BOLLINGER_ENABLED`). Aplicados tanto no caminho por candle (`generate_signal`) quanto no vetorizado (`precompute_signals`, usado por `optimize`/`backtest --validate`/`optimize --walk-forward`) — os dois caminhos precisam ficar sincronizados sempre que um filtro novo for adicionado.
+**Filtros opcionais** (todos desligados por padrão, aditivos — ver `specs/006-evolucao-estrategia-novas/`): regime de mercado via ADX (`REGIME_FILTER_ENABLED`), volatilidade elevada via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`), filtro Bollinger adaptativo (`ADAPTIVE_BOLLINGER_ENABLED`) e RSI adaptativo (`ADAPTIVE_RSI_ENABLED`): libera o **crossover** acima de `RSI_OVERBOUGHT` quando o volume confirma um pico real (`volume >= ADAPTIVE_RSI_VOLUME_RATIO × média`, default `2.0`) — não afeta o teto de RSI do pullback, cenário diferente (recuo controlado em tendência já estabelecida, não pico vertical). Aplicados tanto no caminho por candle (`generate_signal`) quanto no vetorizado (`precompute_signals`, usado por `optimize`/`backtest --validate`/`optimize --walk-forward`) — os dois caminhos precisam ficar sincronizados sempre que um filtro novo for adicionado.
 
 **Stop Loss / Trailing Stop / Take Profit** são gerenciados em `trading/position_lifecycle.py`, não na estratégia. A cada poll, se o preço fizer novo máximo, o stop loss sobe para `máximo - 1.5×ATR`, travando lucros. O TP fixo permanece como alvo máximo.
 

@@ -75,9 +75,11 @@ Todas as condições abaixo, simultaneamente:
 
 1. EMA rápida cruza **acima** da EMA lenta neste candle (não estava acima no candle anterior)
 2. Preço > EMA de tendência
-3. RSI < `RSI_OVERBOUGHT` (default `70`)
+3. RSI < `RSI_OVERBOUGHT` (default `70`) — **ou** `ADAPTIVE_RSI_ENABLED=true` com volume ≥ `ADAPTIVE_RSI_VOLUME_RATIO × média` (default `2.0`, bem acima do mínimo comum): um pico de RSI alto com volume real por trás não é bloqueado, só picos sem confirmação de força
 4. Volume ≥ `volume_ma × VOLUME_MIN_RATIO` (default ratio `1.0`, ou seja, volume ≥ média)
 5. Preço ≤ banda superior de Bollinger — **ou** `ADAPTIVE_BOLLINGER_ENABLED=true` com tendência e volume já fortes (mesmos critérios 2 e 4 reaproveitados, não é um terceiro conjunto de regras)
+
+`ADAPTIVE_RSI_ENABLED` só afeta este caminho (crossover) — o pullback abaixo mantém seu próprio teto de RSI (`RSI_OVERBOUGHT`), sem exceção, porque é um cenário diferente: recuo controlado numa tendência já estabelecida, não um pico vertical.
 
 ### Entrada por pullback (`_is_pullback_entry`, ativa se `PULLBACK_ENTRY_ENABLED=true`, default ligado)
 

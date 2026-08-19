@@ -108,6 +108,16 @@ HIGH_VOLATILITY_FILTER_ENABLED = os.getenv("HIGH_VOLATILITY_FILTER_ENABLED", "fa
 # Filtro Bollinger adaptativo -- desligado por padrao, aditivo
 ADAPTIVE_BOLLINGER_ENABLED = os.getenv("ADAPTIVE_BOLLINGER_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
 
+# RSI adaptativo -- desligado por padrao, aditivo. Libera entrada por crossover
+# acima de RSI_OVERBOUGHT quando o volume confirma um pico real (>=
+# ADAPTIVE_RSI_VOLUME_RATIO x media), nao so um movimento sem lastro de
+# liquidez -- mesmo espirito do ADAPTIVE_BOLLINGER_ENABLED, so aplicado ao
+# teto de RSI em vez da banda superior. So o crossover usa isto (pullback
+# mantem seu proprio teto de RSI, cenario diferente: recuo controlado numa
+# tendencia ja estabelecida, nao um pico vertical).
+ADAPTIVE_RSI_ENABLED = os.getenv("ADAPTIVE_RSI_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
+ADAPTIVE_RSI_VOLUME_RATIO = float(os.getenv("ADAPTIVE_RSI_VOLUME_RATIO", "2.0"))
+
 # Estrategia de rompimento (breakout)
 BREAKOUT_WINDOW = int(os.getenv("BREAKOUT_WINDOW", "150"))
 
@@ -198,6 +208,8 @@ def validate_config():
         errors.append("REGIME_ADX_THRESHOLD deve ser maior que zero.")
     if not 0 < HIGH_VOLATILITY_ATR_RATIO <= 1:
         errors.append("HIGH_VOLATILITY_ATR_RATIO deve estar entre 0 e 1.")
+    if ADAPTIVE_RSI_VOLUME_RATIO <= 0:
+        errors.append("ADAPTIVE_RSI_VOLUME_RATIO deve ser maior que zero.")
     if BREAKOUT_WINDOW < 10:
         errors.append("BREAKOUT_WINDOW deve ser pelo menos 10.")
     if CANDLE_LIMIT < 50:

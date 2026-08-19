@@ -15,6 +15,8 @@ from config.settings import (
     HIGH_VOLATILITY_ATR_RATIO,
     HIGH_VOLATILITY_FILTER_ENABLED,
     ADAPTIVE_BOLLINGER_ENABLED,
+    ADAPTIVE_RSI_ENABLED,
+    ADAPTIVE_RSI_VOLUME_RATIO,
 )
 from strategy.base import BaseStrategy, Signal
 from strategy.ema_rsi import EmaRsiStrategy
@@ -98,6 +100,13 @@ def precompute_signals(df: pd.DataFrame, strategy: EmaRsiStrategy) -> pd.Series:
     not_overextended = (df["close"] <= df["bb_upper"]) | adaptive_breakout_ok
     rsi_buy_ok       = df["rsi"] < p.rsi_overbought
     rsi_sell_ok      = df["rsi"] > p.rsi_oversold
+    # RSI adaptativo (desligado por padrao): libera o CROSSOVER acima de
+    # RSI_OVERBOUGHT quando o volume confirma um pico de verdade (>=
+    # ADAPTIVE_RSI_VOLUME_RATIO x media) -- so o crossover, nao o pullback
+    # (que mantem seu proprio teto de RSI, cenario diferente). Mesmo
+    # espirito do ADAPTIVE_BOLLINGER_ENABLED acima.
+    strong_volume_confirmed = ADAPTIVE_RSI_ENABLED & (df["volume"] >= df["volume_ma"] * ADAPTIVE_RSI_VOLUME_RATIO)
+    crossover_rsi_buy_ok = rsi_buy_ok | strong_volume_confirmed
 
     regime_blocks_entry = pd.Series(False, index=df.index)
     if REGIME_FILTER_ENABLED and "regime" in df.columns:
@@ -123,7 +132,7 @@ def precompute_signals(df: pd.DataFrame, strategy: EmaRsiStrategy) -> pd.Series:
     else:
         pullback = pd.Series(False, index=df.index)
 
-    buy  = (bullish_cross & above_trend & rsi_buy_ok & volume_ok & not_overextended) | (pullback & volume_ok & not_overextended)
+    buy  = (bullish_cross & above_trend & crossover_rsi_buy_ok & volume_ok & not_overextended) | (pullback & volume_ok & not_overextended)
     # Regime/volatilidade bloqueiam so novas entradas -- nunca a saida
     # (venda), mesmo escopo ja aplicado em generate_signal().
     buy  = buy & ~regime_blocks_entry & ~high_volatility

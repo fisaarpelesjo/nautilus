@@ -131,6 +131,8 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `CIRCUIT_BREAKER_COOLDOWN_HOURS` | `4` | Hours after the circuit breaker trips before it auto-deactivates even with no profitable trade |
 | `MAX_POSITION_CORRELATION` | `0.7` | Return correlation (over `CORRELATION_LOOKBACK`) above which a new entry is blocked for already having a correlated open position |
 | `CORRELATION_LOOKBACK` | `50` | Number of candles used to compute correlation between pairs |
+| `ADAPTIVE_RSI_ENABLED` | `false` | Allows the crossover entry above `RSI_OVERBOUGHT` when volume confirms a real spike |
+| `ADAPTIVE_RSI_VOLUME_RATIO` | `2.0` | Minimum volume (× average) for adaptive RSI to allow the entry |
 | `BACKTEST_FEE_RATE` | `0.001` | Exchange fee on entry/exit notional value — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already pays a real fee) |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
@@ -173,7 +175,7 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | SELL | Fast EMA crosses below slow EMA **and** RSI > `RSI_OVERSOLD` (default 35) |
 | HOLD | none of the above, **or** blocked by `REGIME_FILTER_ENABLED`/`HIGH_VOLATILITY_FILTER_ENABLED` (new entries only — a sell signal for an already-open position is never blocked by these filters) |
 
-**Optional filters** (all off by default, additive — see `specs/006-evolucao-estrategia-novas/`): market regime via ADX (`REGIME_FILTER_ENABLED`), high volatility via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`), and the adaptive Bollinger filter (`ADAPTIVE_BOLLINGER_ENABLED`). Applied both in the per-candle path (`generate_signal`) and the vectorized one (`precompute_signals`, used by `optimize`/`backtest --validate`/`optimize --walk-forward`) — the two paths must stay in sync whenever a new filter is added.
+**Optional filters** (all off by default, additive — see `specs/006-evolucao-estrategia-novas/`): market regime via ADX (`REGIME_FILTER_ENABLED`), high volatility via `ATR_ratio` (`HIGH_VOLATILITY_FILTER_ENABLED`), the adaptive Bollinger filter (`ADAPTIVE_BOLLINGER_ENABLED`), and adaptive RSI (`ADAPTIVE_RSI_ENABLED`): allows the **crossover** entry above `RSI_OVERBOUGHT` when volume confirms a real spike (`volume >= ADAPTIVE_RSI_VOLUME_RATIO × average`, default `2.0`) — doesn't affect the pullback's own RSI ceiling, a different scenario (controlled dip in an already-established trend, not a vertical spike). Applied both in the per-candle path (`generate_signal`) and the vectorized one (`precompute_signals`, used by `optimize`/`backtest --validate`/`optimize --walk-forward`) — the two paths must stay in sync whenever a new filter is added.
 
 **Stop Loss / Trailing Stop / Take Profit** are managed in `trading/position_lifecycle.py`, not in the strategy. Each poll, if price makes a new high, stop loss rises to `high - 1.5×ATR`, locking in profit. Fixed TP remains as max target.
 

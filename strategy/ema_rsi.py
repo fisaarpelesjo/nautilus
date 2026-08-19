@@ -21,6 +21,8 @@ from config.settings import (
     HIGH_VOLATILITY_ATR_RATIO,
     HIGH_VOLATILITY_FILTER_ENABLED,
     ADAPTIVE_BOLLINGER_ENABLED,
+    ADAPTIVE_RSI_ENABLED,
+    ADAPTIVE_RSI_VOLUME_RATIO,
 )
 from strategy.base import BaseStrategy, TradeSignal, Signal
 from utils.logger import get_logger
@@ -113,11 +115,21 @@ class EmaRsiStrategy(BaseStrategy):
         not_overextended = price <= curr["bb_upper"] or adaptive_breakout_ok
         pullback_entry = self._is_pullback_entry(curr)
 
+        # RSI adaptativo (desligado por padrao): libera o crossover acima de
+        # RSI_OVERBOUGHT quando o volume confirma um pico de verdade (>=
+        # ADAPTIVE_RSI_VOLUME_RATIO x media, bem acima do minimo comum
+        # volume_ok) -- um movimento forte SEM esse volume nao libera, mesmo
+        # espirito do ADAPTIVE_BOLLINGER_ENABLED. So o crossover usa isto; o
+        # pullback mantem seu proprio teto de RSI (cenario diferente: recuo
+        # controlado numa tendencia ja estabelecida, nao um pico vertical).
+        strong_volume_confirmed = ADAPTIVE_RSI_ENABLED and curr["volume"] >= curr["volume_ma"] * ADAPTIVE_RSI_VOLUME_RATIO
+        rsi_buy_ok = rsi < p.rsi_overbought or strong_volume_confirmed
+
         # Calculada uma unica vez e reusada abaixo -- evita duplicar a
         # condicao de compra entre o guard de bloqueio (regime/volatilidade)
         # e os ramos de sinal reais, que ja divergiram uma vez nesta mesma
         # spec (achado de code-review).
-        crossover_buy_ok = bullish_cross and above_trend and rsi < p.rsi_overbought and volume_ok and not_overextended
+        crossover_buy_ok = bullish_cross and above_trend and rsi_buy_ok and volume_ok and not_overextended
         pullback_buy_ok  = pullback_entry and volume_ok and not_overextended
         would_buy = crossover_buy_ok or pullback_buy_ok
 

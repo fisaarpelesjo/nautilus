@@ -470,6 +470,63 @@ def test_precompute_signals_blocks_buy_on_high_volatility_when_filter_enabled(mo
     assert signals.iloc[-1] == Signal.HOLD
 
 
+def _prepared_df_for_overbought_crossover(volume=250.0, volume_ma=100.0, rsi=85.0):
+    index = pd.date_range("2026-01-01", periods=2, freq="h")
+    return pd.DataFrame({
+        "close":     [100.0, 110.0],
+        "open":      [100.0, 105.0],
+        "low":       [99.0, 108.0],
+        "ema_fast":  [9.0, 12.0],
+        "ema_slow":  [10.0, 10.0],
+        "ema_trend": [90.0, 95.0],
+        "rsi":       [50.0, rsi],
+        "volume":    [150.0, volume],
+        "volume_ma": [100.0, volume_ma],
+        "bb_upper":  [120.0, 120.0],
+        "regime":    ["trending", "trending"],
+        "atr_ratio": [0.01, 0.01],
+    }, index=index)
+
+
+def test_precompute_signals_blocks_overbought_crossover_when_adaptive_rsi_disabled(monkeypatch):
+    monkeypatch.setattr(engine, "ADAPTIVE_RSI_ENABLED", False)
+    df = _prepared_df_for_overbought_crossover()
+    strategy = EmaRsiStrategy()
+
+    signals = engine.precompute_signals(df, strategy)
+
+    assert signals.iloc[-1] == Signal.HOLD
+
+
+def test_precompute_signals_allows_overbought_crossover_with_strong_volume(monkeypatch):
+    monkeypatch.setattr(engine, "ADAPTIVE_RSI_ENABLED", True)
+    monkeypatch.setattr(engine, "ADAPTIVE_RSI_VOLUME_RATIO", 2.0)
+    df = _prepared_df_for_overbought_crossover(volume=250.0, volume_ma=100.0, rsi=85.0)
+    strategy = EmaRsiStrategy()
+
+    signals = engine.precompute_signals(df, strategy)
+
+    assert signals.iloc[-1] == Signal.BUY
+
+
+def test_precompute_signals_matches_generate_signal_for_adaptive_rsi(monkeypatch):
+    # Consistencia entre os dois caminhos (vetorizado e por-candle) -- mesmo
+    # cenario coberto em tests/test_strategy_adaptive_rsi.py.
+    monkeypatch.setattr(engine, "ADAPTIVE_RSI_ENABLED", True)
+    monkeypatch.setattr(engine, "ADAPTIVE_RSI_VOLUME_RATIO", 2.0)
+    from strategy import ema_rsi
+    monkeypatch.setattr(ema_rsi, "ADAPTIVE_RSI_ENABLED", True)
+    monkeypatch.setattr(ema_rsi, "ADAPTIVE_RSI_VOLUME_RATIO", 2.0)
+    df = _prepared_df_for_overbought_crossover(volume=250.0, volume_ma=100.0, rsi=85.0)
+    strategy = EmaRsiStrategy()
+    monkeypatch.setattr(strategy, "calculate_indicators", lambda _df: df)
+
+    vectorized = engine.precompute_signals(df, strategy)
+    per_candle = strategy.generate_signal(pd.DataFrame()).signal
+
+    assert vectorized.iloc[-1] == per_candle == Signal.BUY
+
+
 def test_precompute_signals_matches_generate_signal_when_all_filters_enabled(monkeypatch):
     # Consistencia entre os dois caminhos (vetorizado e por-candle) --
     # exatamente o que divergia antes desta correcao.
