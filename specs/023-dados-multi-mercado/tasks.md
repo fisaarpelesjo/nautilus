@@ -45,11 +45,11 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 - [X] T003 Criar `tests/test_crypto_no_regression.py` com teste que fixa o comportamento ATUAL de `fetch_ohlcv` para cripto: formato do DataFrame (índice `DatetimeIndex` crescente sem duplicatas, colunas `open/high/low/close/volume` minúsculas), política de cache incremental (1ª chamada busca `limit`, seguintes buscam 5 e fazem merge) e propagação de exceção em falha. Rodar contra o código atual e confirmar que passa
 - [X] T004 [P] Criar `tests/test_markets.py` com testes de resolução símbolo → mercado para os seis padrões de [data-model.md](data-model.md) (`/USDT`, `.SA`, `=X`, `=F`, `^`, alfanumérico), incluindo símbolo não resolvível falhando explicitamente
 - [X] T005 Criar `data/markets.py` com `Market`, `CostProfile` e a função de resolução símbolo → mercado, satisfazendo T004. `tradable=True` apenas para `crypto`
-- [ ] T006 [P] Criar `tests/test_sources.py` cobrindo o contrato de [contracts/data-source.md](contracts/data-source.md): normalização de coluna, ordenação do índice, exceção em símbolo inexistente / timeframe não suportado / zero candles, e detecção de `limit` não atendido
-- [ ] T007 Criar `data/sources/__init__.py` com o protocolo de fonte e o registro que resolve mercado → fonte
-- [ ] T008 Criar `data/sources/ccxt_source.py` movendo o código atual de `data/fetcher.py` **sem alterar lógica** — cache, singleton de exchange, retry de rate limit e `_to_df` idênticos
-- [ ] T009 Reescrever `data/fetcher.py::fetch_ohlcv` para resolver o mercado do símbolo e delegar à fonte correspondente, **mantendo a assinatura** `(symbol, timeframe, limit)`. `fetch_ticker`/`fetch_tickers`/`fetch_balance`/`fetch_order_book` permanecem cripto-only e intocados
-- [ ] T010 Rodar `tests/test_crypto_no_regression.py` novamente e confirmar que continua passando após o refactor — a prova de equivalência
+- [X] T006 [P] Criar `tests/test_sources.py` cobrindo o contrato de [contracts/data-source.md](contracts/data-source.md): normalização de coluna, ordenação do índice, exceção em símbolo inexistente / timeframe não suportado / zero candles, e detecção de `limit` não atendido
+- [X] T007 Criar `data/sources/__init__.py` com o protocolo de fonte e o registro que resolve mercado → fonte
+- [X] T008 Criar `data/sources/ccxt_source.py` movendo o código atual de `data/fetcher.py` **sem alterar lógica** — cache, singleton de exchange, retry de rate limit e `_to_df` idênticos
+- [X] T009 Reescrever `data/fetcher.py::fetch_ohlcv` para resolver o mercado do símbolo e delegar à fonte correspondente, **mantendo a assinatura** `(symbol, timeframe, limit)`. `fetch_ticker`/`fetch_tickers`/`fetch_balance`/`fetch_order_book` permanecem cripto-only e intocados
+- [X] T010 Rodar `tests/test_crypto_no_regression.py` novamente e confirmar que continua passando após o refactor — a prova de equivalência
 
 **Checkpoint**: abstração pronta e cripto comprovadamente inalterado
 
@@ -75,8 +75,8 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 **Independent Test**: `python main.py backtest AAPL` retorna relatório completo, comparável lado a lado com o de um par cripto.
 
-- [ ] T014 [P] [US1] Adicionar a `tests/test_sources.py` testes da fonte não-cripto: normalização de `Open/High/Low/Close/Volume` → minúsculas, e recusa explícita de timeframe não suportado
-- [ ] T015 [US1] Criar `data/sources/yfinance_source.py` implementando o protocolo de fonte, satisfazendo T014
+- [X] T014 [P] [US1] Adicionar a `tests/test_sources.py` testes da fonte não-cripto: normalização de `Open/High/Low/Close/Volume` → minúsculas, e recusa explícita de timeframe não suportado
+- [X] T015 [US1] Criar `data/sources/yfinance_source.py` implementando o protocolo de fonte, satisfazendo T014
 - [ ] T016 [P] [US1] Adicionar a `tests/test_settings_validation.py` teste que confirma: símbolo não-cripto aceito na lista de **pesquisa**, e validação `/USDT` preservada na lista de **operação** — a distinção que impede o símbolo inoperável de chegar ao loop
 - [ ] T017 [US1] Ajustar a validação em `config/settings.py` (~linha 147) conforme T016, sem afrouxar a proteção da lista de operação
 - [ ] T018 [P] [US1] Adicionar a `tests/test_backtesting_engine.py` teste que confirma registro de `market` e `requested_candles` no resultado, e sinalização quando o obtido é menor que o pedido — cobre FR-011 e o risco técnico nº 3

@@ -67,6 +67,32 @@ def reset_exchange_cache() -> None:
     _exchange_cache.clear()
 
 def fetch_ohlcv(symbol: str, timeframe: str, limit: int = CANDLE_LIMIT) -> pd.DataFrame:
+    """Candles OHLCV do simbolo, resolvendo a fonte pelo mercado (spec 023).
+
+    A assinatura NAO muda: os ~10 consumidores existentes (backtest, compare,
+    scan, optimize, validation, replay, runner, chart, selector, diagnostics)
+    continuam chamando igual e nao sabem qual fonte respondeu.
+
+    Cripto continua indo por `_fetch_ohlcv_ccxt` exatamente como antes -- ver
+    tests/test_crypto_no_regression.py, escrito antes deste refactor
+    justamente para provar que o caminho nao mudou.
+    """
+    from data.markets import resolve_market
+    from data.sources import get_source
+
+    market = resolve_market(symbol)
+    if market.source == "ccxt":
+        return _fetch_ohlcv_ccxt(symbol, timeframe, limit)
+    return get_source(market.name).fetch_ohlcv(symbol, timeframe, limit)
+
+
+def _fetch_ohlcv_ccxt(symbol: str, timeframe: str, limit: int = CANDLE_LIMIT) -> pd.DataFrame:
+    """Caminho cripto original, extraido sem alteracao de logica.
+
+    Mantido neste modulo (e nao movido para data/sources/ccxt_source.py) porque
+    detem o estado global de cache e a instancia de exchange, que a suite ja
+    manipula diretamente via `_cache` e `reset_exchange_cache()`.
+    """
     cache_key = f"{symbol}_{timeframe}"
     exchange = get_exchange()
 
