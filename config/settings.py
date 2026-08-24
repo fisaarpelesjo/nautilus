@@ -136,6 +136,43 @@ BACKTEST_SLIPPAGE_PCT = float(os.getenv("BACKTEST_SLIPPAGE_PCT", "0.0005"))
 # pode ser lido. Nao afeta backtest historico, que nao tem order book do passado.
 REAL_SLIPPAGE_ENABLED = os.getenv("REAL_SLIPPAGE_ENABLED", "true").lower() in {"1", "true", "yes", "sim"}
 
+# Perfis de custo por mercado (spec 023) -- usados APENAS pelo caminho de
+# pesquisa (backtest/compare/optimize). Cripto nao aparece aqui: reusa
+# BACKTEST_FEE_RATE/BACKTEST_SLIPPAGE_PCT diretamente em data/markets.py, para
+# que passar pela camada multi-mercado nao mude o resultado do backtest cripto.
+#
+# `source_note` registra o que cada numero aproxima. Mercados com corretagem
+# FIXA por ordem (acoes, futuros) sao representados por um percentual
+# equivalente ao tamanho de ordem configurado -- preciso para triagem,
+# impreciso para dimensionamento fino. Ver specs/023-dados-multi-mercado/.
+MARKET_COST_PROFILES = {
+    "stocks_us": {
+        "fee_rate": float(os.getenv("COST_STOCKS_US_FEE", "0.0005")),
+        "slippage_pct": float(os.getenv("COST_STOCKS_US_SLIPPAGE", "0.0005")),
+        "source_note": "corretagem ~zero em corretora EUA moderna; custo dominante e o spread",
+    },
+    "stocks_br": {
+        "fee_rate": float(os.getenv("COST_STOCKS_BR_FEE", "0.0003")),
+        "slippage_pct": float(os.getenv("COST_STOCKS_BR_SLIPPAGE", "0.001")),
+        "source_note": "emolumentos B3 (~0,03%) + spread mais largo que o mercado EUA",
+    },
+    "forex": {
+        "fee_rate": float(os.getenv("COST_FOREX_FEE", "0.0")),
+        "slippage_pct": float(os.getenv("COST_FOREX_SLIPPAGE", "0.0002")),
+        "source_note": "sem corretagem tipica; custo e integralmente o spread dos majors",
+    },
+    "futures": {
+        "fee_rate": float(os.getenv("COST_FUTURES_FEE", "0.0002")),
+        "slippage_pct": float(os.getenv("COST_FUTURES_SLIPPAGE", "0.0003")),
+        "source_note": "valor fixo por contrato convertido em percentual equivalente ao tamanho de ordem",
+    },
+    "index": {
+        "fee_rate": float(os.getenv("COST_INDEX_FEE", "0.0005")),
+        "slippage_pct": float(os.getenv("COST_INDEX_SLIPPAGE", "0.0005")),
+        "source_note": "indice nao e negociavel direto; custo aproxima o do ETF equivalente",
+    },
+}
+
 
 def validate_config():
     errors = []

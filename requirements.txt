@@ -1,4 +1,5 @@
 ccxt
+yfinance
 mplfinance
 plotly
 dash

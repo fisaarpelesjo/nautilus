@@ -29,8 +29,8 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 **Purpose**: dependência nova disponível e declarada
 
-- [ ] T001 Adicionar `yfinance` a `requirements.txt`, mantendo a ordem alfabética/agrupamento já usado no arquivo
-- [ ] T002 Verificar que `pip install -r requirements.txt` instala limpo no venv e que `import yfinance` funciona
+- [X] T001 Adicionar `yfinance` a `requirements.txt`, mantendo a ordem alfabética/agrupamento já usado no arquivo
+- [X] T002 Verificar que `pip install -r requirements.txt` instala limpo no venv e que `import yfinance` funciona
 
 ---
 
@@ -42,9 +42,9 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 **⚠️ ORDEM DELIBERADA**: T003 vem antes de T005-T007. O teste de não-regressão precisa existir e passar **contra o código atual** antes do refactor — senão ele vira teste escrito para o código novo, e deixa de provar equivalência. É a mitigação do risco técnico nº 1 de [research.md](research.md).
 
-- [ ] T003 Criar `tests/test_crypto_no_regression.py` com teste que fixa o comportamento ATUAL de `fetch_ohlcv` para cripto: formato do DataFrame (índice `DatetimeIndex` crescente sem duplicatas, colunas `open/high/low/close/volume` minúsculas), política de cache incremental (1ª chamada busca `limit`, seguintes buscam 5 e fazem merge) e propagação de exceção em falha. Rodar contra o código atual e confirmar que passa
-- [ ] T004 [P] Criar `tests/test_markets.py` com testes de resolução símbolo → mercado para os seis padrões de [data-model.md](data-model.md) (`/USDT`, `.SA`, `=X`, `=F`, `^`, alfanumérico), incluindo símbolo não resolvível falhando explicitamente
-- [ ] T005 Criar `data/markets.py` com `Market`, `CostProfile` e a função de resolução símbolo → mercado, satisfazendo T004. `tradable=True` apenas para `crypto`
+- [X] T003 Criar `tests/test_crypto_no_regression.py` com teste que fixa o comportamento ATUAL de `fetch_ohlcv` para cripto: formato do DataFrame (índice `DatetimeIndex` crescente sem duplicatas, colunas `open/high/low/close/volume` minúsculas), política de cache incremental (1ª chamada busca `limit`, seguintes buscam 5 e fazem merge) e propagação de exceção em falha. Rodar contra o código atual e confirmar que passa
+- [X] T004 [P] Criar `tests/test_markets.py` com testes de resolução símbolo → mercado para os seis padrões de [data-model.md](data-model.md) (`/USDT`, `.SA`, `=X`, `=F`, `^`, alfanumérico), incluindo símbolo não resolvível falhando explicitamente
+- [X] T005 Criar `data/markets.py` com `Market`, `CostProfile` e a função de resolução símbolo → mercado, satisfazendo T004. `tradable=True` apenas para `crypto`
 - [ ] T006 [P] Criar `tests/test_sources.py` cobrindo o contrato de [contracts/data-source.md](contracts/data-source.md): normalização de coluna, ordenação do índice, exceção em símbolo inexistente / timeframe não suportado / zero candles, e detecção de `limit` não atendido
 - [ ] T007 Criar `data/sources/__init__.py` com o protocolo de fonte e o registro que resolve mercado → fonte
 - [ ] T008 Criar `data/sources/ccxt_source.py` movendo o código atual de `data/fetcher.py` **sem alterar lógica** — cache, singleton de exchange, retry de rate limit e `_to_df` idênticos
