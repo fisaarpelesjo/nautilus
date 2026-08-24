@@ -134,7 +134,8 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 | `ADAPTIVE_RSI_ENABLED` | `false` | Allows the crossover entry above `RSI_OVERBOUGHT` when volume confirms a real spike |
 | `ADAPTIVE_RSI_VOLUME_RATIO` | `2.0` | Minimum volume (× average) for adaptive RSI to allow the entry |
 | `BACKTEST_FEE_RATE` | `0.001` | Exchange fee on entry/exit notional value — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already pays a real fee) |
-| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
+| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage applied to entry/exit price — used by the backtest **and** as floor/fallback in `TRADING_MODE=paper` (not in `live`, which already experiences real slippage) |
+| `REAL_SLIPPAGE_ENABLED` | `true` | In paper mode, measures slippage by walking the real order book instead of using a flat `BACKTEST_SLIPPAGE_PCT` |
 | `DAILY_REPORT_HOUR` | `0` | Hour (0–23) to send daily Telegram report |
 | `BB_PERIOD` | `20` | Bollinger Bands period |
 | `BB_STD` | `2.0` | Bollinger Bands standard deviations |
@@ -198,10 +199,22 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 - Minimum SL: never below `MAX_STOP_LOSS_PCT` (8%) of entry price, even with a wide ATR on high-volatility pairs
 - Default risk/reward ratio with ATR: 1:2 (1.5× ATR risk, 3× ATR target)
 - **Execution cost in paper mode** (`execution/order_manager.py` `_paper_buy`/`_paper_sell`):
-  slippage (`BACKTEST_SLIPPAGE_PCT`) applied to entry/exit price and fee (`BACKTEST_FEE_RATE`) on
-  the notional value — same formula as the backtest (`backtesting/engine.py`), so the
-  `data/trades.csv` history in paper mode isn't systematically more optimistic than reality.
-  `TRADING_MODE=live` is unaffected (real execution already pays real market cost).
+  fee (`BACKTEST_FEE_RATE`) on the notional value — same formula as the backtest
+  (`backtesting/engine.py`), so the `data/trades.csv` history in paper mode isn't systematically
+  more optimistic than reality. `TRADING_MODE=live` is unaffected (real execution already pays
+  real market cost).
+- **Slippage measured against the real order book** (`execution/liquidity.py`
+  `estimate_slippage_pct()`): with `REAL_SLIPPAGE_ENABLED` (default `true`), paper mode walks the
+  real book — consuming levels from the top until the order is filled and comparing the average
+  fill price against the best price. `BACKTEST_SLIPPAGE_PCT` becomes the **floor** (latency
+  slippage between decision and execution, which walking the book can't capture) and the
+  **fallback** when the book can't be read or is too shallow — unknown slippage must never become
+  a silent zero. Rationale: a single flat constant is realistic only for the most liquid pairs,
+  and execution cost is the variable this strategy proved most sensitive to. Order scale matters:
+  at $100/order most pairs measure 0.000% (the constant is conservative), but at $10k+ real
+  slippage reaches 0.5–1% on several pairs. Doesn't affect historical backtests (no past order
+  book exists) nor `python main.py replay`, where it's forced to `false` so today's liquidity
+  isn't applied to an old candle.
 
 ---
 

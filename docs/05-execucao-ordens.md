@@ -30,6 +30,34 @@ flowchart LR
 
 Por que isso importa: sem essa paridade, o histórico de `data/trades.csv` em paper mode ficaria sistematicamente mais otimista que o que aconteceria de verdade — o mesmo viés que motivou a correção da spec 010 (ver [13 — Metodologia SDD](13-metodologia-sdd.md)).
 
+### Slippage medido no order book real
+
+`BACKTEST_SLIPPAGE_PCT` é uma constante única aplicada a todo par — realista só para os mais líquidos. Com `REAL_SLIPPAGE_ENABLED` (default `true`), o paper mode mede o slippage de verdade, caminhando o book:
+
+```mermaid
+flowchart LR
+    A["ordem de X USDT"] --> B["consome níveis do book<br/>a partir do topo"]
+    B --> C["preço médio de<br/>preenchimento"]
+    C --> D["slippage = |médio − topo| / topo"]
+    D --> E{"medido &gt; BACKTEST_SLIPPAGE_PCT?"}
+    E -->|Sim| F["usa o medido"]
+    E -->|Não| G["usa a constante (piso)"]
+```
+
+A constante vira **piso** — representa o slippage de latência entre decidir e executar, que caminhar o book não captura — e **fallback** quando o book não pode ser lido ou é raso demais para a ordem inteira (`estimate_slippage_pct()` retorna `None`): slippage desconhecido nunca vira zero silencioso.
+
+**A escala da ordem domina o resultado.** Medição real:
+
+| Par | $100 | $1.000 | $10.000 |
+|---|---|---|---|
+| BTC / ETH | 0,000% | 0,000% | ~0,004% |
+| COW | 0,151% | 0,236% | 0,470% |
+| NIL | 0,059% | 0,146% | 0,279% |
+
+Ou seja: no tamanho de ordem padrão (`MAX_ORDER_SIZE_USDT=100`), a constante de 0,05% é *conservadora* para a maioria dos pares. O ganho da medição real aparece em ordens maiores, onde a constante subestimaria bastante o custo.
+
+Não afeta backtest histórico (não existe order book do passado) nem `python main.py replay`, onde é forçado a `false` — aplicar a liquidez de hoje a um candle de meses atrás inventaria divergência contra o backtest onde não há.
+
 Um detalhe não óbvio: a taxa de saída usa `pos.entry_fee` — a taxa **realmente paga na compra**, persistida na posição — em vez de recalcular com o `BACKTEST_FEE_RATE` atual do `.env`. Isso evita que editar essa variável e reiniciar o bot com uma posição já aberta corrompa retroativamente o PnL dela.
 
 `TRADING_MODE=live` não é afetado por nenhuma dessas simulações — a execução real já paga custo real de mercado.

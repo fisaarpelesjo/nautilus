@@ -148,7 +148,8 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 | `ADAPTIVE_RSI_ENABLED` | `false` | Libera o crossover acima de `RSI_OVERBOUGHT` quando o volume confirma um pico real |
 | `ADAPTIVE_RSI_VOLUME_RATIO` | `2.0` | Volume mínimo (× média) para o RSI adaptativo liberar a entrada |
 | `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional de entrada/saída — usada no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já paga taxa real) |
-| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** em `TRADING_MODE=paper` (não em `live`, que já sofre slippage real) |
+| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** como piso/fallback em `TRADING_MODE=paper` (não em `live`, que já sofre slippage real) |
+| `REAL_SLIPPAGE_ENABLED` | `true` | Em paper mode, mede o slippage caminhando o order book real em vez de usar `BACKTEST_SLIPPAGE_PCT` fixo |
 | `DAILY_REPORT_HOUR` | `0` | Hora (0–23) para enviar relatório diário via Telegram |
 | `BB_PERIOD` | `20` | Período das Bollinger Bands |
 | `BB_STD` | `2.0` | Desvios padrão das Bollinger Bands |
@@ -212,11 +213,21 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 - SL mínimo: nunca abaixo de `MAX_STOP_LOSS_PCT` (8%) do preço de entrada, mesmo com ATR largo em pares de alta volatilidade
 - Risk/reward ratio padrão com ATR: 1:2 (1.5× ATR de risco, 3× ATR de alvo)
 - **Custo de execução em paper mode** (`execution/order_manager.py` `_paper_buy`/`_paper_sell`):
-  slippage (`BACKTEST_SLIPPAGE_PCT`) aplicado ao preço de entrada/saída e taxa
-  (`BACKTEST_FEE_RATE`) sobre o valor nocional — mesma fórmula do backtest (`backtesting/
+  taxa (`BACKTEST_FEE_RATE`) sobre o valor nocional — mesma fórmula do backtest (`backtesting/
   engine.py`), para o histórico de `data/trades.csv` em paper mode não ficar sistematicamente
   mais otimista que a realidade. `TRADING_MODE=live` não é afetado (execução real já paga custo
   real de mercado).
+- **Slippage medido no order book real** (`execution/liquidity.py` `estimate_slippage_pct()`):
+  com `REAL_SLIPPAGE_ENABLED` (default `true`), paper mode caminha o book real — consome os
+  níveis a partir do topo até preencher a ordem e compara o preço médio de preenchimento com o
+  melhor preço. `BACKTEST_SLIPPAGE_PCT` vira **piso** (slippage de latência entre decisão e
+  execução, que caminhar o book não captura) e **fallback** quando o book não pode ser lido ou é
+  raso demais — slippage desconhecido nunca vira zero silencioso. Motivação: a constante única é
+  realista só para os pares mais líquidos, e o custo de execução é a variável a que a estratégia
+  se mostrou mais sensível. Ordem de escala importa: a $100/ordem a maioria dos pares mede
+  0,000% (a constante é conservadora), mas a $10k+ o slippage real chega a 0,5–1% em vários
+  pares. Não afeta backtest histórico (não existe order book do passado) nem `python main.py
+  replay`, onde é forçado a `false` para não aplicar liquidez de hoje a um candle antigo.
 
 ---
 

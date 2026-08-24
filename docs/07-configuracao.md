@@ -106,7 +106,8 @@ Todos os três filtros aditivos (regime, volatilidade, Bollinger adaptativo) só
 | Variável | Default | Descrição |
 |---|---|---|
 | `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional — usada no backtest **e** em paper mode |
-| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** em paper mode |
+| `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** como piso/fallback em paper mode |
+| `REAL_SLIPPAGE_ENABLED` | `true` | Em paper mode, mede o slippage caminhando o order book real (ver [cap. 05](05-execucao-ordens.md#slippage-medido-no-order-book-real)) |
 | `EDGE_MIN_TRADES` | `10` | Amostra mínima de trades para o veredito de aprovação (`edge`/`scan`/`optimize`) ser conclusivo |
 
 ## Notificações
