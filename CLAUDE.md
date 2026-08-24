@@ -327,7 +327,11 @@ O bot restaura o estado do `state.json` ao reiniciar — posição aberta e sald
   dispara Telegram real, independente de `TRADING_MODE` no `.env` (mesmo em erro). Compara o
   resultado contra um backtest simples do mesmo período. Aproximação parcial de "comparar paper vs
   backtest" (`ROADMAP.md` Fase 5 item 4) — não substitui operação paper real, tem limitações
-  conhecidas (cooldown por relógio real, MTF não point-in-time).
+  conhecidas (cooldown, resets de drawdown e timeout do circuit breaker por relógio real;
+  timestamps dos trades são a hora da execução, não a do candle). O **MTF é point-in-time**
+  desde 2026-08-24 via o parâmetro `as_of` de `mtf_confirmed()` — antes o replay comparava o
+  preço histórico contra a EMA de tendência de hoje, um filtro baseado no futuro que bloqueava
+  sistematicamente as entradas antigas mais baratas.
 - **Exportação de relatórios** (`utils/report_export.py` `export_report()`): `backtest` (incluindo
   `--validate`), `scan`, `multibacktest` e `optimize` (incluindo `--walk-forward`) salvam o
   resultado em `reports/` (JSON/CSV/Markdown, timestamp no nome evita sobrescrita). Reusa

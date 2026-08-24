@@ -111,7 +111,7 @@ def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
     # MTF roda antes do saldo (mesma ordem de antes desta spec); mocka
     # diretamente para nao bater na rede de verdade e nao acoplar este teste
     # (que e sobre saldo, nao MTF) ao comportamento fail-closed do MTF.
-    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy, as_of=None: True)
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",
         lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
@@ -132,7 +132,7 @@ def test_handle_entry_candidate_blocks_when_balance_unknown(monkeypatch):
 
 
 def test_handle_entry_candidate_opens_when_balance_known(monkeypatch):
-    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy, as_of=None: True)
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",
         lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(True, None, 0.001, 1000.0),
@@ -168,7 +168,7 @@ def test_handle_entry_candidate_blocks_when_circuit_breaker_active():
 
 
 def test_handle_entry_candidate_blocks_when_liquidity_check_fails(monkeypatch):
-    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy, as_of=None: True)
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",
         lambda symbol, order_size_usdt: position_lifecycle.LiquidityCheck(
@@ -191,7 +191,7 @@ def test_handle_entry_candidate_blocks_when_liquidity_check_fails(monkeypatch):
 
 
 def test_handle_entry_candidate_blocks_when_correlated_with_open_position(monkeypatch):
-    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy: True)
+    monkeypatch.setattr(position_lifecycle, "mtf_confirmed", lambda symbol, price, strategy, as_of=None: True)
     liquidity_calls = []
     monkeypatch.setattr(
         position_lifecycle, "check_liquidity",

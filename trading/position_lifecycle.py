@@ -59,6 +59,7 @@ def handle_entry_candidate(
     new_entries: int,
     max_entries_per_cycle: int,
     killswitch_active: bool = False,
+    as_of=None,
 ) -> bool:
     open_count = len(manager.positions)
     slots_left = MAX_POSITIONS - open_count
@@ -85,7 +86,7 @@ def handle_entry_candidate(
 
     if not blockers:
         row["mtf_checked"] = True
-        row["mtf_ok"] = mtf_confirmed(symbol, current_price, strategy)
+        row["mtf_ok"] = mtf_confirmed(symbol, current_price, strategy, as_of=as_of)
         if not row["mtf_ok"]:
             blockers.append("MTF negado")
 
@@ -144,15 +145,36 @@ def handle_entry_candidate(
     return opened
 
 
-def mtf_confirmed(symbol: str, price: float, strategy) -> bool:
+def mtf_confirmed(symbol: str, price: float, strategy, as_of=None) -> bool:
     """Confirma tendencia no timeframe maior. Falha FECHADA (bloqueia a entrada)
     em qualquer erro -- mesmo principio ja usado para saldo/liquidez desconhecidos
     neste arquivo; um candle MTF que nao pode ser buscado nao pode ser tratado
-    como "tendencia confirmada" por omissao (achado de auditoria de codigo)."""
+    como "tendencia confirmada" por omissao (achado de auditoria de codigo).
+
+    `as_of` existe para simulacao sobre historico (trading/replay.py): descarta
+    os candles MTF posteriores aquele instante, de modo que a decisao use so o
+    que era conhecido na data simulada. Em producao fica None e o comportamento
+    e o de sempre (candle mais recente).
+
+    Sem isso, um replay comparava o preco HISTORICO contra a EMA de tendencia de
+    HOJE -- filtro deterministico baseado no futuro, que bloqueava toda entrada
+    antiga abaixo da EMA atual e liberava todas acima. Nao era ruido: em par que
+    subiu, descartava sistematicamente as entradas baratas (as que tendiam a ser
+    vencedoras).
+    """
     try:
         df = fetch_ohlcv(symbol, MTF_TIMEFRAME)
+        if as_of is not None:
+            df = df[df.index <= as_of]
+            if df.empty:
+                # Sem candle MTF anterior a data simulada -- desconhecido, e
+                # desconhecido bloqueia (mesma politica do except abaixo).
+                return False
         ind = strategy.calculate_indicators(df).iloc[-1]
-        return price > ind["ema_trend"]
+        # bool() explicito: a comparacao com um valor de pandas/numpy devolve
+        # np.bool_, nao o bool nativo que a anotacao promete -- e esse valor vai
+        # parar em row["mtf_ok"] e no CSV de decisoes.
+        return bool(price > ind["ema_trend"])
     except Exception:
         return False
 

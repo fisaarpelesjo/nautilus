@@ -72,13 +72,13 @@ def compare_to_backtest(result: ReplayResult, backtest_result, initial_capital: 
         )
 
     notes.append(
-        "Limitacoes conhecidas: cooldown do replay usa relogio real (nao o timestamp do candle "
-        "historico), MTF busca o timeframe de confirmacao mais recente disponivel, nao "
-        "point-in-time, e os resets de drawdown diario/semanal/mensal e o timeout do circuit "
-        "breaker tambem usam relogio real -- um replay de meses de historico roda em segundos, "
-        "entao esses periodos raramente viram de verdade durante a simulacao (podendo entender "
-        "bloqueios em periodos de perda mais longos que o real produziria) -- ver research.md "
-        "da spec 008."
+        "Limitacoes conhecidas: cooldown do replay, resets de drawdown diario/semanal/mensal e "
+        "timeout do circuit breaker usam relogio real, nao o timestamp do candle -- um replay de "
+        "meses roda em segundos, entao esses periodos raramente viram durante a simulacao "
+        "(pode estender bloqueios por mais tempo do que o bot real faria). Os timestamps de "
+        "abertura/fechamento dos trades tambem sao a hora real da execucao do replay, nao a do "
+        "candle simulado. O MTF ja e point-in-time (usa so candles ate a data simulada) desde a "
+        "correcao de 2026-08-24 -- ver research.md da spec 008."
     )
 
     return ReplayComparison(
@@ -166,6 +166,12 @@ def run_replay(symbol: str, timeframe: Optional[str] = None, candle_limit: int =
                     manager, symbol, signal, indicators, current_price, strategy,
                     row, trade_events, new_entries=0, max_entries_per_cycle=1,
                     killswitch_active=False,
+                    # Timestamp do candle simulado: sem ele, mtf_confirmed()
+                    # compararia o preco historico contra a EMA de tendencia de
+                    # HOJE -- filtro baseado no futuro, que enviesava o replay
+                    # de forma sistematica (bloqueava as entradas antigas
+                    # abaixo da EMA atual, liberava as acima).
+                    as_of=window.index[-1],
                 )
                 if row.get("blockers"):
                     blocked_cycles += 1
