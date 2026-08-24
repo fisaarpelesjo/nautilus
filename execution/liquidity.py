@@ -17,6 +17,56 @@ class LiquidityCheck:
     best_ask: float = 0.0
 
 
+def estimate_slippage_pct(symbol: str, order_size_usdt: float, side: str = "buy") -> Optional[float]:
+    """Slippage esperado de uma ordem a mercado de `order_size_usdt`, obtido
+    caminhando o order book real -- consome os niveis a partir do melhor preco
+    ate preencher a ordem e compara o preco medio de preenchimento com o topo
+    do book.
+
+    Existe porque `BACKTEST_SLIPPAGE_PCT` e uma constante unica (0,05%) aplicada
+    a TODOS os pares: realista so para os mais liquidos. Em par de book fino o
+    slippage real e ordens de grandeza maior, e medimos que a estrategia perde
+    a vantagem inteira nessa faixa -- ou seja, a constante fixa nao era um
+    detalhe, era o que fazia o resultado parecer melhor do que e.
+
+    Retorna None quando o book nao pode ser lido ou nao tem profundidade para
+    preencher a ordem inteira -- o chamador MUST tratar como desconhecido, nunca
+    como zero.
+    """
+    try:
+        book = fetch_order_book(symbol)
+    except Exception as exc:
+        log.warning(f"Falha ao buscar order book de {symbol} para estimar slippage: {exc}")
+        return None
+
+    levels = (book.get("asks") if side == "buy" else book.get("bids")) or []
+    if not levels or levels[0][0] <= 0:
+        return None
+
+    best_price = levels[0][0]
+    restante = order_size_usdt
+    custo_total = 0.0
+    qtd_total = 0.0
+    for price, qty in levels:
+        if price <= 0 or qty <= 0:
+            continue
+        valor_nivel = price * qty
+        consumido = min(restante, valor_nivel)
+        custo_total += consumido
+        qtd_total += consumido / price
+        restante -= consumido
+        if restante <= 0:
+            break
+
+    if restante > 0 or qtd_total <= 0:
+        # Book raso demais para a ordem inteira -- slippage real seria pior do
+        # que qualquer numero que extrapolassemos daqui.
+        return None
+
+    preco_medio = custo_total / qtd_total
+    return abs(preco_medio - best_price) / best_price
+
+
 def check_liquidity(symbol: str, order_size_usdt: float) -> LiquidityCheck:
     """Bloqueia entradas com spread alto ou profundidade insuficiente no lado
     ask do order book. Falha de rede vira bloqueio conservador ("liquidez

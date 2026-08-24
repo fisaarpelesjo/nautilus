@@ -127,6 +127,14 @@ CANDLE_LIMIT = 1000
 # Backtest
 BACKTEST_FEE_RATE = float(os.getenv("BACKTEST_FEE_RATE", "0.001"))
 BACKTEST_SLIPPAGE_PCT = float(os.getenv("BACKTEST_SLIPPAGE_PCT", "0.0005"))
+# Em paper mode, estima o slippage caminhando o order book real de cada ordem em
+# vez de usar BACKTEST_SLIPPAGE_PCT fixo -- a constante unica so e realista para
+# os pares mais liquidos, e foi medido que a estrategia perde a vantagem inteira
+# quando o slippage sobe para a faixa real de book fino (0,5%+). BACKTEST_SLIPPAGE_PCT
+# continua valendo como PISO (representa slippage de latencia entre decisao e
+# execucao, que caminhar o book nao captura) e como fallback quando o book nao
+# pode ser lido. Nao afeta backtest historico, que nao tem order book do passado.
+REAL_SLIPPAGE_ENABLED = os.getenv("REAL_SLIPPAGE_ENABLED", "true").lower() in {"1", "true", "yes", "sim"}
 
 
 def validate_config():

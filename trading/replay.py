@@ -108,8 +108,16 @@ def _isolated_order_manager_environment():
         "log_trade": order_manager.log_trade,
         "log_event": order_manager.log_event,
         "send_telegram": order_manager.send_telegram,
+        "REAL_SLIPPAGE_ENABLED": order_manager.REAL_SLIPPAGE_ENABLED,
     }
     order_manager.TRADING_MODE = "paper"
+    # Slippage medido no book real MUST ficar desligado no replay: ele roda sobre
+    # candles historicos, entao consultar o order book de agora aplicaria a
+    # liquidez de hoje a um trade de meses atras -- anacronismo que inventaria
+    # divergencia entre replay e backtest onde nao ha. Cai no BACKTEST_SLIPPAGE_PCT
+    # fixo, o mesmo que backtesting/engine.py usa, preservando a comparabilidade
+    # que e o proposito do comando.
+    order_manager.REAL_SLIPPAGE_ENABLED = False
     order_manager.load_state = lambda: {}
     order_manager.save_state = lambda state: None
     order_manager.log_trade = lambda trade: collected_trades.append(trade)

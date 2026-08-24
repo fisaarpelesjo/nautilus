@@ -68,6 +68,11 @@ def _paper_manager(monkeypatch, logged_trades=None):
     # duas variaveis explicitamente.
     monkeypatch.setattr(order_manager, "BACKTEST_FEE_RATE", 0.0)
     monkeypatch.setattr(order_manager, "BACKTEST_SLIPPAGE_PCT", 0.0)
+    # Slippage medido no order book real desligado aqui pelo mesmo motivo: alem
+    # de reintroduzir custo nos testes que dependem de pnl exato, ele faria uma
+    # chamada de rede de verdade a Binance a cada ordem simulada. O caminho de
+    # slippage real tem cobertura propria em tests/test_slippage_real.py.
+    monkeypatch.setattr(order_manager, "REAL_SLIPPAGE_ENABLED", False)
     return OrderManager()
 
 

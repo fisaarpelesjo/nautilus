@@ -19,9 +19,11 @@ from config.settings import (
     MONTHLY_DRAWDOWN_LIMIT,
     MAX_CONSECUTIVE_LOSSES,
     CIRCUIT_BREAKER_COOLDOWN_HOURS,
+    REAL_SLIPPAGE_ENABLED,
     USE_LIMIT_ORDERS,
 )
 from data.fetcher import fetch_balance, get_exchange
+from execution.liquidity import estimate_slippage_pct
 from data.state_store import load_state, save_state
 from data.trade_store import log_trade
 from risk.manager import RiskLevels
@@ -34,6 +36,28 @@ log = get_logger("orders")
 def _generate_client_order_id() -> str:
     """ID unico por ordem (paper e live) para idempotencia -- ver constitution P6."""
     return f"bot-{uuid.uuid4().hex[:8]}-{int(datetime.now().timestamp())}"
+
+
+def _paper_slippage_pct(symbol: str, order_size_usdt: float, side: str) -> float:
+    """Slippage a aplicar numa ordem simulada de paper mode.
+
+    Usa o order book real quando REAL_SLIPPAGE_ENABLED (default), com
+    BACKTEST_SLIPPAGE_PCT como PISO -- caminhar o book mede o impacto do tamanho
+    da ordem, mas nao o slippage de latencia entre decidir e executar, entao o
+    valor medido nunca deve ficar ABAIXO da constante. Quando o book nao pode ser
+    lido ou e raso demais (estimate_slippage_pct -> None), cai para a constante
+    e registra o motivo: um slippage desconhecido nao pode virar zero silencioso.
+    """
+    if not REAL_SLIPPAGE_ENABLED:
+        return BACKTEST_SLIPPAGE_PCT
+    medido = estimate_slippage_pct(symbol, order_size_usdt, side=side)
+    if medido is None:
+        log.warning(
+            f"Slippage real indisponivel para {symbol} ({side}) -- usando piso "
+            f"BACKTEST_SLIPPAGE_PCT={BACKTEST_SLIPPAGE_PCT}"
+        )
+        return BACKTEST_SLIPPAGE_PCT
+    return max(medido, BACKTEST_SLIPPAGE_PCT)
 
 
 def _notify_safe(prefix: str, msg: str):
@@ -512,7 +536,8 @@ class OrderManager:
         # otimista que o backtest -- risk.quantity fica intocado (ja vem
         # dimensionado por risk/manager.py), so o preco efetivo de preenchimento e
         # o custo mudam. Ver specs/010-paridade-custos-paper/research.md.
-        entry_price = risk.entry_price * (1 + BACKTEST_SLIPPAGE_PCT)
+        slippage = _paper_slippage_pct(symbol, risk.quantity * risk.entry_price, "buy")
+        entry_price = risk.entry_price * (1 + slippage)
         notional = risk.quantity * entry_price
         fee = notional * BACKTEST_FEE_RATE
         cost = notional + fee
@@ -567,7 +592,8 @@ class OrderManager:
         # .env e reiniciar o bot com uma posicao ja aberta (achado de
         # code-review), o PnL da venda continua correto em vez de usar a taxa
         # nova retroativamente sobre uma compra antiga.
-        exit_price = exit_price_market * (1 - BACKTEST_SLIPPAGE_PCT)
+        slippage = _paper_slippage_pct(symbol, pos.quantity * exit_price_market, "sell")
+        exit_price = exit_price_market * (1 - slippage)
         entry_cost = pos.quantity * pos.entry_price + pos.entry_fee
         gross_exit = pos.quantity * exit_price
         exit_fee   = gross_exit * BACKTEST_FEE_RATE
