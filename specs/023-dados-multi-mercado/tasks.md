@@ -61,9 +61,9 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 **Independent Test**: rodar o ciclo de decisão com a configuração cripto atual e obter comportamento idêntico; configurar um símbolo não-cripto na lista de operação e ver a inicialização recusar.
 
-- [ ] T011 [P] [US4] Adicionar a `tests/test_crypto_no_regression.py` um teste que roda o caminho de decisão de entrada com configuração cripto e compara a sequência de bloqueadores avaliados antes/depois — cobre FR-006
-- [ ] T012 [US4] Adicionar a `tests/test_runner_live_banner.py` (ou arquivo novo `tests/test_runner_market_guard.py`) teste que exige recusa explícita na inicialização quando a lista de operação contém símbolo de mercado `tradable=False` — cobre FR-007
-- [ ] T013 [US4] Implementar em `trading/runner.py` a verificação de inicialização que recusa símbolo de mercado sem execução, nomeando o símbolo e o motivo, satisfazendo T012
+- [X] T011 [P] [US4] Adicionar a `tests/test_crypto_no_regression.py` um teste que roda o caminho de decisão de entrada com configuração cripto e compara a sequência de bloqueadores avaliados antes/depois — cobre FR-006
+- [X] T012 [US4] Adicionar a `tests/test_runner_live_banner.py` (ou arquivo novo `tests/test_runner_market_guard.py`) teste que exige recusa explícita na inicialização quando a lista de operação contém símbolo de mercado `tradable=False` — cobre FR-007
+- [X] T013 [US4] Implementar em `trading/runner.py` a verificação de inicialização que recusa símbolo de mercado sem execução, nomeando o símbolo e o motivo, satisfazendo T012
 
 **Checkpoint**: bot ao vivo protegido e comprovadamente inalterado
 
@@ -77,12 +77,12 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 - [X] T014 [P] [US1] Adicionar a `tests/test_sources.py` testes da fonte não-cripto: normalização de `Open/High/Low/Close/Volume` → minúsculas, e recusa explícita de timeframe não suportado
 - [X] T015 [US1] Criar `data/sources/yfinance_source.py` implementando o protocolo de fonte, satisfazendo T014
-- [ ] T016 [P] [US1] Adicionar a `tests/test_settings_validation.py` teste que confirma: símbolo não-cripto aceito na lista de **pesquisa**, e validação `/USDT` preservada na lista de **operação** — a distinção que impede o símbolo inoperável de chegar ao loop
-- [ ] T017 [US1] Ajustar a validação em `config/settings.py` (~linha 147) conforme T016, sem afrouxar a proteção da lista de operação
-- [ ] T018 [P] [US1] Adicionar a `tests/test_backtesting_engine.py` teste que confirma registro de `market` e `requested_candles` no resultado, e sinalização quando o obtido é menor que o pedido — cobre FR-011 e o risco técnico nº 3
-- [ ] T019 [US1] Estender `BacktestResult` em `backtesting/engine.py` com `market`, `cost_profile_note`, `has_session_gaps` e `requested_candles`, todos com padrão que preserva o comportamento atual; preencher em `run_backtest()`, satisfazendo T018
-- [ ] T020 [P] [US1] Adicionar teste que confirma o aviso de gap presente no resultado de mercado descontínuo e ausente em mercado contínuo — cobre FR-009
-- [ ] T021 [US1] Implementar a sinalização de gap conforme T020, reusando `Market.continuous`
+- [X] T016 [P] [US1] Adicionar a `tests/test_settings_validation.py` teste que confirma: símbolo não-cripto aceito na lista de **pesquisa**, e validação `/USDT` preservada na lista de **operação** — a distinção que impede o símbolo inoperável de chegar ao loop
+- [X] T017 [US1] Ajustar a validação em `config/settings.py` (~linha 147) conforme T016, sem afrouxar a proteção da lista de operação
+- [X] T018 [P] [US1] Adicionar a `tests/test_backtesting_engine.py` teste que confirma registro de `market` e `requested_candles` no resultado, e sinalização quando o obtido é menor que o pedido — cobre FR-011 e o risco técnico nº 3
+- [X] T019 [US1] Estender `BacktestResult` em `backtesting/engine.py` com `market`, `cost_profile_note`, `has_session_gaps` e `requested_candles`, todos com padrão que preserva o comportamento atual; preencher em `run_backtest()`, satisfazendo T018
+- [X] T020 [P] [US1] Adicionar teste que confirma o aviso de gap presente no resultado de mercado descontínuo e ausente em mercado contínuo — cobre FR-009
+- [X] T021 [US1] Implementar a sinalização de gap conforme T020, reusando `Market.continuous`
 
 **Checkpoint**: US1 funcional — já responde a pergunta central da feature para um símbolo por vez
 
@@ -94,10 +94,10 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 **Independent Test**: o mesmo comportamento de preço em mercados de custo diferente produz resultado líquido pior no de custo maior; mercado sem perfil é recusado com motivo.
 
-- [ ] T022 [P] [US2] Adicionar a `tests/test_markets.py` teste que confirma recusa explícita ao avaliar mercado sem `CostProfile` — MUST NOT cair no custo de cripto por omissão (FR-004)
-- [ ] T023 [P] [US2] Adicionar teste que confirma que o mesmo cenário simulado sob dois perfis de custo produz resultado líquido pior no de custo maior (FR-003)
-- [ ] T024 [US2] Definir os perfis de custo por mercado em `config/settings.py`, sobrescrevíveis por `.env`, com `source_note` registrando o que cada número aproxima (corretagem fixa → percentual equivalente)
-- [ ] T025 [US2] Resolver `fee_rate`/`slippage_pct` por mercado em `backtesting/engine.py::run_backtest()` antes de chamar `simulate_backtest()`, e preencher `cost_profile_note` no resultado, satisfazendo T022 e T023
+- [X] T022 [P] [US2] Adicionar a `tests/test_markets.py` teste que confirma recusa explícita ao avaliar mercado sem `CostProfile` — MUST NOT cair no custo de cripto por omissão (FR-004)
+- [X] T023 [P] [US2] Adicionar teste que confirma que o mesmo cenário simulado sob dois perfis de custo produz resultado líquido pior no de custo maior (FR-003)
+- [X] T024 [US2] Definir os perfis de custo por mercado em `config/settings.py`, sobrescrevíveis por `.env`, com `source_note` registrando o que cada número aproxima (corretagem fixa → percentual equivalente)
+- [X] T025 [US2] Resolver `fee_rate`/`slippage_pct` por mercado em `backtesting/engine.py::run_backtest()` antes de chamar `simulate_backtest()`, e preencher `cost_profile_note` no resultado, satisfazendo T022 e T023
 
 **Checkpoint**: nenhum resultado pode mais ser produzido com custo de mercado incorreto
 

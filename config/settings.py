@@ -17,6 +17,19 @@ SYMBOL     = PAIRS[0]  # compatibilidade com backtest single-pair
 _blacklist_env = os.getenv("BLACKLIST_PAIRS", "")
 BLACKLIST_PAIRS = {p.strip().upper() for p in _blacklist_env.split(",") if p.strip()}
 
+# Lista de PESQUISA (spec 023) -- separada de PAIRS de proposito.
+#
+# PAIRS alimenta o loop ao vivo, que so sabe operar cripto, e por isso mantem a
+# validacao estrita de formato /USDT. RESEARCH_SYMBOLS alimenta apenas
+# backtest/compare/optimize/multimarket e aceita qualquer simbolo resolvivel
+# para um mercado conhecido (acoes, forex, futuros, indices).
+#
+# Sao duas listas e nao uma com validacao relaxada porque afrouxar PAIRS
+# reabriria exatamente o caminho que FR-007 fecha: um ticker de acao chegando
+# ao caminho de execucao.
+_research_env = os.getenv("RESEARCH_SYMBOLS", "")
+RESEARCH_SYMBOLS = [s.strip() for s in _research_env.split(",") if s.strip()]
+
 DYNAMIC_PAIRS_ENABLED = os.getenv("DYNAMIC_PAIRS_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
 DYNAMIC_PAIRS_TOP_N = int(os.getenv("DYNAMIC_PAIRS_TOP_N", "5"))
 DYNAMIC_PAIRS_CANDIDATES = int(os.getenv("DYNAMIC_PAIRS_CANDIDATES", "20"))
@@ -184,6 +197,23 @@ def validate_config():
     invalid_pairs = [pair for pair in PAIRS if "/" not in pair or not pair.endswith("/USDT")]
     if invalid_pairs:
         errors.append(f"PAIRS invalidos: {', '.join(invalid_pairs)}. Use o formato BASE/USDT.")
+    # RESEARCH_SYMBOLS aceita qualquer mercado, mas o simbolo precisa ser
+    # resolvivel -- aceitar um que nenhuma fonte sabe buscar so adiaria a falha
+    # para o meio da varredura. Import local para nao criar ciclo
+    # (data.markets importa deste modulo).
+    if RESEARCH_SYMBOLS:
+        from data.markets import resolve_market
+        invalid_research = []
+        for symbol in RESEARCH_SYMBOLS:
+            try:
+                resolve_market(symbol)
+            except ValueError:
+                invalid_research.append(symbol)
+        if invalid_research:
+            errors.append(
+                f"RESEARCH_SYMBOLS invalidos: {', '.join(invalid_research)}. "
+                "Simbolo precisa ser resolvivel para um mercado conhecido."
+            )
     invalid_blacklist = [pair for pair in BLACKLIST_PAIRS if "/" not in pair and not pair.isalpha()]
     if invalid_blacklist:
         errors.append(f"BLACKLIST_PAIRS invalido: {', '.join(invalid_blacklist)}.")

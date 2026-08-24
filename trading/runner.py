@@ -132,6 +132,39 @@ def _round_price(price: float) -> float:
     return round(price, 10)
 
 
+def assert_pares_operaveis(pairs) -> None:
+    """Recusa a inicializacao se algum par nao for de mercado com execucao
+    implementada (spec 023, FR-007).
+
+    O caminho de execucao so sabe operar cripto (Binance Spot, conforme a
+    Constituicao). Sem esta guarda, um ticker de acao em PAIRS cairia no loop
+    de producao -- mesmo padrao que deixou LUNC/USDT inerte por 8 dias (spec
+    021), com a diferenca de que ali o bot seguia rodando em silencio.
+
+    Reporta TODOS os problematicos de uma vez: reportar so o primeiro forcaria
+    o operador a descobrir um por vez, a cada reinicializacao.
+    """
+    from data.markets import resolve_market
+
+    problemas = []
+    for symbol in pairs:
+        try:
+            market = resolve_market(symbol)
+        except ValueError as exc:
+            problemas.append(f"{symbol} ({exc})")
+            continue
+        if not market.tradable:
+            problemas.append(f"{symbol} (mercado '{market.name}' nao tem execucao implementada)")
+
+    if problemas:
+        raise ValueError(
+            "PAIRS contem simbolos que o bot nao sabe operar: "
+            + "; ".join(problemas)
+            + ". Mercados nao-cripto sao suportados apenas para pesquisa "
+              "(backtest/compare/optimize), nunca para operacao."
+        )
+
+
 def run():
     header()
 
@@ -140,6 +173,10 @@ def run():
     last_report_date = ""
     last_signals: Dict[str, str] = {}
     active_pairs = _load_active_pairs()
+    # Antes de qualquer I/O de mercado ou envio de ordem: se a lista tem simbolo
+    # que este caminho nao sabe operar, falhar aqui e melhor que descobrir no
+    # meio do ciclo.
+    assert_pares_operaveis(active_pairs)
     cycle_id = 0
     entry_cooldown = 0
 

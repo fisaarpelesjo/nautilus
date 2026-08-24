@@ -541,3 +541,66 @@ def test_precompute_signals_matches_generate_signal_when_all_filters_enabled(mon
     per_candle = strategy.generate_signal(pd.DataFrame()).signal
 
     assert vectorized.iloc[-1] == per_candle == Signal.HOLD
+
+
+# ---------------------------------- spec 023: mercado, custo e gap no resultado
+
+def _df_multimercado(preco=100.0, n=150):
+    idx = pd.date_range("2026-01-01", periods=n, freq="4h")
+    return pd.DataFrame({
+        "open": [preco] * n, "high": [preco] * n, "low": [preco] * n,
+        "close": [preco] * n, "volume": [1.0] * n, "atr": [preco * 0.01] * n,
+    }, index=idx)
+
+
+class _SemSinal:
+    def calculate_indicators(self, df):
+        return df
+
+    def generate_signal(self, _df):
+        return TradeSignal(Signal.HOLD, 100.0, "t")
+
+
+def test_resultado_registra_mercado_e_perfil_de_custo(monkeypatch):
+    # FR-011: sem isso, um numero no relatorio nao e auditavel depois -- nao da
+    # para saber sob qual custo ele foi produzido.
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda s, tf, limit=None: _df_multimercado())
+    monkeypatch.setattr(engine, "print_report", lambda r: None)
+
+    r = engine.run_backtest("AAPL", "4h", strategy=_SemSinal())
+
+    assert r.market == "stocks_us"
+    assert r.cost_profile_note
+    assert "corretagem" in r.cost_profile_note.lower() or "spread" in r.cost_profile_note.lower()
+
+
+def test_resultado_cripto_registra_mercado_crypto(monkeypatch):
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda s, tf, limit=None: _df_multimercado())
+    monkeypatch.setattr(engine, "print_report", lambda r: None)
+
+    r = engine.run_backtest("BTC/USDT", "4h", strategy=_SemSinal())
+
+    assert r.market == "crypto"
+
+
+def test_mercado_descontinuo_sinaliza_gap(monkeypatch):
+    # FR-009: o teto de perda por trade nao age dentro de um gap de abertura.
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda s, tf, limit=None: _df_multimercado())
+    monkeypatch.setattr(engine, "print_report", lambda r: None)
+
+    acao = engine.run_backtest("AAPL", "4h", strategy=_SemSinal())
+    cripto = engine.run_backtest("BTC/USDT", "4h", strategy=_SemSinal())
+
+    assert acao.has_session_gaps is True
+    assert cripto.has_session_gaps is False
+
+
+def test_resultado_registra_candles_pedidos(monkeypatch):
+    # Risco tecnico 3: pedir 2000 e receber 150 precisa ser detectavel, senao
+    # uma comparacao cripto x acoes fica desbalanceada sem ninguem notar.
+    monkeypatch.setattr(engine, "fetch_ohlcv", lambda s, tf, limit=None: _df_multimercado(n=150))
+    monkeypatch.setattr(engine, "print_report", lambda r: None)
+
+    r = engine.run_backtest("AAPL", "4h", candle_limit=2000, strategy=_SemSinal())
+
+    assert r.requested_candles == 2000

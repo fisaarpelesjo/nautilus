@@ -73,16 +73,41 @@ class BacktestResult:
     # LUNC/USDT (PAIRS[0], alvo padrao de backtest/edge/chart) ficou 8 dias na
     # lista sem gerar uma unica decisao, com vereditos calculados em cima dele.
     below_min_price: bool = False
+    # Metadados de mercado (spec 023). Padrao preserva o comportamento anterior
+    # -- resultados produzidos por caminhos que nao resolvem mercado (optimize,
+    # validation, testes sinteticos) seguem funcionando sem preencher nada.
+    market: Optional[str] = None
+    cost_profile_note: Optional[str] = None
+    has_session_gaps: bool = False
+    requested_candles: Optional[int] = None
 
 def run_backtest(
     symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000,
     strategy: Optional[BaseStrategy] = None,
 ) -> BacktestResult:
+    from data.markets import require_cost, resolve_market
+
+    # Mercado resolvido ANTES de buscar dados: se o simbolo nao for resolvivel,
+    # ou o mercado nao tiver custo declarado, falhar aqui evita gastar uma
+    # chamada de rede para produzir um resultado que seria recusado depois.
+    market = resolve_market(symbol)
+    cost = require_cost(market)
+
     df = fetch_ohlcv(symbol, timeframe, limit=candle_limit)
     strategy = strategy or EmaRsiStrategy()
     df = strategy.calculate_indicators(df)
 
-    result = simulate_backtest(df, strategy, initial_capital=initial_capital)
+    # Custo do mercado avaliado, nao o de cripto por omissao (FR-003/FR-004).
+    # Foi o mecanismo inverso -- slippage de par ultra-liquido aplicado a book
+    # fino -- que fez ACE/BIO/ALLO parecerem operaveis e darem prejuizo real.
+    result = simulate_backtest(
+        df, strategy, initial_capital=initial_capital,
+        fee_rate=cost.fee_rate, slippage_pct=cost.slippage_pct,
+    )
+    result.market = market.name
+    result.cost_profile_note = cost.source_note
+    result.has_session_gaps = not market.continuous
+    result.requested_candles = candle_limit
     # Checado aqui (e nao em simulate_backtest) porque so este nivel conhece o
     # symbol e busca o preco de mercado -- simulate_backtest recebe um df ja
     # pronto e e reusado por caminhos sinteticos (testes, optimize) onde a
