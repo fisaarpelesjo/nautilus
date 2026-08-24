@@ -9,6 +9,7 @@ from config.settings import (
     ATR_TP_MULTIPLIER,
     MAX_STOP_LOSS_PCT,
     MAX_ORDER_SIZE_USDT,
+    MIN_PRICE_USDT,
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
     REGIME_FILTER_ENABLED,
@@ -65,6 +66,13 @@ class BacktestResult:
     calmar: float
     annualized_return_pct: float
     return_per_exposure_pct: Optional[float]
+    # Par cujo preco esta abaixo de MIN_PRICE_USDT: trading/runner.py o descarta
+    # ANTES de avaliar o sinal, entao ele nunca opera em producao por mais
+    # promissores que sejam estes numeros. O backtest nao tinha filtro
+    # equivalente e reportava o resultado normalmente -- foi assim que
+    # LUNC/USDT (PAIRS[0], alvo padrao de backtest/edge/chart) ficou 8 dias na
+    # lista sem gerar uma unica decisao, com vereditos calculados em cima dele.
+    below_min_price: bool = False
 
 def run_backtest(
     symbol: str, timeframe: str, initial_capital: float = 1000.0, candle_limit: int = 2000,
@@ -75,6 +83,17 @@ def run_backtest(
     df = strategy.calculate_indicators(df)
 
     result = simulate_backtest(df, strategy, initial_capital=initial_capital)
+    # Checado aqui (e nao em simulate_backtest) porque so este nivel conhece o
+    # symbol e busca o preco de mercado -- simulate_backtest recebe um df ja
+    # pronto e e reusado por caminhos sinteticos (testes, optimize) onde a
+    # nocao de "preco operavel na Binance" nao se aplica.
+    if len(df) and float(df["close"].iloc[-1]) < MIN_PRICE_USDT:
+        result.below_min_price = True
+        log.warning(
+            f"{symbol}: preco {float(df['close'].iloc[-1]):.8f} abaixo de MIN_PRICE_USDT="
+            f"{MIN_PRICE_USDT} -- trading/runner.py descarta este par antes de avaliar o sinal, "
+            "entao ele NUNCA opera em producao. Resultados abaixo sao teoricos."
+        )
     print_report(result)
     return result
 

@@ -35,7 +35,7 @@ Coluna **Autonomia**:
 | 018 | Slippage medido no order book real | Sozinho | ✅ Concluída em 2026-08-24 — `estimate_slippage_pct()` caminha o book em vez de usar `BACKTEST_SLIPPAGE_PCT` fixo para todo par; a constante vira piso (slippage de latência) e fallback. Medição: a $100/ordem a maioria dos pares dá 0,000% (a constante era conservadora); o ganho aparece em ordens grandes, onde ela subestimaria muito |
 | 019 | **Trailing stop no motor de backtest** | Sozinho | ✅ Concluída em 2026-08-24 — **furo metodológico grave**: `simulate_backtest()` usava stop fixo na entrada enquanto a produção movia o stop a cada novo topo. Backtest e produção mediam estratégias diferentes, e **toda decisão de par/parâmetro do projeto saiu da régua errada**. Impacto medido: DOGE 2,24→0,86, ZEC 1,49→1,02, ADA 1,79→0,97, UNI 1,74→0,41 (os quatro deixaram de aprovar e foram removidos de `PAIRS`); ORCA 1,75→2,38 |
 | 020 | MTF point-in-time no replay | Sozinho | ✅ Concluída em 2026-08-24 — `mtf_confirmed()` comparava preço histórico contra a EMA de tendência de **hoje**, filtro baseado no futuro. Viés direcional (bloqueava as entradas antigas mais baratas, que tendem a ser vencedoras): em NIL/USDT o replay descartava o trade de +$17,36 e mantinha o de -$8,24. Parâmetro `as_of` opcional; produção inalterada |
-| 021 | `MIN_PRICE_USDT` só existe no loop ao vivo, não no backtest | Sozinho | 📋 Candidata — `trading/runner.py` descarta pares abaixo do preço mínimo antes de avaliar o sinal, mas `backtesting/engine.py` não tem filtro equivalente: um par sub-$0.001 passa no backtest e nunca opera em produção. Descoberto em 2026-08-24 — **LUNC/USDT ficou 8 dias em `PAIRS` sem gerar uma única decisão**, e era `PAIRS[0]` (alvo padrão de `backtest`/`edge`/`chart`), então vereditos daquele período foram calculados sobre um par que o bot nunca operou |
+| 021 | `MIN_PRICE_USDT` só existe no loop ao vivo, não no backtest | Sozinho | ✅ Concluída em 2026-08-24 — `run_backtest()` marca `below_min_price` e loga aviso; `evaluate_approval()` devolve **"inconclusivo"** (não "reprovado": nada foi provado sobre a estratégia, o bot é que nunca opera o par), o que propaga automaticamente para `backtest`/`compare`/`scan`/`edge`. Motivador: **LUNC/USDT ficou 8 dias em `PAIRS` sem gerar uma única decisão**, e era `PAIRS[0]` (alvo padrão de `backtest`/`edge`/`chart`), então vereditos daquele período saíram de um par que o bot nunca operou |
 | 022 | Replay: cooldown/drawdown/circuit breaker por relógio real | Sozinho | 📋 Candidata — baixa prioridade. Esses três usam `datetime.now()` em vez do timestamp do candle simulado; um replay de meses roda em segundos, então os períodos raramente viram e bloqueios podem se estender além do que o bot real faria. Os timestamps dos trades do replay também são a hora de execução, não a do candle. Exigiria rotear tempo simulado por mais partes da cadeia de produção — só vale se o replay virar ferramenta central |
 
 ## 002 — Decisão de aprovação multi-par
@@ -143,19 +143,20 @@ operacional direto pro deploy de 26 pares na VPS (vários chamadas por ciclo de 
 ## Ordem sugerida
 
 Executada: 002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
-→ 013 → 016 → 017 → 018 → 019 → 020
+→ 013 → 016 → 017 → 018 → 019 → 020 → 021
 
-Próximas, se e quando fizer sentido: **021** (é a que tem efeito real — um par inválido hoje passa
-silenciosamente no backtest e nunca opera) → 012 (metade restante) → 022 → 014.
+Próximas, se e quando fizer sentido: 012 (metade restante) → 022 → 014. Nenhuma das três muda
+resultado — são refinamentos de precisão, não correções de comportamento.
 
-**Status (2026-08-24)**: 001-005, 008-011, 013 e 016-020 concluídas. 006 e 007 seguem com a parte
+**Status (2026-08-24)**: 001-005, 008-011, 013 e 016-021 concluídas. 006 e 007 seguem com a parte
 autônoma concluída — resta o que depende do operador: "validar preset operacional atual" (006,
 Fase 4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4).
 Continuam exigindo tempo real de operação paper.
 
 **Pendentes**: 012 (metade — profundidade de liquidez próxima ao preço), 014 (refresh de pares
-dinâmicos, baixa urgência), 021 (`MIN_PRICE_USDT` ausente no backtest) e 022 (relógio real no
-replay, baixa prioridade). 015 fica fora da fila até o resto amadurecer.
+dinâmicos, baixa urgência) e 022 (relógio real no replay, baixa prioridade). 015 fica fora da fila
+até o resto amadurecer. Nenhuma das três altera comportamento do bot — são refinamentos de
+precisão.
 
 ### O que mudou desde 2026-08-16 e por quê importa
 

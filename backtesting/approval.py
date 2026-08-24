@@ -39,6 +39,16 @@ def evaluate_approval(
             reasons=["dados insuficientes para uma janela de validacao out-of-sample"],
         )
 
+    # "inconclusivo", nao "reprovado": nada foi provado sobre a estrategia neste
+    # par -- o bot simplesmente nunca vai operar ele, porque trading/runner.py
+    # descarta precos abaixo de MIN_PRICE_USDT antes de avaliar o sinal.
+    # Reprovar daria a entender que a estrategia foi testada e falhou.
+    if getattr(result, "below_min_price", False):
+        return ApprovalVerdict(
+            status="inconclusivo",
+            reasons=["preco abaixo de MIN_PRICE_USDT -- o bot nunca opera este par em producao"],
+        )
+
     reasons: List[str] = []
     if result.total_trades < min_trades:
         reasons.append(f"apenas {result.total_trades} trades na validacao (minimo {min_trades})")
