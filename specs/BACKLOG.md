@@ -26,10 +26,17 @@ Coluna **Autonomia**:
 | 009 | Itens remanescentes do ROADMAP (relatórios, diagnóstico agressivo, edge out-of-sample, indicadores médios) | Sozinho | ✅ Concluída (`specs/009-itens-remanescentes-roadmap/`, US1-US4 + Polish) — fora do backlog original, criada após auditoria completa do `ROADMAP.md` (não só deste arquivo) revelar 4 itens pequenos genuinamente não implementados |
 | 010 | Paridade de custos entre paper e backtest (fee/slippage em `_paper_buy`/`_paper_sell`) | Sozinho | ✅ Concluída (`specs/010-paridade-custos-paper/`, US1-US2 + Polish) — fora do backlog original, achado crítico de uma auditoria completa de código (não só docs) cruzada com pesquisa de boas práticas de bots de trading; o paper mode rodando na VPS desde 2026-08-16 estava registrando PnL sistematicamente ~0,3%/round-trip mais otimista que a realidade |
 | 011 | Singleton do exchange + retry/backoff de rate limit (`data/fetcher.py`) | Sozinho | ✅ Concluída (`specs/011-rate-limit-hardening/`, US1-US2 + Polish) — risco operacional real pro deploy de 26 pares na VPS; escopo ampliado durante a especificação ao descobrir que `backtesting/scanner.py` tinha o mesmo problema fora de `data/fetcher.py` |
-| 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | 🟡 Parcial — MTF fail-closed corrigido em 2026-08-18 (auditoria de código pós-deploy, fora de uma spec formal: `mtf_confirmed()` agora retorna `False` em erro de rede, igual ao resto de `position_lifecycle.py`); falta ainda a parte de profundidade de liquidez próxima ao preço (`execution/liquidity.py` soma os 20 níveis do order book, não só os próximos ao preço) |
+| 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | 🟡 Parcial — MTF fail-closed corrigido em 2026-08-18 (auditoria de código pós-deploy, fora de uma spec formal: `mtf_confirmed()` agora retorna `False` em erro de rede, igual ao resto de `position_lifecycle.py`); falta ainda a parte de profundidade de liquidez próxima ao preço (`execution/liquidity.py::check_liquidity` soma os 20 níveis do order book, não só os próximos ao preço). Nota: `estimate_slippage_pct()` (spec 018) já caminha o book corretamente para o cálculo de slippage — falta aplicar o mesmo critério ao gate de profundidade |
 | 013 | Risco de correlação entre posições simultâneas | Sozinho | ✅ Concluída em 2026-08-18 (`risk/correlation.py`, fora do fluxo formal de spec — implementado direto após pesquisa aprofundada de mercado confirmar o gap) — `MAX_POSITION_CORRELATION`/`CORRELATION_LOOKBACK`, bloqueador novo em `handle_entry_candidate` |
 | 014 | Refresh periódico de pares dinâmicos (`DYNAMIC_PAIRS_ENABLED`) | Sozinho | 📋 Candidata — baixa urgência (não é a config atual), mas relevante dado o padrão comprovado de VPS de longa duração |
 | 015 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
+| 016 | Teto de perda por trade + circuit breaker destravável | Sozinho | ✅ Concluída em 2026-08-18 (fora do fluxo formal de spec) — `MAX_STOP_LOSS_PCT` (SL via ATR não tinha limite prático: ACE/USDT abriu com stop a ~20% da entrada) e `CIRCUIT_BREAKER_COOLDOWN_HOURS` (breaker ativado sem posição aberta travava para sempre, pois nada gerava o trade lucrativo que o resetava) |
+| 017 | Risco de correlação entre posições | Sozinho | ✅ Concluída em 2026-08-18 — ver 013 (mesma entrega, `risk/correlation.py`) |
+| 018 | Slippage medido no order book real | Sozinho | ✅ Concluída em 2026-08-24 — `estimate_slippage_pct()` caminha o book em vez de usar `BACKTEST_SLIPPAGE_PCT` fixo para todo par; a constante vira piso (slippage de latência) e fallback. Medição: a $100/ordem a maioria dos pares dá 0,000% (a constante era conservadora); o ganho aparece em ordens grandes, onde ela subestimaria muito |
+| 019 | **Trailing stop no motor de backtest** | Sozinho | ✅ Concluída em 2026-08-24 — **furo metodológico grave**: `simulate_backtest()` usava stop fixo na entrada enquanto a produção movia o stop a cada novo topo. Backtest e produção mediam estratégias diferentes, e **toda decisão de par/parâmetro do projeto saiu da régua errada**. Impacto medido: DOGE 2,24→0,86, ZEC 1,49→1,02, ADA 1,79→0,97, UNI 1,74→0,41 (os quatro deixaram de aprovar e foram removidos de `PAIRS`); ORCA 1,75→2,38 |
+| 020 | MTF point-in-time no replay | Sozinho | ✅ Concluída em 2026-08-24 — `mtf_confirmed()` comparava preço histórico contra a EMA de tendência de **hoje**, filtro baseado no futuro. Viés direcional (bloqueava as entradas antigas mais baratas, que tendem a ser vencedoras): em NIL/USDT o replay descartava o trade de +$17,36 e mantinha o de -$8,24. Parâmetro `as_of` opcional; produção inalterada |
+| 021 | `MIN_PRICE_USDT` só existe no loop ao vivo, não no backtest | Sozinho | 📋 Candidata — `trading/runner.py` descarta pares abaixo do preço mínimo antes de avaliar o sinal, mas `backtesting/engine.py` não tem filtro equivalente: um par sub-$0.001 passa no backtest e nunca opera em produção. Descoberto em 2026-08-24 — **LUNC/USDT ficou 8 dias em `PAIRS` sem gerar uma única decisão**, e era `PAIRS[0]` (alvo padrão de `backtest`/`edge`/`chart`), então vereditos daquele período foram calculados sobre um par que o bot nunca operou |
+| 022 | Replay: cooldown/drawdown/circuit breaker por relógio real | Sozinho | 📋 Candidata — baixa prioridade. Esses três usam `datetime.now()` em vez do timestamp do candle simulado; um replay de meses roda em segundos, então os períodos raramente viram e bloqueios podem se estender além do que o bot real faria. Os timestamps dos trades do replay também são a hora de execução, não a do candle. Exigiria rotear tempo simulado por mais partes da cadeia de produção — só vale se o replay virar ferramenta central |
 
 ## 002 — Decisão de aprovação multi-par
 
@@ -135,15 +142,46 @@ operacional direto pro deploy de 26 pares na VPS (vários chamadas por ciclo de 
 
 ## Ordem sugerida
 
-002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
+Executada: 002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
+→ 013 → 016 → 017 → 018 → 019 → 020
 
-**Status (2026-08-16)**: 001-005, 008, 009, 010 e 011 concluídas. 006 e 007 com a parte autônoma
-concluída — resta apenas o que depende do operador: "validar preset operacional atual" (006, Fase
-4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4) — todos
-exigem histórico real de operação paper rodando por um período. O bot está em operação paper
-contínua desde 2026-08-16 (26 pares, VPS dedicada), agora com custo de execução realista (spec
-010) e conexão resiliente a rate limit (spec 011) — essas duas pendências têm um relógio real
-correndo, não são mais bloqueio indefinido.
+Próximas, se e quando fizer sentido: **021** (é a que tem efeito real — um par inválido hoje passa
+silenciosamente no backtest e nunca opera) → 012 (metade restante) → 022 → 014.
 
-012-014 são candidatas da mesma auditoria (ver tabela acima), ainda não especificadas em detalhe.
-015 fica fora da fila até o resto amadurecer, conforme o próprio `ROADMAP.md` já recomenda.
+**Status (2026-08-24)**: 001-005, 008-011, 013 e 016-020 concluídas. 006 e 007 seguem com a parte
+autônoma concluída — resta o que depende do operador: "validar preset operacional atual" (006,
+Fase 4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4).
+Continuam exigindo tempo real de operação paper.
+
+**Pendentes**: 012 (metade — profundidade de liquidez próxima ao preço), 014 (refresh de pares
+dinâmicos, baixa urgência), 021 (`MIN_PRICE_USDT` ausente no backtest) e 022 (relógio real no
+replay, baixa prioridade). 015 fica fora da fila até o resto amadurecer.
+
+### O que mudou desde 2026-08-16 e por quê importa
+
+As entregas 016-020 não vieram do backlog original: saíram de auditorias sucessivas motivadas por
+resultado ruim em operação real. Duas delas (**019** e **020**) são de natureza diferente das
+demais e vale registrar o padrão:
+
+- Não eram bugs — cada arquivo estava correto isoladamente. Eram **dois pontos do sistema
+  discordando sobre qual é a estratégia**: backtest sem trailing stop enquanto a produção usava
+  trailing; replay olhando o futuro no MTF enquanto a produção olha o presente.
+- Nenhum teste pegava isso, porque nenhum teste comparava backtest contra produção.
+- O sintoma estava nos dados o tempo todo: três trades reais fecharam por "Stop Loss" **com
+  lucro** (impossível sob stop fixo). **Quando o resultado real contém algo que o modelo não
+  consegue produzir, o modelo está errado — não o dado.**
+
+Consequência prática: **toda decisão de par e parâmetro tomada antes de 2026-08-24 saiu de uma
+régua quebrada**, incluindo vereditos de `compare`/`scan`/`optimize`/`edge`. Os pares adicionados
+com base nela (DOGE, ZEC, ADA, UNI) foram removidos de `PAIRS`. Optou-se deliberadamente por
+**não** recortar a lista para os pares que agora aprovam — selecionar pares pelo desempenho no
+mesmo histórico que os avalia é viés de seleção, e trocaria um erro metodológico por outro.
+
+### O que continua sem resposta
+
+Nenhuma dessas correções torna a estratégia lucrativa, e é importante que o backlog não sugira o
+contrário. Com a régua corrigida, o quadro **piorou**: profit factor mediano caiu de 0,69 para
+0,60 e o paper mode segue negativo. A conclusão medida de quatro formas independentes (paper real,
+scan de 30 pares, grid de 648 combinações, literatura acadêmica em `docs/research/`) é que
+cruzamento EMA/RSI não tem vantagem preditiva em cripto. As correções tornaram os números
+**verdadeiros**, não melhores — e o valor disso é evitar decidir com dado maquiado.
