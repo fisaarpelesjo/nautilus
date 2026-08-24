@@ -74,6 +74,92 @@ def cmd_comparar():
     from backtesting.compare import run
     run()
 
+def cmd_multimarket():
+    """Varredura estrategia x simbolo com confirmacao fora da amostra (spec 023).
+
+    Existe separado de `compare` porque a pergunta e outra: `compare` mostra
+    como cada combinacao se saiu; `multimarket` responde se alguma se sustenta
+    FORA da janela onde foi descoberta. Testar muitas combinacoes produz
+    aprovacoes por acaso, e sem essa distincao a tabela venderia sorte como
+    descoberta.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.multimarket import run_scan
+    from config.settings import RESEARCH_SYMBOLS, TIMEFRAME
+    from strategy.breakout import BreakoutStrategy
+    from strategy.ema_rsi import EmaRsiStrategy
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    simbolos = sys.argv[2:] or RESEARCH_SYMBOLS
+    if not simbolos:
+        print("Nenhum simbolo. Use: python main.py multimarket AAPL EURUSD=X ...")
+        print("Ou defina RESEARCH_SYMBOLS no .env (aceita cripto, acoes, forex, futuros, indices).")
+        return
+
+    estrategias = {"EMA/RSI": EmaRsiStrategy(), "Breakout 150": BreakoutStrategy(window=150)}
+
+    header()
+    console.print(f"[bold {C_CYAN}]varredura multi-mercado[/]")
+    console.print(f"  [{C_DIM}]{len(estrategias)} estrategias x {len(simbolos)} simbolos, "
+                  f"timeframe {TIMEFRAME} -- cada combinacao e confirmada numa janela "
+                  f"que nao participou da busca[/{C_DIM}]")
+    console.print()
+
+    resultado = run_scan(estrategias, simbolos, timeframe=TIMEFRAME)
+
+    # Contagem em destaque ANTES da tabela: uma aprovacao entre 200 tentativas
+    # tem peso estatistico diferente de uma entre 3, e ler a tabela sem esse
+    # numero convida exatamente a leitura errada (FR-013).
+    console.print(f"  [{C_LABEL}]combinacoes avaliadas[/{C_LABEL}] [white]{resultado.combinations_tested}[/white]")
+    confirmados = sum(1 for e in resultado.entries if e.status == "confirmado")
+    console.print(f"  [{C_LABEL}]confirmadas fora da amostra[/{C_LABEL}] [white]{confirmados}[/white]")
+    console.print()
+
+    cores = {"confirmado": C_POS, "so_na_busca": C_CYAN, "reprovado": C_NEG,
+             "inconclusivo": C_DIM, "erro": C_NEG}
+    rotulos = {"confirmado": "confirmado", "so_na_busca": "so na busca",
+               "reprovado": "reprovado", "inconclusivo": "inconclusivo", "erro": "erro"}
+
+    tabela = Table(box=box.ROUNDED, header_style="bold cyan")
+    for coluna in ["Estrategia", "Simbolo", "Mercado"]:
+        tabela.add_column(coluna)
+    for coluna in ["Trades busca", "Ret busca", "Trades confirm", "Ret confirm", "PF confirm"]:
+        tabela.add_column(coluna, justify="right")
+    tabela.add_column("Status")
+
+    for e in resultado.ranked():
+        if e.status == "erro":
+            tabela.add_row(e.strategy_name, e.symbol, "-", "-", "-", "-", "-", "-",
+                           f"[{C_NEG}]erro: {(e.error or '')[:30]}[/{C_NEG}]")
+            continue
+        c = e.confirmation_result
+        gap = " *" if e.has_session_gaps else ""
+        tabela.add_row(
+            e.strategy_name, e.symbol + gap, e.market or "-",
+            str(e.search_result.total_trades), f"{e.search_result.total_return_pct:+.2f}%",
+            str(c.total_trades) if c else "-", f"{c.total_return_pct:+.2f}%" if c else "-",
+            f"{c.profit_factor:.2f}" if c else "-",
+            f"[{cores[e.status]}]{rotulos[e.status]}[/{cores[e.status]}]",
+        )
+
+    console.print(tabela)
+    console.print(f"  [{C_DIM}]* mercado com pregao descontinuo: o teto de perda por trade "
+                  f"nao age dentro de um gap de abertura[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"so na busca\" NAO e aprovacao -- passou onde foi descoberto "
+                  f"e nao se sustentou fora[/{C_DIM}]")
+
+    export_report(
+        "multimarket",
+        {"strategies": list(estrategias), "symbols": simbolos, "timeframe": TIMEFRAME,
+         "combinations_tested": resultado.combinations_tested},
+        {"combinations_tested": resultado.combinations_tested, "confirmed": confirmados},
+        ranking=resultado.ranked(),
+    )
+    return resultado
+
 def cmd_analisar():
     from backtesting.analysis import run
     run()
@@ -335,6 +421,8 @@ COMMANDS = {
     "multibacktest": cmd_multibacktest,
     "scan":          cmd_scan,
     "compare":       cmd_comparar,
+    "multimarket":   cmd_multimarket,
+    "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
     "optimize":      cmd_otimizar,

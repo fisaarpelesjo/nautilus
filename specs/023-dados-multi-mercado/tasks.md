@@ -109,13 +109,13 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 **Independent Test**: `python main.py multimarket` produz tabela única ranqueada, onde nenhuma linha marcada `confirmado` tem janela de confirmação vazia.
 
-- [ ] T026 [P] [US3] Criar `tests/test_multimarket.py` com teste que exige: combinação aprovada só na janela de busca recebe `so_na_busca` e NÃO é apresentada como aprovada (FR-014)
-- [ ] T027 [P] [US3] Adicionar a `tests/test_multimarket.py` teste que exige `inconclusivo` quando o histórico é insuficiente para dividir as janelas — jamais aprovar por omissão de dado
-- [ ] T028 [P] [US3] Adicionar a `tests/test_multimarket.py` teste que confirma `combinations_tested` registrado no resultado (FR-013)
-- [ ] T029 [US3] Criar `backtesting/multimarket.py` com `MultiMarketScanResult` e `ScanEntry`, reusando `split_train_validation()` e `evaluate_approval()` existentes — sem critério de aprovação novo (decisão D3 de [research.md](research.md))
-- [ ] T030 [US3] Implementar a varredura estratégia × símbolo em `backtesting/multimarket.py`, satisfazendo T026-T028, com símbolo que falha marcado como erro sem interromper os demais
-- [ ] T031 [US3] Adicionar o comando `multimarket` a `main.py`, com a saída definida em [contracts/cli.md](contracts/cli.md): contagem em destaque, tabela ranqueada, status visualmente distinto, mercado e perfil de custo por linha
-- [ ] T032 [US3] Integrar a exportação do resultado via `utils/report_export.py`, sem pipeline paralelo (Princípio V da Constituição)
+- [X] T026 [P] [US3] Criar `tests/test_multimarket.py` com teste que exige: combinação aprovada só na janela de busca recebe `so_na_busca` e NÃO é apresentada como aprovada (FR-014)
+- [X] T027 [P] [US3] Adicionar a `tests/test_multimarket.py` teste que exige `inconclusivo` quando o histórico é insuficiente para dividir as janelas — jamais aprovar por omissão de dado
+- [X] T028 [P] [US3] Adicionar a `tests/test_multimarket.py` teste que confirma `combinations_tested` registrado no resultado (FR-013)
+- [X] T029 [US3] Criar `backtesting/multimarket.py` com `MultiMarketScanResult` e `ScanEntry`, reusando `split_train_validation()` e `evaluate_approval()` existentes — sem critério de aprovação novo (decisão D3 de [research.md](research.md))
+- [X] T030 [US3] Implementar a varredura estratégia × símbolo em `backtesting/multimarket.py`, satisfazendo T026-T028, com símbolo que falha marcado como erro sem interromper os demais
+- [X] T031 [US3] Adicionar o comando `multimarket` a `main.py`, com a saída definida em [contracts/cli.md](contracts/cli.md): contagem em destaque, tabela ranqueada, status visualmente distinto, mercado e perfil de custo por linha
+- [X] T032 [US3] Integrar a exportação do resultado via `utils/report_export.py`, sem pipeline paralelo (Princípio V da Constituição)
 - [ ] T033 [P] [US3] Estender `backtesting/compare.py` para aceitar lista multi-mercado, mantendo o comportamento atual quando recebe só cripto
 
 **Checkpoint**: todas as histórias funcionais e independentes
