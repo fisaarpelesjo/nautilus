@@ -169,6 +169,14 @@ def simulate_backtest(
     entry_cost = 0.0
     entry_fee = 0.0
     entry_atr = 0.0
+    # Trailing stop: espelha trading/position_lifecycle.py handle_open_position().
+    # Sem isso o backtest simulava um stop FIXO na entrada enquanto a producao
+    # movia o stop para cima a cada novo maximo -- duas estrategias diferentes
+    # medidas com a mesma regua. A assinatura da divergencia aparecia nos trades
+    # reais: 3 fechamentos por "Stop Loss" COM LUCRO (ORCA, ACE, PLUME), que o
+    # modelo de stop fixo nao consegue produzir.
+    stop_price = 0.0
+    highest_price = 0.0
 
     for i in range(start_index, len(df)):
         current = df.iloc[i]
@@ -187,9 +195,14 @@ def simulate_backtest(
             exit_reason = None
             exit_price = price * (1 - slippage_pct)
 
-            stop_price = _stop_price(entry_price, entry_atr, stop_loss_pct, atr_sl_multiplier)
             take_price = _take_profit_price(entry_price, entry_atr, take_profit_pct, atr_tp_multiplier)
 
+            # A saida e checada contra o stop vigente NO INICIO do candle, e so
+            # depois o trailing sobe com a maxima deste candle (abaixo). OHLCV
+            # nao diz se a maxima veio antes ou depois da minima dentro do
+            # candle; assumir o movimento adverso primeiro e a escolha
+            # conservadora -- mesma politica do stop ser checado antes do take
+            # profit logo abaixo.
             if current["low"] <= stop_price:
                 exit_reason = "Stop Loss"
                 exit_price = stop_price * (1 - slippage_pct)
@@ -209,6 +222,15 @@ def simulate_backtest(
 
                 in_position = False
                 quantity = 0.0
+            elif entry_atr > 0 and current["high"] > highest_price:
+                # Mesma formula de handle_open_position(): novo topo puxa o stop
+                # para maxima - ATR_SL_MULTIPLIER x ATR, e o stop so sobe, nunca
+                # desce. entry_atr e o ATR travado na entrada, como pos.atr em
+                # producao (nao o ATR do candle atual).
+                highest_price = current["high"]
+                new_trail = highest_price - atr_sl_multiplier * entry_atr
+                if new_trail > stop_price:
+                    stop_price = new_trail
         else:
             if sig == Signal.BUY and capital >= 10:
                 order_size = min(MAX_ORDER_SIZE_USDT, capital * 0.95)
@@ -222,6 +244,11 @@ def simulate_backtest(
                 capital -= entry_cost
                 entry_time = current.name
                 in_position = True
+                # Estado inicial do trailing, espelhando _paper_buy(): highest_price
+                # comeca no proprio preco de entrada e o stop no nivel calculado por
+                # risk/manager.py (com o teto MAX_STOP_LOSS_PCT ja aplicado).
+                highest_price = entry_price
+                stop_price = _stop_price(entry_price, entry_atr, stop_loss_pct, atr_sl_multiplier)
 
     if in_position and len(df) > 0:
         current = df.iloc[-1]
