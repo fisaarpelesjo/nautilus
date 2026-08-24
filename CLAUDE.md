@@ -58,6 +58,7 @@ python main.py edge --validate      # relatório de edge sobre a fatia de valida
 python main.py multibacktest        # backtest em lista fixa de pares
 python main.py scan                 # backtest nos top 30 pares por volume na Binance
 python main.py compare              # compara multiplas estrategias/presets lado a lado
+python main.py multimarket [SIMB..] # varre estrategia x simbolo em varios mercados, com confirmacao fora da amostra
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal
@@ -197,6 +198,32 @@ Todas as variáveis de ambiente ficam em `.env` (nunca commitar). O arquivo `.en
 **Estratégia de rompimento** (`strategy/breakout.py`, `BreakoutStrategy`): Donchian channel — compra quando o preço rompe a máxima das últimas `BREAKOUT_WINDOW` velas (padrão `150`, testável em 50/150/200), vende quando rompe a mínima. Roda pela mesma infraestrutura de backtest via `run_backtest(..., strategy=BreakoutStrategy(window=N))`.
 
 **Comparativo de estratégias/presets**: `python main.py compare` (alias `comparar`) roda múltiplas estratégias/presets nos mesmos pares/timeframe numa única execução, reusando `evaluate_approval`/`edge_score` já estabelecidos — sem critério de comparação novo.
+
+---
+
+## Multi-mercado (pesquisa apenas — spec 023)
+
+O bot **opera** exclusivamente cripto na Binance. Desde a spec 023 ele consegue **avaliar** estratégias em outros mercados, para responder "alguma combinação de estratégia × mercado tem vantagem real?" antes de investir em corretora e execução de qualquer mercado novo.
+
+**Mercados e fontes** (`data/markets.py`, `data/sources/`): o mercado é deduzido do formato do símbolo, e cada mercado declara sua fonte, custo, continuidade e se é operável.
+
+| Mercado | Exemplo de símbolo | Fonte | Contínuo | Operável |
+|---|---|---|---|---|
+| `crypto` | `BTC/USDT` | ccxt | sim | **sim** |
+| `stocks_us` | `AAPL` | yfinance | não | não |
+| `stocks_br` | `PETR4.SA` | yfinance | não | não |
+| `forex` | `EURUSD=X` | yfinance | sim | não |
+| `futures` | `ES=F` | yfinance | não | não |
+| `index` | `^GSPC` | yfinance | não | não |
+
+- **`fetch_ohlcv()` não mudou de assinatura** — resolve o mercado e delega à fonte. Os ~10 consumidores continuam iguais. `fetch_ticker`/`fetch_tickers`/`fetch_balance`/`fetch_order_book` permanecem **cripto-only** (pertencem ao caminho de execução).
+- **`PAIRS` vs `RESEARCH_SYMBOLS`**: são duas listas. `PAIRS` alimenta o loop ao vivo e mantém a validação estrita de formato `/USDT`; `RESEARCH_SYMBOLS` alimenta só a pesquisa e aceita qualquer símbolo resolvível. Afrouxar `PAIRS` reabriria o caminho para um símbolo inoperável chegar à execução.
+- **`trading/runner.py::assert_pares_operaveis()`** recusa a inicialização se `PAIRS` contiver símbolo de mercado sem execução, nomeando todos os problemáticos de uma vez.
+- **Custo por mercado** (`MARKET_COST_PROFILES` em `config/settings.py`): cada mercado tem taxa e slippage próprios, sobrescrevíveis por `.env`. Mercado sem perfil declarado é **recusado**, nunca avaliado com o custo de outro — foi o mecanismo inverso disso que fez ACE/BIO/ALLO parecerem operáveis e darem prejuízo real. Cripto reusa `BACKTEST_FEE_RATE`/`BACKTEST_SLIPPAGE_PCT` diretamente, para que passar pela camada nova não mude o resultado do backtest cripto.
+- **Limitação de histórico**: a fonte não-cripto tem teto de **730 dias** em intradiário (~993 candles em 4h contra 2.000 de cripto). `YFinanceSource.last_shortfall` e `BacktestResult.requested_candles` tornam a lacuna detectável — pedir 2.000 e receber 993 é normal, mas passar silencioso desbalancearia uma comparação sem ninguém notar.
+- **Gap de pregão**: mercados descontínuos marcam `BacktestResult.has_session_gaps`. O teto de perda por trade (`MAX_STOP_LOSS_PCT`) **não age dentro de um gap de abertura** — o preço salta o stop.
+
+**`python main.py multimarket [SÍMBOLOS...]`** (`backtesting/multimarket.py`): varre estratégia × símbolo e exige que a aprovação se **confirme numa janela que não participou da descoberta**. Testar N estratégias × M símbolos produz aprovações por acaso; sem essa divisão, sorte vira "achado". Status possíveis: `confirmado`, `so na busca` (passou onde foi descoberto e não se sustentou — **não é aprovação**), `reprovado`, `inconclusivo` (histórico insuficiente para dividir). Reusa `split_train_validation()` e `evaluate_approval()` existentes, sem critério novo.
 
 **Regras de gestão de ciclo (`trading/runner.py`):**
 - `MAX_ENTRIES_PER_CYCLE = 1` — máximo de 1 nova posição aberta por ciclo de 60s, evitando entradas correlacionadas simultâneas

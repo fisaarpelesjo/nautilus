@@ -60,6 +60,7 @@ python main.py edge --validate      # edge report on the out-of-sample validatio
 python main.py multibacktest        # backtest on fixed pair list
 python main.py scan                 # backtest on top 30 Binance pairs by volume
 python main.py compare              # compare multiple strategies/presets side by side
+python main.py multimarket [SYM..]  # sweep strategy x symbol across markets, with out-of-sample confirmation
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal
@@ -183,6 +184,32 @@ All environment variables live in `.env` (never commit). `.env.example` has the 
 **Breakout strategy** (`strategy/breakout.py`, `BreakoutStrategy`): Donchian channel — buys when price breaks above the highest high of the last `BREAKOUT_WINDOW` candles (default `150`, testable at 50/150/200), sells when it breaks below the lowest low. Runs through the same backtest infrastructure via `run_backtest(..., strategy=BreakoutStrategy(window=N))`.
 
 **Strategy/preset comparison**: `python main.py compare` (alias `comparar`) runs multiple strategies/presets over the same pairs/timeframe in a single run, reusing the already-established `evaluate_approval`/`edge_score` — no new comparison criterion.
+
+---
+
+## Multi-market (research only — spec 023)
+
+The bot **trades** crypto on Binance exclusively. Since spec 023 it can **evaluate** strategies on other markets, to answer "does any strategy × market combination have real edge?" before investing in a broker and execution for any new market.
+
+**Markets and sources** (`data/markets.py`, `data/sources/`): the market is derived from the symbol's format, and each market declares its source, cost, continuity and whether it's tradable.
+
+| Market | Example symbol | Source | Continuous | Tradable |
+|---|---|---|---|---|
+| `crypto` | `BTC/USDT` | ccxt | yes | **yes** |
+| `stocks_us` | `AAPL` | yfinance | no | no |
+| `stocks_br` | `PETR4.SA` | yfinance | no | no |
+| `forex` | `EURUSD=X` | yfinance | yes | no |
+| `futures` | `ES=F` | yfinance | no | no |
+| `index` | `^GSPC` | yfinance | no | no |
+
+- **`fetch_ohlcv()`'s signature did not change** — it resolves the market and delegates to the source. The ~10 consumers stay identical. `fetch_ticker`/`fetch_tickers`/`fetch_balance`/`fetch_order_book` remain **crypto-only** (they belong to the execution path).
+- **`PAIRS` vs `RESEARCH_SYMBOLS`**: two separate lists. `PAIRS` feeds the live loop and keeps the strict `/USDT` format validation; `RESEARCH_SYMBOLS` feeds research only and accepts any resolvable symbol. Relaxing `PAIRS` would reopen the path for a non-tradable symbol to reach execution.
+- **`trading/runner.py::assert_pares_operaveis()`** refuses startup if `PAIRS` contains a symbol from a market without execution, naming every offender at once.
+- **Cost per market** (`MARKET_COST_PROFILES` in `config/settings.py`): each market has its own fee and slippage, overridable via `.env`. A market with no declared profile is **rejected**, never evaluated with another market's cost — the inverse of that mechanism is what made ACE/BIO/ALLO look tradable and deliver real losses. Crypto reuses `BACKTEST_FEE_RATE`/`BACKTEST_SLIPPAGE_PCT` directly, so passing through the new layer can't change crypto backtest results.
+- **History limit**: the non-crypto source caps intraday history at **730 days** (~993 candles at 4h vs 2,000 for crypto). `YFinanceSource.last_shortfall` and `BacktestResult.requested_candles` make the gap detectable — asking for 2,000 and getting 993 is normal, but going unnoticed would silently unbalance a comparison.
+- **Session gaps**: discontinuous markets set `BacktestResult.has_session_gaps`. The per-trade loss cap (`MAX_STOP_LOSS_PCT`) **does not act inside an opening gap** — price jumps over the stop.
+
+**`python main.py multimarket [SYMBOLS...]`** (`backtesting/multimarket.py`): sweeps strategy × symbol and requires approval to be **confirmed on a window that did not take part in the discovery**. Testing N strategies × M symbols produces approvals by chance; without that split, luck reads as a finding. Statuses: `confirmado`, `so na busca` (passed where it was discovered and didn't hold up — **not an approval**), `reprovado`, `inconclusivo` (not enough history to split). Reuses the existing `split_train_validation()` and `evaluate_approval()`, no new criterion.
 
 **Cycle management rules (`trading/runner.py`):**
 - `MAX_ENTRIES_PER_CYCLE = 1` — max 1 new position per 60s cycle, avoids correlated simultaneous entries

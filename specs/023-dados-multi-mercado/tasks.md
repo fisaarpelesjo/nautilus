@@ -116,7 +116,7 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 - [X] T030 [US3] Implementar a varredura estratégia × símbolo em `backtesting/multimarket.py`, satisfazendo T026-T028, com símbolo que falha marcado como erro sem interromper os demais
 - [X] T031 [US3] Adicionar o comando `multimarket` a `main.py`, com a saída definida em [contracts/cli.md](contracts/cli.md): contagem em destaque, tabela ranqueada, status visualmente distinto, mercado e perfil de custo por linha
 - [X] T032 [US3] Integrar a exportação do resultado via `utils/report_export.py`, sem pipeline paralelo (Princípio V da Constituição)
-- [ ] T033 [P] [US3] Estender `backtesting/compare.py` para aceitar lista multi-mercado, mantendo o comportamento atual quando recebe só cripto
+- [X] T033 [P] [US3] Estender `backtesting/compare.py` para aceitar lista multi-mercado, mantendo o comportamento atual quando recebe só cripto
 
 **Checkpoint**: todas as histórias funcionais e independentes
 
@@ -124,13 +124,13 @@ Projeto de módulo único, com pacotes na raiz do repositório: `config/`, `data
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T034 [P] Atualizar `CLAUDE.md` e `AGENTS.md` (sincronizados no MESMO commit, conforme a Constituição) com: fontes de dados, mercados suportados, perfis de custo e o comando `multimarket`
-- [ ] T035 [P] Atualizar `docs/07-configuracao.md` com as variáveis novas de perfil de custo
-- [ ] T036 [P] Atualizar `docs/08-comandos-cli.md` com o comando `multimarket`
-- [ ] T037 [P] Adicionar capítulo ou seção em `docs/` explicando a limitação de 730 dias da fonte não-cripto e por que o teto importa na comparação com cripto
-- [ ] T038 Atualizar `specs/BACKLOG.md`: marcar 023 como concluída e registrar o que a varredura revelou
-- [ ] T039 Executar todos os cenários de [quickstart.md](quickstart.md) e confirmar os resultados esperados
-- [ ] T040 Rodar a suíte completa (`python -m pytest -q`) e confirmar que os 359 testes anteriores continuam passando, sem regressão
+- [X] T034 [P] Atualizar `CLAUDE.md` e `AGENTS.md` (sincronizados no MESMO commit, conforme a Constituição) com: fontes de dados, mercados suportados, perfis de custo e o comando `multimarket`
+- [X] T035 [P] Atualizar `docs/07-configuracao.md` com as variáveis novas de perfil de custo
+- [X] T036 [P] Atualizar `docs/08-comandos-cli.md` com o comando `multimarket`
+- [X] T037 [P] Adicionar capítulo ou seção em `docs/` explicando a limitação de 730 dias da fonte não-cripto e por que o teto importa na comparação com cripto
+- [X] T038 Atualizar `specs/BACKLOG.md`: marcar 023 como concluída e registrar o que a varredura revelou
+- [X] T039 Executar todos os cenários de [quickstart.md](quickstart.md) e confirmar os resultados esperados
+- [X] T040 Rodar a suíte completa (`python -m pytest -q`) e confirmar que os 359 testes anteriores continuam passando, sem regressão
 
 ---
 

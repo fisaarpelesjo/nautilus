@@ -19,6 +19,7 @@ Documentação completa do bot, organizada por capítulos. Cada capítulo é ind
 | 11 | [Deploy em Produção](11-deploy-producao.md) | Rodar 24/7 num servidor (guia genérico) |
 | 12 | [Desenvolvimento](12-desenvolvimento.md) | Fluxo de contribuição, testes, como adicionar uma estratégia |
 | 13 | [Metodologia SDD](13-metodologia-sdd.md) | Como o projeto é desenvolvido (spec-driven development) |
+| 14 | [Multi-mercado](14-multi-mercado.md) | Avaliar estratégias em ações, forex e futuros (pesquisa, não operação) |
 
 ## Convenções usadas nesta documentação
 

@@ -108,6 +108,21 @@ Todos os três filtros aditivos (regime, volatilidade, Bollinger adaptativo) só
 | `BACKTEST_FEE_RATE` | `0.001` | Taxa da exchange sobre o valor nocional — usada no backtest **e** em paper mode |
 | `BACKTEST_SLIPPAGE_PCT` | `0.0005` | Slippage aplicado ao preço de entrada/saída — usado no backtest **e** como piso/fallback em paper mode |
 | `REAL_SLIPPAGE_ENABLED` | `true` | Em paper mode, mede o slippage caminhando o order book real (ver [cap. 05](05-execucao-ordens.md#slippage-medido-no-order-book-real)) |
+
+## Multi-mercado (pesquisa apenas)
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `RESEARCH_SYMBOLS` | — | Símbolos usados só por `multimarket`/`compare`. Aceita qualquer mercado (`AAPL`, `PETR4.SA`, `EURUSD=X`, `ES=F`, `^GSPC`, `BTC/USDT`) |
+| `COST_STOCKS_US_FEE` / `COST_STOCKS_US_SLIPPAGE` | `0.0005` / `0.0005` | Custo de ações EUA |
+| `COST_STOCKS_BR_FEE` / `COST_STOCKS_BR_SLIPPAGE` | `0.0003` / `0.001` | Custo de ações BR (emolumentos B3 + spread mais largo) |
+| `COST_FOREX_FEE` / `COST_FOREX_SLIPPAGE` | `0.0` / `0.0002` | Custo de forex (sem corretagem típica; só spread) |
+| `COST_FUTURES_FEE` / `COST_FUTURES_SLIPPAGE` | `0.0002` / `0.0003` | Custo de futuros (valor fixo por contrato → percentual equivalente) |
+| `COST_INDEX_FEE` / `COST_INDEX_SLIPPAGE` | `0.0005` / `0.0005` | Custo de índice (aproxima o do ETF equivalente) |
+
+> **`RESEARCH_SYMBOLS` é separada de `PAIRS` de propósito.** `PAIRS` alimenta o loop ao vivo, que só sabe operar cripto, e mantém a validação estrita de formato `/USDT`. Afrouxá-la reabriria o caminho para um símbolo inoperável chegar à execução — exatamente o que a guarda de inicialização impede.
+
+> **Mercado sem perfil de custo é recusado**, nunca avaliado com o custo de outro. Cripto não aparece na tabela acima porque reusa `BACKTEST_FEE_RATE`/`BACKTEST_SLIPPAGE_PCT` diretamente, garantindo que a camada multi-mercado não altere o resultado do backtest cripto.
 | `EDGE_MIN_TRADES` | `10` | Amostra mínima de trades para o veredito de aprovação (`edge`/`scan`/`optimize`) ser conclusivo |
 
 ## Notificações

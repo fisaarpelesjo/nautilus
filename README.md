@@ -81,6 +81,7 @@ Toda a documentação detalhada vive em [`docs/`](docs/README.md), organizada po
 | 11 | [Deploy em Produção](docs/11-deploy-producao.md) | Rodar 24/7 num servidor (guia genérico) |
 | 12 | [Desenvolvimento](docs/12-desenvolvimento.md) | Fluxo de contribuição, testes, como adicionar uma estratégia |
 | 13 | [Metodologia SDD](docs/13-metodologia-sdd.md) | Como o projeto decide o que construir |
+| 14 | [Multi-mercado](docs/14-multi-mercado.md) | Avaliar estratégias em ações, forex e futuros (pesquisa, não operação) |
 
 ## Aviso de risco
 

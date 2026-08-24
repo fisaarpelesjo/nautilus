@@ -36,6 +36,7 @@ Coluna **Autonomia**:
 | 019 | **Trailing stop no motor de backtest** | Sozinho | ✅ Concluída em 2026-08-24 — **furo metodológico grave**: `simulate_backtest()` usava stop fixo na entrada enquanto a produção movia o stop a cada novo topo. Backtest e produção mediam estratégias diferentes, e **toda decisão de par/parâmetro do projeto saiu da régua errada**. Impacto medido: DOGE 2,24→0,86, ZEC 1,49→1,02, ADA 1,79→0,97, UNI 1,74→0,41 (os quatro deixaram de aprovar e foram removidos de `PAIRS`); ORCA 1,75→2,38 |
 | 020 | MTF point-in-time no replay | Sozinho | ✅ Concluída em 2026-08-24 — `mtf_confirmed()` comparava preço histórico contra a EMA de tendência de **hoje**, filtro baseado no futuro. Viés direcional (bloqueava as entradas antigas mais baratas, que tendem a ser vencedoras): em NIL/USDT o replay descartava o trade de +$17,36 e mantinha o de -$8,24. Parâmetro `as_of` opcional; produção inalterada |
 | 021 | `MIN_PRICE_USDT` só existe no loop ao vivo, não no backtest | Sozinho | ✅ Concluída em 2026-08-24 — `run_backtest()` marca `below_min_price` e loga aviso; `evaluate_approval()` devolve **"inconclusivo"** (não "reprovado": nada foi provado sobre a estratégia, o bot é que nunca opera o par), o que propaga automaticamente para `backtest`/`compare`/`scan`/`edge`. Motivador: **LUNC/USDT ficou 8 dias em `PAIRS` sem gerar uma única decisão**, e era `PAIRS[0]` (alvo padrão de `backtest`/`edge`/`chart`), então vereditos daquele período saíram de um par que o bot nunca operou |
+| 023 | **Camada de dados multi-mercado (pesquisa)** | Sozinho | ✅ Concluída em 2026-08-24 (`specs/023-dados-multi-mercado/`, fluxo SDD completo: specify → plan → tasks → implement). Habilita avaliar estratégias em ações EUA/BR, forex, futuros e índices reusando o motor existente, **sem construir execução** para esses mercados. **Resultado: 10 combinações avaliadas, ZERO confirmadas fora da amostra** — ver nota abaixo |
 | 022 | Replay: cooldown/drawdown/circuit breaker por relógio real | Sozinho | 📋 Candidata — baixa prioridade. Esses três usam `datetime.now()` em vez do timestamp do candle simulado; um replay de meses roda em segundos, então os períodos raramente viram e bloqueios podem se estender além do que o bot real faria. Os timestamps dos trades do replay também são a hora de execução, não a do candle. Exigiria rotear tempo simulado por mais partes da cadeia de produção — só vale se o replay virar ferramenta central |
 
 ## 002 — Decisão de aprovação multi-par
@@ -143,12 +144,12 @@ operacional direto pro deploy de 26 pares na VPS (vários chamadas por ciclo de 
 ## Ordem sugerida
 
 Executada: 002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
-→ 013 → 016 → 017 → 018 → 019 → 020 → 021
+→ 013 → 016 → 017 → 018 → 019 → 020 → 021 → 023
 
 Próximas, se e quando fizer sentido: 012 (metade restante) → 022 → 014. Nenhuma das três muda
 resultado — são refinamentos de precisão, não correções de comportamento.
 
-**Status (2026-08-24)**: 001-005, 008-011, 013 e 016-021 concluídas. 006 e 007 seguem com a parte
+**Status (2026-08-24)**: 001-005, 008-011, 013, 016-021 e 023 concluídas. 006 e 007 seguem com a parte
 autônoma concluída — resta o que depende do operador: "validar preset operacional atual" (006,
 Fase 4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4).
 Continuam exigindo tempo real de operação paper.
@@ -177,6 +178,27 @@ régua quebrada**, incluindo vereditos de `compare`/`scan`/`optimize`/`edge`. Os
 com base nela (DOGE, ZEC, ADA, UNI) foram removidos de `PAIRS`. Optou-se deliberadamente por
 **não** recortar a lista para os pares que agora aprovam — selecionar pares pelo desempenho no
 mesmo histórico que os avalia é viés de seleção, e trocaria um erro metodológico por outro.
+
+### Spec 023 — o que a varredura multi-mercado revelou
+
+Primeira execução real, 2 estratégias (EMA/RSI e Breakout 150) × 5 símbolos de mercados distintos
+(`BTC/USDT`, `AAPL`, `PETR4.SA`, `EURUSD=X`, `ES=F`): **10 combinações, zero confirmadas fora da
+janela de busca.** Nenhum dos cinco mercados sustentou vantagem.
+
+O guarda-corpo contra descoberta por acaso justificou-se na estreia:
+
+| Combinação | Janela de busca | Janela de confirmação |
+|---|---|---|
+| PETR4.SA / Breakout | +0,72% | **0 trades** |
+| ES=F / EMA-RSI | +0,35% | PF 1,62 — abaixo do mínimo |
+
+Sem a divisão das janelas, os dois entrariam num relatório parecendo achado — repetindo o erro que
+levou DOGE/ZEC/ADA/UNI a serem adicionados com base na régua quebrada da spec 019.
+
+**Consequência prática**: a hipótese "trocar de mercado resolve" está medida e descartada. O
+problema nunca foi cripto ser um mercado ruim — é que cruzamento de EMA/RSI não tem vantagem
+preditiva, e mercados mais maduros (ações, forex) são *mais* eficientes que cripto, não menos.
+Isso evita meses construindo corretora e execução para um mercado novo atrás de um edge inexistente.
 
 ### O que continua sem resposta
 
