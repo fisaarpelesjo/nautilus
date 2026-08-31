@@ -65,6 +65,30 @@ def test_evaluate_approval_rejects_when_return_does_not_beat_buy_and_hold():
     assert any("buy-and-hold" in r for r in verdict.reasons)
 
 
+def test_evaluate_approval_ignores_buy_hold_when_flag_disabled():
+    # backtesting/multimarket.py usa isto para diagnosticar "perfil defensivo"
+    # (PF/drawdown/trades genuinos, so nao bateu um buy-and-hold de rali
+    # extremo) sem duplicar os outros criterios.
+    result = _result(total_trades=15, total_return_pct=4.0, buy_hold_return_pct=50.0,
+                      profit_factor=1.5, max_drawdown_pct=8.0)
+
+    verdict = evaluate_approval(result, require_beat_buy_hold=False)
+
+    assert verdict.status == "aprovado"
+    assert verdict.reasons == []
+
+
+def test_evaluate_approval_still_rejects_other_criteria_when_buy_hold_ignored():
+    result = _result(total_trades=5, total_return_pct=4.0, buy_hold_return_pct=50.0,
+                      profit_factor=1.5, max_drawdown_pct=8.0)
+
+    verdict = evaluate_approval(result, require_beat_buy_hold=False)
+
+    assert verdict.status == "reprovado"
+    assert any("trades" in r for r in verdict.reasons)
+    assert not any("buy-and-hold" in r for r in verdict.reasons)
+
+
 def test_evaluate_approval_rejects_when_drawdown_too_high():
     result = _result(total_trades=15, total_return_pct=20.0, buy_hold_return_pct=5.0,
                       profit_factor=1.5, max_drawdown_pct=15.0)

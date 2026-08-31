@@ -27,7 +27,10 @@ log = get_logger("multimarket")
 # Ordem de qualidade dos status. Um resultado confirmado com numero modesto vale
 # mais que um espetacular que so passou onde foi descoberto -- o segundo e
 # exatamente o que a varredura existe para nao vender como descoberta.
-_ORDEM_STATUS = {"confirmado": 0, "so_na_busca": 1, "reprovado": 2, "inconclusivo": 3, "erro": 4}
+# "defensivo" fica acima de "so_na_busca" porque prova edge de verdade NA
+# PROPRIA janela de confirmacao (PF/drawdown/trades passam) -- so_na_busca nao
+# prova nada fora da amostra, so repete o que a busca ja mostrou.
+_ORDEM_STATUS = {"confirmado": 0, "defensivo": 1, "so_na_busca": 2, "reprovado": 3, "inconclusivo": 4, "erro": 5}
 
 
 def classify(search: Optional[BacktestResult], confirmation: Optional[BacktestResult]) -> str:
@@ -49,6 +52,19 @@ def classify(search: Optional[BacktestResult], confirmation: Optional[BacktestRe
     # apresentado como aprovado (FR-014).
     if evaluate_approval(search).status == "aprovado":
         return "so_na_busca"
+
+    # Perfil defensivo (achado real na varredura de spec de pesquisa de
+    # estrategias, 2026-08-31): teria sido aprovado na confirmacao nao fosse
+    # por nao bater um buy-and-hold de rali extremo (visto ate +400% em
+    # alguns pares no periodo) -- PF, drawdown e volume de trades ja provam
+    # edge real out-of-sample. O bot nunca aloca 100% num unico par, entao
+    # "bater buy-and-hold" e uma regua mais severa que o risco que o bot de
+    # fato assume. Distinto de "confirmado": MUST NOT ser tratado como
+    # aprovacao (mesmo espirito do guard-corpo de FR-014 acima) -- so separa
+    # "sem edge" de "edge real que nao venceu manter o ativo comprado".
+    if evaluate_approval(confirmation, require_beat_buy_hold=False).status == "aprovado":
+        return "defensivo"
+
     return "reprovado"
 
 

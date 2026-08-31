@@ -29,10 +29,20 @@ def evaluate_approval(
     min_trades: int = EDGE_MIN_TRADES,
     min_profit_factor: float = MIN_PROFIT_FACTOR_FOR_APPROVAL,
     max_drawdown_pct: float = MAX_ACCEPTABLE_DRAWDOWN_PCT,
+    require_beat_buy_hold: bool = True,
 ) -> ApprovalVerdict:
     """Aplica os criterios de aprovacao automatica sobre um resultado de backtest
     de janela unica (nunca sobre a janela de treino, quando houver split -- ver
-    backtesting/validation.py)."""
+    backtesting/validation.py).
+
+    `require_beat_buy_hold=False` existe para backtesting/multimarket.py
+    diagnosticar o "perfil defensivo" (ver diagnose_profile abaixo) sem duplicar
+    os outros criterios: uma estrategia pode ter PF/drawdown/trades genuinos e
+    ainda assim nao superar um buy-and-hold de rali forte -- o bot nunca aloca
+    100% num unico par, entao essa comparacao especifica e mais severa que o
+    risco que o bot de fato assume. Nao afeta o criterio "aprovado" padrao
+    (default True preserva o comportamento existente).
+    """
     if result is None:
         return ApprovalVerdict(
             status="inconclusivo",
@@ -52,7 +62,7 @@ def evaluate_approval(
     reasons: List[str] = []
     if result.total_trades < min_trades:
         reasons.append(f"apenas {result.total_trades} trades na validacao (minimo {min_trades})")
-    if result.total_return_pct <= result.buy_hold_return_pct:
+    if require_beat_buy_hold and result.total_return_pct <= result.buy_hold_return_pct:
         reasons.append(
             f"retorno {result.total_return_pct:+.2f}% nao supera buy-and-hold "
             f"{result.buy_hold_return_pct:+.2f}%"

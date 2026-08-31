@@ -52,6 +52,31 @@ def test_reprovado_nas_duas_janelas():
     assert entrada == "reprovado"
 
 
+def test_perfil_defensivo_nao_bate_buy_hold_mas_tem_edge_real():
+    # Achado real na varredura de pesquisa de estrategias (2026-08-31): varios
+    # pares tiveram rali de 50-400% no periodo, e nenhum sistema com stop
+    # loss vence isso de proposito -- mas PF/drawdown/trades ja provam edge
+    # de verdade na propria janela de confirmacao. Distinto de "reprovado".
+    entrada = multimarket.classify(
+        search=_resultado(pf=0.5, ret=-5.0),  # search tambem reprova, nao e so_na_busca
+        confirmation=_resultado(pf=2.0, ret=1.0, buy_hold=50.0, dd=2.0),
+    )
+    assert entrada == "defensivo"
+    assert entrada != "confirmado"
+    assert entrada != "reprovado"
+
+
+def test_perfil_defensivo_nao_ofusca_so_na_busca():
+    # Se a busca ja aprovou, o resultado e so_na_busca (evidencia mais fraca,
+    # nao provou nada fora da amostra) mesmo que a confirmacao tambem exiba o
+    # padrao defensivo -- FR-014 continua tendo prioridade.
+    entrada = multimarket.classify(
+        search=_resultado(pf=2.0),
+        confirmation=_resultado(pf=2.0, ret=1.0, buy_hold=50.0, dd=2.0),
+    )
+    assert entrada == "so_na_busca"
+
+
 def test_sem_janela_de_confirmacao_e_inconclusivo():
     # FR-012: historico insuficiente para dividir MUST NOT aprovar por omissao.
     entrada = multimarket.classify(search=_resultado(pf=2.0), confirmation=None)

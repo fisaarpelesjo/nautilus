@@ -118,9 +118,9 @@ def cmd_multimarket():
     console.print(f"  [{C_LABEL}]confirmadas fora da amostra[/{C_LABEL}] [white]{confirmados}[/white]")
     console.print()
 
-    cores = {"confirmado": C_POS, "so_na_busca": C_CYAN, "reprovado": C_NEG,
+    cores = {"confirmado": C_POS, "defensivo": C_CYAN, "so_na_busca": C_CYAN, "reprovado": C_NEG,
              "inconclusivo": C_DIM, "erro": C_NEG}
-    rotulos = {"confirmado": "confirmado", "so_na_busca": "so na busca",
+    rotulos = {"confirmado": "confirmado", "defensivo": "defensivo", "so_na_busca": "so na busca",
                "reprovado": "reprovado", "inconclusivo": "inconclusivo", "erro": "erro"}
 
     tabela = Table(box=box.ROUNDED, header_style="bold cyan")
