@@ -29,6 +29,16 @@ def _call_with_rate_limit_retry(fn, *args, **kwargs):
 
 _cache: dict[str, pd.DataFrame] = {}
 
+# Binance limita cada chamada fetch_ohlcv a ~1000 candles por requisicao,
+# independente do `limit` pedido -- pedir 2000 retornava silenciosamente so
+# os ultimos 1000, sem erro nem aviso. Achado durante a varredura de
+# validacao out-of-sample de multiplas estrategias: a janela de confirmacao
+# (30% do historico) nunca acumulava os 10 trades minimos exigidos pra
+# aprovacao porque o historico real disponivel era metade do que os
+# consumidores (backtest/scan/optimize/multimarket, candle_limit=2000)
+# assumiam ter. Ver _fetch_ohlcv_paginated().
+_EXCHANGE_MAX_CANDLES_PER_CALL = 1000
+
 # Uma instancia de ccxt.binance por modo (sandbox/producao), reusada entre
 # chamadas -- instanciar uma nova a cada chamada (comportamento anterior) zera
 # o rate-limiter interno do ccxt (enableRateLimit) a cada vez, sem nenhuma
@@ -98,7 +108,10 @@ def _fetch_ohlcv_ccxt(symbol: str, timeframe: str, limit: int = CANDLE_LIMIT) ->
 
     if cache_key not in _cache:
         log.info(f"Carregando {limit} candles de {symbol} [{timeframe}] (primeira vez)...")
-        raw = _call_with_rate_limit_retry(exchange.fetch_ohlcv, symbol, timeframe, limit=limit)
+        if limit > _EXCHANGE_MAX_CANDLES_PER_CALL:
+            raw = _fetch_ohlcv_paginated(exchange, symbol, timeframe, limit)
+        else:
+            raw = _call_with_rate_limit_retry(exchange.fetch_ohlcv, symbol, timeframe, limit=limit)
         df = _to_df(raw)
         _cache[cache_key] = df
         log.info(f"Cache carregado: {len(df)} candles")
@@ -112,6 +125,30 @@ def _fetch_ohlcv_ccxt(symbol: str, timeframe: str, limit: int = CANDLE_LIMIT) ->
         _cache[cache_key] = df
 
     return _cache[cache_key]
+
+def _fetch_ohlcv_paginated(exchange: ccxt.binance, symbol: str, timeframe: str, limit: int) -> list:
+    """Encadeia chamadas via `since` para superar o teto de ~1000 candles por
+    requisicao da Binance, avancando a partir do candle mais antigo ja
+    recebido ate reunir `limit` candles ou esgotar o historico disponivel."""
+    timeframe_ms = exchange.parse_timeframe(timeframe) * 1000
+    since = exchange.milliseconds() - limit * timeframe_ms
+    candles: list = []
+    while len(candles) < limit:
+        batch = _call_with_rate_limit_retry(
+            exchange.fetch_ohlcv, symbol, timeframe,
+            since=since, limit=_EXCHANGE_MAX_CANDLES_PER_CALL,
+        )
+        if not batch:
+            break
+        candles += batch
+        next_since = batch[-1][0] + timeframe_ms
+        if next_since <= since:
+            break  # exchange nao avancou -- evita loop infinito
+        since = next_since
+        if len(batch) < _EXCHANGE_MAX_CANDLES_PER_CALL:
+            break  # lote incompleto = alcancou o presente, sem mais historico
+    return candles[-limit:]
+
 
 def _to_df(raw: list) -> pd.DataFrame:
     df = pd.DataFrame(raw, columns=["timestamp", "open", "high", "low", "close", "volume"])

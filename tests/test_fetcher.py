@@ -131,6 +131,76 @@ def test_fetch_ticker_propagates_after_exhausting_retries(monkeypatch):
     assert len(sleep_calls) == 2  # espera entre tentativa 1->2 e 2->3, nao apos a ultima
 
 
+class _PaginatedFakeExchange:
+    """Simula o teto real da Binance de ~1000 candles por chamada -- cada
+    fetch_ohlcv com since= retorna no maximo 1000, exigindo paginacao para
+    limits maiores."""
+
+    def __init__(self, total_available=2500, timeframe_seconds=14400):
+        self._timeframe_seconds = timeframe_seconds
+        self._now_ms = 1_800_000_000_000
+        step_ms = timeframe_seconds * 1000
+        self._all_candles = [
+            [self._now_ms - (total_available - i) * step_ms, 100.0, 101.0, 99.0, 100.5, 10.0]
+            for i in range(total_available)
+        ]
+        self.calls = []
+
+    def parse_timeframe(self, timeframe):
+        return self._timeframe_seconds
+
+    def milliseconds(self):
+        return self._now_ms
+
+    def fetch_ohlcv(self, symbol, timeframe, since=None, limit=None):
+        self.calls.append({"since": since, "limit": limit})
+        if since is None:
+            return self._all_candles[-limit:] if limit else self._all_candles
+        candles = [c for c in self._all_candles if c[0] >= since]
+        return candles[:limit]
+
+
+def test_paginacao_supera_teto_de_1000_candles_por_chamada(monkeypatch):
+    fetcher._cache.clear()
+    ex = _PaginatedFakeExchange(total_available=2500)
+    monkeypatch.setattr(fetcher, "get_exchange", lambda *a, **k: ex)
+
+    df = fetcher.fetch_ohlcv("BTC/USDT", "4h", limit=2000)
+
+    assert len(df) == 2000
+    assert len(ex.calls) > 1  # exigiu mais de uma chamada para reunir 2000
+    assert all(c["limit"] == fetcher._EXCHANGE_MAX_CANDLES_PER_CALL for c in ex.calls)
+    assert df.index.is_monotonic_increasing
+    assert not df.index.has_duplicates
+    fetcher._cache.clear()
+
+
+def test_paginacao_para_ao_esgotar_historico_disponivel(monkeypatch):
+    fetcher._cache.clear()
+    ex = _PaginatedFakeExchange(total_available=1500)
+    monkeypatch.setattr(fetcher, "get_exchange", lambda *a, **k: ex)
+
+    df = fetcher.fetch_ohlcv("BTC/USDT", "4h", limit=5000)
+
+    assert len(df) == 1500  # nao trava em loop infinito pedindo mais do que existe
+    fetcher._cache.clear()
+
+
+def test_limit_ate_1000_nao_usa_caminho_paginado(monkeypatch):
+    fetcher._cache.clear()
+    ex = _PaginatedFakeExchange(total_available=2500)
+    monkeypatch.setattr(fetcher, "get_exchange", lambda *a, **k: ex)
+
+    fetcher.fetch_ohlcv("BTC/USDT", "4h", limit=1000)
+
+    # Caminho antigo (chamada unica com limit=, sem since=) preservado --
+    # _PaginatedFakeExchange so aceita limit= no metodo real, mas o teste de
+    # nao-regressao ja cobre esse caminho com _FakeExchange; aqui so
+    # confirmamos que uma unica chamada foi feita.
+    assert len(ex.calls) == 1
+    fetcher._cache.clear()
+
+
 def test_fetch_ticker_does_not_retry_on_non_rate_limit_error(monkeypatch):
     class _AlwaysFailsBadSymbol:
         def __init__(self):
