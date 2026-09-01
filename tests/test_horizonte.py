@@ -249,3 +249,166 @@ def test_aprovado_nas_duas_janelas_vira_confirmado():
     )
 
     assert status == "confirmado"
+
+
+# ================================================ T013 T015 T016 T029
+
+def test_marcar_historico_curto_usa_a_mediana_nao_o_solicitado():
+    """D3 — comparar com o solicitado marcava 12 de 12 pares em escala semanal.
+
+    Numeros reais medidos em 1w (2026-09-01): mediana 414, BTC/ETH no teto com
+    473, AVAX no piso com 311.
+    """
+    from backtesting.horizonte import marcar_historico_curto
+
+    disp = [_disp(obtido=o, tf="1w", par=p) for p, o in
+            [("BTC/USDT", 473), ("ETH/USDT", 473), ("LTC/USDT", 456),
+             ("ADA/USDT", 438), ("XRP/USDT", 436), ("TRX/USDT", 430),
+             ("LINK/USDT", 399), ("ATOM/USDT", 384), ("BCH/USDT", 354),
+             ("SOL/USDT", 317), ("DOT/USDT", 316), ("AVAX/USDT", 311)]]
+
+    marcados = {d.par for d in marcar_historico_curto(disp) if d.historico_curto}
+
+    assert "AVAX/USDT" in marcados
+    assert "BTC/USDT" not in marcados
+    assert len(marcados) < len(disp), "marcar todos equivale a nao marcar nenhum"
+
+
+def test_universo_homogeneo_nao_produz_marcacao():
+    """A marca nao pode disparar por construcao."""
+    from backtesting.horizonte import marcar_historico_curto
+
+    disp = [_disp(obtido=400, tf="1w", par=f"P{i}/USDT") for i in range(6)]
+
+    assert not any(d.historico_curto for d in marcar_historico_curto(disp))
+
+
+def test_folds_vazios_sao_excluidos_das_agregacoes():
+    """R3 / FR-006 — janela sem operacao dilui media se contada como neutra."""
+    from backtesting.cross_sectional import WalkForwardFold
+    from backtesting.horizonte import folds_nao_vazios
+
+    folds = [
+        WalkForwardFold(1, -20.0, -5.0, 50.0, 3.0, 0),   # vazio
+        WalkForwardFold(2, -20.0, -5.0, 50.0, 3.0, 7),
+        WalkForwardFold(3, 10.0, 4.0, 60.0, 2.0, 0),     # vazio
+    ]
+
+    assert [f.janela for f in folds_nao_vazios(folds)] == [2]
+
+
+def test_relatorio_agrega_contagens_por_status():
+    from backtesting.horizonte import CombinacaoAvaliada, RelatorioHorizonte
+
+    def _c(status):
+        return CombinacaoAvaliada(
+            estrategia="X", horizonte="1d", par="BTC/USDT",
+            disponibilidade=_disp(obtido=2000), status=status,
+        )
+
+    rel = RelatorioHorizonte(horizonte="1d", combinacoes=[
+        _c("confirmado"), _c("so_na_busca"), _c("reprovado"),
+        _c("inconclusivo"), _c("inconclusivo"), _c("erro"),
+    ])
+
+    assert rel.n_avaliadas == 6
+    assert rel.n_confirmadas == 1
+    assert rel.n_inconclusivas == 2
+    assert rel.n_erros == 1
+    assert [c.status for c in rel.ordenadas()][0] == "confirmado"
+
+
+def test_combinacao_com_aquecimento_maior_que_historico_e_inconclusiva():
+    """T030 / FR-010 — guard antes de simular."""
+    from backtesting.horizonte import _avaliar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    comb = _avaliar_combinacao(
+        EmaRsiStrategy(), "EMA/RSI", "1w", "NOVO/USDT",
+        _disp(obtido=30, aquecimento=50, tf="1w", par="NOVO/USDT"),
+    )
+
+    assert comb.status == "inconclusivo"
+    assert "aquecimento" in comb.motivo.lower()
+
+
+def test_combinacao_com_erro_de_dado_vira_status_erro():
+    from backtesting.horizonte import _avaliar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    comb = _avaliar_combinacao(
+        EmaRsiStrategy(), "EMA/RSI", "1d", "QUEBRA/USDT",
+        _disp(obtido=0, tf="1d", par="QUEBRA/USDT", erro="NetworkError"),
+    )
+
+    assert comb.status == "erro"
+
+
+def test_run_horizonte_scan_varre_todas_as_combinacoes(monkeypatch):
+    """Varredura completa sobre serie sintetica, sem tocar a rede.
+
+    340 candles de proposito: cobre aquecimento (50) + split 70/30 + 2 janelas
+    de walk-forward, que e o minimo para exercitar o caminho completo. Com 900
+    o mesmo teste levava 150 s -- suite lenta e suite que ninguem roda.
+    """
+    import numpy as np
+    from backtesting import horizonte as H
+    from backtesting.horizonte import run_horizonte_scan
+    from strategy.breakout import BreakoutStrategy
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    def serie(n=340, semente=0):
+        rng = np.random.default_rng(semente)
+        preco = 100 * np.exp(np.cumsum(rng.normal(0.0004, 0.02, n)))
+        idx = pd.date_range("2024-01-01", periods=n, freq="1D")
+        return pd.DataFrame({
+            "open": preco, "close": preco,
+            "high": preco * 1.02, "low": preco * 0.98,
+            "volume": np.abs(rng.normal(1000, 200, n)),
+        }, index=idx)
+
+    monkeypatch.setattr(H, "fetch_ohlcv",
+                        lambda par, tf, lim: serie(semente=hash(par) % 100),
+                        raising=False)
+
+    rels = run_horizonte_scan(
+        {"EMA/RSI": EmaRsiStrategy(), "Breakout": BreakoutStrategy(window=50)},
+        ["BTC/USDT", "ETH/USDT"], ["1d"],
+    )
+
+    assert len(rels) == 1
+    assert rels[0].n_avaliadas == 4          # 2 estrategias x 2 pares
+    assert rels[0].n_erros == 0
+    assert all(c.status in {"confirmado", "so_na_busca", "reprovado",
+                            "inconclusivo", "erro"}
+               for c in rels[0].combinacoes)
+
+
+def test_run_horizonte_scan_nao_aborta_com_par_quebrado(monkeypatch):
+    """R7 — varredura de 144 combinacoes que morre na terceira e inutil."""
+    import numpy as np
+    from backtesting import horizonte as H
+    from backtesting.horizonte import run_horizonte_scan
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    def fetch(par, tf, lim):
+        if par == "QUEBRA/USDT":
+            raise RuntimeError("simbolo inexistente")
+        rng = np.random.default_rng(1)
+        preco = 100 * np.exp(np.cumsum(rng.normal(0, 0.02, 340)))
+        idx = pd.date_range("2024-01-01", periods=340, freq="1D")
+        return pd.DataFrame({"open": preco, "close": preco,
+                             "high": preco * 1.02, "low": preco * 0.98,
+                             "volume": np.full(340, 1000.0)}, index=idx)
+
+    monkeypatch.setattr(H, "fetch_ohlcv", fetch, raising=False)
+
+    rels = run_horizonte_scan(
+        {"EMA/RSI": EmaRsiStrategy()},
+        ["BTC/USDT", "QUEBRA/USDT", "ETH/USDT"], ["1d"],
+    )
+
+    assert rels[0].n_avaliadas == 3
+    assert rels[0].n_erros == 1
+    quebrado = next(c for c in rels[0].combinacoes if c.par == "QUEBRA/USDT")
+    assert quebrado.status == "erro"

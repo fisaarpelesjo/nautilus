@@ -75,10 +75,10 @@ aparece como reprovada.
 ### Implementation for User Story 1
 
 - [X] T012 [US1] Implementar a dataclass `CombinacaoAvaliada` em `backtesting/horizonte.py` conforme `data-model.md`, com os cinco estados de status
-- [ ] T013 [US1] Implementar `_avaliar_combinacao(estrategia, horizonte, par, disponibilidade)` em `backtesting/horizonte.py`, delegando a `run_backtest` para E2, `split_train_validation` para E3 e `walk_forward` para E4, sem alterar nenhum limiar
+- [X] T013 [US1] Implementar `_avaliar_combinacao(estrategia, horizonte, par, disponibilidade)` em `backtesting/horizonte.py`, delegando a `run_backtest` para E2, `split_train_validation` para E3 e `walk_forward` para E4, sem alterar nenhum limiar
 - [X] T014 [US1] Implementar a precedência de `inconclusivo` sobre `reprovado` em `backtesting/horizonte.py`: amostra insuficiente decide o status antes de qualquer avaliação de métrica
-- [ ] T015 [US1] Implementar `run_horizonte_scan(estrategias, pares, horizontes)` em `backtesting/horizonte.py`, varrendo as combinações e capturando exceção por combinação sem abortar a varredura, como faz `backtesting/multimarket.py::run_scan`
-- [ ] T016 [US1] Implementar a dataclass `RelatorioHorizonte` em `backtesting/horizonte.py` com as contagens agregadas de confirmadas e inconclusivas
+- [X] T015 [US1] Implementar `run_horizonte_scan(estrategias, pares, horizontes)` em `backtesting/horizonte.py`, varrendo as combinações e capturando exceção por combinação sem abortar a varredura, como faz `backtesting/multimarket.py::run_scan`
+- [X] T016 [US1] Implementar a dataclass `RelatorioHorizonte` em `backtesting/horizonte.py` com as contagens agregadas de confirmadas e inconclusivas
 - [ ] T017 [US1] Implementar `cmd_horizonte()` em `main.py` e registrar os aliases `horizonte` e `horizontes` no despacho de comandos, conforme `contracts/cli-horizonte.md`
 - [ ] T018 [US1] Implementar a exibição em `main.py` com a contagem de avaliadas / confirmadas / inconclusivas **antes** da tabela, seguindo o padrão de `multimarket` — ler a tabela sem a contagem convida à leitura errada
 - [ ] T019 [US1] Adicionar legenda na saída de `main.py` declarando que `so na busca` não é aprovação e que `inconclusivo` significa amostra insuficiente, não ausência de vantagem
@@ -127,9 +127,9 @@ histórico curto e não marca BTC nem ETH.
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Implementar `marcar_historico_curto(disponibilidades)` em `backtesting/horizonte.py` usando a mediana do próprio horizonte como referência, conforme decisão D3 de `research.md`
-- [ ] T030 [US3] Implementar o guard de aquecimento em `_avaliar_combinacao` em `backtesting/horizonte.py`: se `aquecimento >= utilizaveis`, a combinação é inconclusiva sem simular
-- [ ] T031 [US3] Ajustar a agregação de folds em `backtesting/horizonte.py` para excluir janelas vazias da contagem de positivas e da média de ganho de timing
+- [X] T029 [US3] Implementar `marcar_historico_curto(disponibilidades)` em `backtesting/horizonte.py` usando a mediana do próprio horizonte como referência, conforme decisão D3 de `research.md`
+- [X] T030 [US3] Implementar o guard de aquecimento em `_avaliar_combinacao` em `backtesting/horizonte.py`: se `aquecimento >= utilizaveis`, a combinação é inconclusiva sem simular
+- [X] T031 [US3] Ajustar a agregação de folds em `backtesting/horizonte.py` para excluir janelas vazias da contagem de positivas e da média de ganho de timing
 - [ ] T032 [US3] Exibir o contexto de dado por horizonte em `main.py` — candles medianos, aquecimento em dias, pares marcados — antes da contagem e da tabela
 
 **Checkpoint**: as três histórias funcionam de forma independente.

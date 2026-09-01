@@ -39,13 +39,14 @@ RESTRICAO OPERACIONAL
 Nao altera TIMEFRAME de producao (FR-012). O modulo le a configuracao apenas
 para exibir a linha de base; nunca escreve em .env nem em estado do bot.
 """
+import statistics
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from backtesting.approval import evaluate_approval
 from backtesting.cross_sectional import WalkForwardFold
-from backtesting.engine import BacktestResult, simulate_backtest
-from backtesting.validation import MIN_WINDOW_CANDLES
+from backtesting.engine import BacktestResult, precompute_signals, simulate_backtest
+from backtesting.validation import MIN_WINDOW_CANDLES, split_train_validation
 from config.settings import EDGE_MIN_TRADES, EMA_TREND, RSI_PERIOD
 from data.fetcher import fetch_ohlcv
 from strategy.base import BaseStrategy
@@ -168,7 +169,24 @@ def medir_disponibilidade(
 def marcar_historico_curto(
     disponibilidades: List[DisponibilidadeHistorico],
 ) -> List[DisponibilidadeHistorico]:
-    raise NotImplementedError("T029")
+    """Marca pares com historico curto RELATIVO A MEDIANA DO HORIZONTE (D3).
+
+    Nao se compara com o valor solicitado: 2000 candles semanais sao 38 anos, e
+    a Binance nao existe ha tanto tempo. A comparacao ingenua marcava os 12
+    pares em escala semanal, e alerta que dispara sempre equivale a alerta
+    nenhum -- o operador aprende a ignora-lo.
+
+    Comparando com a mediana, sobram os pares de listagem genuinamente recente.
+    """
+    validos = [d.obtido for d in disponibilidades if not d.erro and d.obtido > 0]
+    if not validos:
+        return disponibilidades
+
+    mediana = statistics.median(validos)
+    piso = mediana * LIMIAR_HISTORICO_CURTO
+    for d in disponibilidades:
+        d.historico_curto = bool(not d.erro and 0 < d.obtido < piso)
+    return disponibilidades
 
 
 # ----------------------------------------------------------- avaliacao (US1)
@@ -258,9 +276,221 @@ def _simular(df, estrategia: BaseStrategy, **kwargs) -> Optional[BacktestResult]
         return None
     try:
         preparado = estrategia.calculate_indicators(df.copy())
+
+        # Caminho vetorizado quando a estrategia o suporta. `precompute_signals`
+        # exige `.params` (so EmaRsiStrategy expoe hoje); as demais caem no
+        # caminho por candle. A diferenca nao e cosmetica: a varredura completa
+        # sao 144 combinacoes x (janela unica + busca + confirmacao + N folds +
+        # execucao sem custo), e o caminho por candle chama generate_signal uma
+        # vez por vela em cada uma dessas passagens.
+        sinais = None
+        if hasattr(estrategia, "params"):
+            try:
+                sinais = precompute_signals(preparado, estrategia)
+            except Exception:
+                sinais = None
+
         return simulate_backtest(
-            preparado, estrategia, start_index=aquecimento_candles(), **kwargs
+            preparado, estrategia, start_index=aquecimento_candles(),
+            precomputed_signals=sinais, **kwargs
         )
     except Exception as exc:
         log.warning(f"simulacao falhou: {type(exc).__name__}: {str(exc)[:60]}")
         return None
+
+
+def _walk_forward_par(
+    df, estrategia: BaseStrategy, n_janelas: int,
+) -> List[WalkForwardFold]:
+    """Walk-forward para backtest de PAR UNICO.
+
+    `cross_sectional.walk_forward` opera sobre carteira e nao serve aqui. O que
+    se reusa e o `WalkForwardFold` -- especificamente sua propriedade
+    `ganho_de_timing_pp`, que desconta exposicao do retorno. Sem esse desconto,
+    uma estrategia que fica em caixa durante queda parece habilidosa sem ser
+    (achado M7).
+
+    Janela sem operacao alguma e devolvida com trades=0 e o consumidor a exclui
+    das agregacoes (R3, FR-006). Conta-la como neutra diluiria tanto resultado
+    bom quanto ruim.
+    """
+    if n_janelas <= 0 or df is None or len(df) == 0:
+        return []
+
+    tam = len(df) // n_janelas
+    if tam <= aquecimento_candles():
+        return []
+
+    folds: List[WalkForwardFold] = []
+    for j in range(n_janelas):
+        fatia = df.iloc[j * tam:(j + 1) * tam]
+        r = _simular(fatia, estrategia)
+        if r is None:
+            folds.append(WalkForwardFold(
+                janela=j + 1, buy_hold_pct=0.0, retorno_pct=0.0,
+                exposicao_pct=0.0, max_drawdown_pct=0.0, trades=0,
+            ))
+            continue
+        folds.append(WalkForwardFold(
+            janela=j + 1,
+            buy_hold_pct=r.buy_hold_return_pct,
+            retorno_pct=r.total_return_pct,
+            exposicao_pct=r.exposure_pct,
+            max_drawdown_pct=r.max_drawdown_pct,
+            trades=r.total_trades,
+        ))
+    return folds
+
+
+def folds_nao_vazios(folds: List[WalkForwardFold]) -> List[WalkForwardFold]:
+    """Exclui janelas sem operacao (R3, FR-006)."""
+    return [f for f in folds if f.trades > 0]
+
+
+def _avaliar_combinacao(
+    estrategia: BaseStrategy,
+    nome_estrategia: str,
+    horizonte: str,
+    par: str,
+    disponibilidade: DisponibilidadeHistorico,
+    df=None,
+) -> CombinacaoAvaliada:
+    """Submete uma combinacao a E2, E3, E4 e E6, e consolida o veredito."""
+    comb = CombinacaoAvaliada(
+        estrategia=nome_estrategia, horizonte=horizonte, par=par,
+        disponibilidade=disponibilidade,
+    )
+
+    if disponibilidade.erro:
+        comb.status = "erro"
+        comb.motivo = disponibilidade.erro
+        return comb
+
+    # Guard de aquecimento (T030, FR-010): se o aquecimento consome todo o
+    # historico, nao ha janela de teste e nao adianta simular.
+    if disponibilidade.utilizaveis <= 0:
+        comb.status = "inconclusivo"
+        comb.motivo = (f"aquecimento de {disponibilidade.aquecimento} candles "
+                       f"excede o historico de {disponibilidade.obtido}")
+        return comb
+
+    if df is None:
+        try:
+            df = fetch_ohlcv(par, horizonte, disponibilidade.solicitado)
+        except Exception as exc:
+            comb.status = "erro"
+            comb.motivo = f"{type(exc).__name__}: {str(exc)[:80]}"
+            return comb
+
+    # E2 -- janela unica
+    comb.resultado_janela_unica = _simular(df, estrategia)
+
+    # E3 -- confirmacao fora da amostra
+    treino, validacao = split_train_validation(df)
+    comb.resultado_busca = _simular(treino, estrategia)
+    comb.resultado_confirmacao = _simular(validacao, estrategia) if validacao is not None else None
+
+    # E4/E5 -- walk-forward com desconto de exposicao
+    comb.n_janelas = derivar_n_janelas(disponibilidade.utilizaveis)
+    comb.folds = _walk_forward_par(df, estrategia, comb.n_janelas)
+
+    # E6 -- sensibilidade a custo
+    sem_custo = _simular(df, estrategia, fee_rate=0.0, slippage_pct=0.0)
+    comb.retorno_sem_custo_pct = sem_custo.total_return_pct if sem_custo else None
+
+    comb.status, comb.motivo = classificar_status(
+        resultado=comb.resultado_janela_unica,
+        confirmacao=comb.resultado_confirmacao,
+        n_janelas=comb.n_janelas,
+        utilizaveis=disponibilidade.utilizaveis,
+    )
+    return comb
+
+
+@dataclass
+class RelatorioHorizonte:
+    """Agregacao das combinacoes de um mesmo horizonte."""
+
+    horizonte: str
+    combinacoes: List[CombinacaoAvaliada] = field(default_factory=list)
+
+    @property
+    def n_avaliadas(self) -> int:
+        return len(self.combinacoes)
+
+    @property
+    def n_confirmadas(self) -> int:
+        return sum(1 for c in self.combinacoes if c.status == "confirmado")
+
+    @property
+    def n_inconclusivas(self) -> int:
+        return sum(1 for c in self.combinacoes if c.status == "inconclusivo")
+
+    @property
+    def n_erros(self) -> int:
+        return sum(1 for c in self.combinacoes if c.status == "erro")
+
+    @property
+    def candles_medianos(self) -> int:
+        obtidos = [c.disponibilidade.obtido for c in self.combinacoes
+                   if not c.disponibilidade.erro]
+        if not obtidos:
+            return 0
+        return int(statistics.median(obtidos))
+
+    @property
+    def aquecimento_dias_horizonte(self) -> float:
+        return aquecimento_dias(self.horizonte)
+
+    def ordenadas(self) -> List[CombinacaoAvaliada]:
+        """Confirmadas primeiro, depois so_na_busca, reprovadas, inconclusivas, erro."""
+        ordem = {"confirmado": 0, "so_na_busca": 1, "reprovado": 2,
+                 "inconclusivo": 3, "erro": 4}
+        return sorted(self.combinacoes, key=lambda c: (ordem.get(c.status, 9), c.estrategia, c.par))
+
+
+def run_horizonte_scan(
+    estrategias: Dict[str, BaseStrategy],
+    pares: List[str],
+    horizontes: List[str],
+    solicitado: int = 2000,
+) -> List[RelatorioHorizonte]:
+    """Varre estrategia x horizonte x par.
+
+    Busca a serie UMA vez por par/horizonte e a reusa entre as estrategias: sem
+    isso a varredura faria 4x mais chamadas de rede para os mesmos dados.
+
+    Falha isolada nao aborta a varredura (R7).
+    """
+    relatorios: List[RelatorioHorizonte] = []
+
+    for horizonte in horizontes:
+        rel = RelatorioHorizonte(horizonte=horizonte)
+        disponibilidades = marcar_historico_curto(
+            medir_disponibilidade(pares, horizonte, solicitado)
+        )
+
+        for disp in disponibilidades:
+            df = None
+            if not disp.erro:
+                try:
+                    df = fetch_ohlcv(disp.par, horizonte, solicitado)
+                except Exception as exc:
+                    log.warning(f"{disp.par} {horizonte}: {type(exc).__name__}")
+
+            for nome, estrategia in estrategias.items():
+                try:
+                    rel.combinacoes.append(_avaliar_combinacao(
+                        estrategia, nome, horizonte, disp.par, disp, df=df,
+                    ))
+                except Exception as exc:
+                    log.warning(f"{nome} x {disp.par} x {horizonte}: {type(exc).__name__}")
+                    rel.combinacoes.append(CombinacaoAvaliada(
+                        estrategia=nome, horizonte=horizonte, par=disp.par,
+                        disponibilidade=disp, status="erro",
+                        motivo=f"{type(exc).__name__}: {str(exc)[:80]}",
+                    ))
+
+        relatorios.append(rel)
+
+    return relatorios
