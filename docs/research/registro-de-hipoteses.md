@@ -223,8 +223,9 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H7 | Momentum transversal | Direcional, carteira | **REPROVADA** | Ganho de timing médio −1,37pp |
 | H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
+| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** | Aprovada em E2; reprovada em E3/E4; seletor com 20% de poder |
 
-**Taxa de aprovação: 0 de 9.**
+**Taxa de aprovação: 0 de 10.** Uma inconclusiva (H10).
 
 ---
 
@@ -534,6 +535,80 @@ pré-condição foi medida e não é satisfeita pelo universo disponível.
 
 ---
 
+### 4.11 H10 — Arbitragem estatística por cointegração (variante long-only)
+
+**Especificação.** `backtesting/pairs_trading.py`. Seleção de pares por
+cointegração; entrada quando o z-score do spread cai abaixo de −2,0; saída no
+retorno a −0,5; stop em −4,0. Janela de formação de 250 candles, reseleção a
+cada 250.
+
+**Restrição de escopo.** A formulação canônica exige posição vendida na perna
+sobrevalorizada. As chaves de API são spot-only; vender a descoberto exigiria
+margem e introduziria risco de liquidação. A variante implementada assume apenas
+a perna comprada do ativo subvalorizado. **Consequência declarada:** sacrifica a
+neutralidade a mercado — o beta de 0,09–0,18 reportado na literatura não se
+aplica a esta variante.
+
+**Seleção de pares.** Dois critérios independentes, ambos obrigatórios:
+
+- **Estacionariedade** — teste ADF sobre o spread, α = 0,05. Responde "existe
+  reversão?".
+- **Negociabilidade** — meia-vida de reversão via AR(1), dentro de faixa
+  absoluta e limitada a 10% da janela de formação. Responde "a reversão é rápida
+  o bastante para pagar taxa e slippage?".
+
+`statsmodels` figura em `requirements-dev.txt`, não em `requirements.txt`: o bot
+em produção não negocia pares e não deve carregar a biblioteca. Na ausência
+dela, `teste_adf` devolve p = 1,0 (não rejeita), seguindo a política de falha
+fechada do projeto.
+
+**Resultados da bateria.**
+
+| Etapa | Resultado | Status |
+|---|---|---|
+| E1 — Sanidade | Recupera o par construído; meia-vida estimada 24,9 contra 20 construída | **passa** |
+| E2 — Janela única | 16 trades, +3,96%, PF 1,58, DD 6,62%, exposição 23,0% | **APROVADA** |
+| E3 — Fora da amostra | Busca −2,83% (PF 0,52); confirmação +10,58% com 7 trades (abaixo do mínimo de 10) | **reprova** |
+| E4 — Walk-forward | Ganho de timing médio +0,92pp, mas 1 de 4 janelas positiva | **reprova** |
+| E5 — Desconto de exposição | Ganho de timing positivo na média; janela 1 sem operação alguma | inconclusivo |
+| E6 — Sensibilidade a custo | +3,96% com custo, +5,56% sem. Custo consome 29% da vantagem bruta | passa |
+
+**Primeira aprovação em E2 de toda a investigação.**
+
+**Walk-forward detalhado.**
+
+| Janela | Regime | B&H | Estratégia | Trades | Exposição | Ganho de timing |
+|---|---|---|---|---|---|---|
+| 1 | baixa | −16,5% | 0,00% | **0** | 0,0% | +0,00pp |
+| 2 | alta | +6,9% | +0,11% | 3 | 40,2% | −2,67pp |
+| 3 | baixa | −23,7% | −3,71% | 5 | 47,0% | +7,44pp |
+| 4 | alta | +14,6% | +6,98% | 7 | 55,4% | −1,09pp |
+
+**Por que INCONCLUSIVA e não REPROVADA.**
+
+O poder estatístico do seletor foi medido. Taxa de detecção de par cointegrado
+**construído**, 30 sementes:
+
+| Meia-vida construída | Janela de formação | Detecção |
+|---|---|---|
+| 5 | 250 | 100% |
+| 10 | 250 | 70% |
+| 20 | 250 | **20%** |
+| 20 | 500 | 60% |
+
+Com formação de 250 candles, o seletor perde 80% dos pares de reversão lenta. O
+resultado negativo em E3/E4 **não distingue "não há vantagem" de "não
+detectamos os pares"**. Some-se a isso a contagem de operações: 0 a 7 por
+janela, contra o mínimo de 10 exigido pelo critério — as janelas de walk-forward
+são curtas demais em relação à janela de formação.
+
+**Reavaliação necessária antes de veredito definitivo:** histórico mais longo
+que permita formação de 500+ candles com janelas de teste que comportem ≥ 10
+operações. A paginação de `fetch_ohlcv` (2026-08-31) removeu o teto de 1000
+candles da Binance, tornando isso viável.
+
+---
+
 ## 5. Achados metodológicos (defeitos de instrumentação)
 
 Distintos das hipóteses, estes achados dizem respeito à **confiabilidade do
@@ -549,6 +624,7 @@ com base em medições anteriores.
 | M5 | `.gitignore` cobria `.env` mas não `.env.bak*` | 4 arquivos com chaves reais da Binance sujeitos a `git add -A` em repositório remoto | Corrigido (2026-09-01) |
 | M6 | Janela única de confirmação insuficiente para distinguir vantagem de regime | H7 quase aprovada com +29,29pp que não replicou | Corrigido (`walk_forward`, 2026-09-01) |
 | M7 | Retorno superior ao B&H sob exposição reduzida lido como habilidade | Ver H7: variante de melhor retorno bruto possui ganho de timing de +0,72pp | Corrigido (`ganho_de_timing_pp`, 2026-09-01) |
+| M8 | Meia-vida de reversão usada como critério único de cointegração | O estimador OLS do coeficiente AR é enviesado para baixo (viés de Dickey-Fuller): passeio aleatório recebe meia-vida **finita**, e a estimativa **escala com a amostra** (mediana 38 em n=250, 173 em n=1000, 417 em n=3000). Taxa de falso positivo de **28%** na seleção de H10 | Corrigido (portão ADF, α=0,05, falso positivo para **4,8%**, 2026-09-01) |
 
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
@@ -562,20 +638,7 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 
 ### 6.1 Prioridade alta
 
-**H10 — Arbitragem estatística por cointegração (pairs trading)**
-
-- *Fundamentação:* Sharpe reportado de 1,58 a 2,45; 16,34% a.a. com volatilidade
-  de 8,45% em BTC-ETH; beta 0,09–0,18 com alfa de 11–15% a.a. Literatura
-  consolidada em ações desde a década de 1990.
-- *Propriedade distintiva:* opera **em razão da** correlação elevada, não apesar
-  dela. Os ρ = 0,71 que invalidaram H9 constituem insumo desta.
-- *Obstáculo:* a formulação canônica exige posição vendida. Chaves atualmente
-  spot-only.
-- *Variante testável sem margem:* na divergência do spread, assumir apenas a
-  perna comprada do ativo subvalorizado, permanecendo em caixa no restante.
-  Sacrifica neutralidade a mercado; preserva a captura de reversão.
-- *Reaproveitamento:* motor de carteira de `cross_sectional.py`; `walk_forward`
-  já implementado.
+*(H10 avaliada em 2026-09-01 — ver secao 4.11. Status: inconclusiva, requer reavaliacao com historico mais longo.)*
 
 **H11 — Horizonte temporal superior (diário/semanal)**
 
@@ -665,9 +728,9 @@ O registro e um ciclo, nao uma lista:
 4. **Reabastecer** a fila por revisão de literatura quando a seção 6 se esgotar.
 5. **Reexecutar** a bateria sobre a fila renovada.
 
-**Estado da fila em 2026-09-01:** 10 hipoteses nao testadas (H10-H19), sendo 3
-de prioridade alta. A H10 (arbitragem estatistica por cointegracao) e a proxima
-da fila.
+**Estado da fila em 2026-09-01:** 9 hipoteses nao testadas (H11-H19), mais a
+reavaliacao pendente de H10 com historico mais longo. Proxima da fila: H11
+(horizonte temporal superior), de custo trivial.
 
 **Condição de parada:** não há. A resposta "nenhuma hipótese testada apresenta
 vantagem" é um estado do registro, não seu encerramento.
@@ -676,7 +739,8 @@ vantagem" é um estado do registro, não seu encerramento.
 
 ## 8. Conclusão do estado atual
 
-Nove hipóteses avaliadas, nenhuma aprovada. Sete defeitos de instrumentação
+Dez hipóteses avaliadas, nenhuma aprovada em definitivo; uma inconclusiva por
+poder estatístico insuficiente (H10). Oito defeitos de instrumentação
 identificados e corrigidos.
 
 O conjunto de resultados é consistente com a literatura, que documenta
