@@ -309,14 +309,21 @@ def test_drawdown_cai_sem_ganho_de_timing_e_sem_vantagem():
 
 
 def test_drawdown_cai_com_ganho_de_timing_e_melhora():
-    """Reducao SELETIVA: o dimensionamento cortou tamanho onde doia e manteve
-    onde rendia, entao o ganho por capital exposto sobe de verdade."""
+    """Reducao SELETIVA sobre base LUCRATIVA: o dimensionamento cortou tamanho
+    onde doia e manteve onde rendia, e o ganho por capital exposto sobe.
+
+    A base precisa lucrar. Sobre base perdedora o mesmo numero sairia
+    `confundido` -- ver `test_melhora_sobre_base_perdedora_e_confundida`.
+    """
     from backtesting.volatilidade import classificar_comparacao
 
-    base = _com_trades(ret=-24.0, dd=12.0, nocional=100.0, bh=-40.0)
-    dim = _com_trades(ret=-2.0, dd=6.0, nocional=50.0, bh=-40.0)
+    base = _com_trades(ret=10.0, dd=12.0, nocional=100.0, bh=-40.0)
+    dim = _com_trades(ret=9.0, dd=6.0, nocional=50.0, bh=-40.0)
+    c = _cmp(base, dim, fator_medio=0.5)
+    c.validacao_base = _com_trades(ret=5.0, dd=8.0, nocional=100.0)
+    c.validacao_dim = _com_trades(ret=4.5, dd=4.0, nocional=50.0)
 
-    status, motivo = classificar_comparacao(_cmp(base, dim, fator_medio=0.5))
+    status, motivo = classificar_comparacao(c)
 
     assert status == "melhora", motivo
 
@@ -624,3 +631,66 @@ def test_escalonamento_puro_nao_move_o_ganho_por_capital():
                                             nocional=100.0 * f),
         )
         assert c.delta_timing == pytest.approx(0.0, abs=1e-9), f
+
+
+# ============ D4 D5 — confundimento por base perdedora e confirmacao fora
+
+def _validado(c, ret_base_val, ret_dim_val, nocional_base=100.0, nocional_dim=50.0):
+    c.validacao_base = _com_trades(ret=ret_base_val, dd=10.0, nocional=nocional_base)
+    c.validacao_dim = _com_trades(ret=ret_dim_val, dd=5.0, nocional=nocional_dim)
+    return c
+
+
+def test_melhora_sobre_base_perdedora_e_confundida():
+    """D4 — encolher uma estratégia de expectativa negativa aproxima o resultado
+    de zero. A métrica registra melhora, mas o limite dessa lógica é não operar,
+    que maximizaria o critério sem ganhar nada.
+
+    Medido: correlação −0,92 entre retorno base e `delta_timing`, concordância
+    de sinal em 8 de 8 combinações da primeira varredura válida.
+    """
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _com_trades(ret=-3.91, dd=3.94, nocional=100.0)
+    dim = _com_trades(ret=-3.23, dd=3.26, nocional=97.0)
+    c = _validado(_cmp(base, dim, fator_medio=0.93), -3.0, -2.0)
+
+    status, motivo = classificar_comparacao(c)
+
+    assert status == "confundido"
+    assert status != "melhora"
+
+
+def test_melhora_exige_base_lucrativa_e_confirmacao_fora_da_amostra():
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _com_trades(ret=8.0, dd=10.0, nocional=100.0)
+    dim = _com_trades(ret=7.6, dd=6.0, nocional=50.0)
+    c = _validado(_cmp(base, dim, fator_medio=0.6), 4.0, 3.8)
+
+    assert classificar_comparacao(c)[0] == "melhora"
+
+
+def test_melhora_so_na_busca_nao_e_aprovacao():
+    """D5 — sem confirmação, `melhora` significa só "melhorou onde foi medido"."""
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _com_trades(ret=8.0, dd=10.0, nocional=100.0)
+    dim = _com_trades(ret=7.6, dd=6.0, nocional=50.0)
+    c = _validado(_cmp(base, dim, fator_medio=0.6), 4.0, 1.0)
+
+    status, motivo = classificar_comparacao(c)
+
+    assert status == "so_na_busca"
+    assert status != "melhora"
+
+
+def test_sem_janela_de_validacao_e_inconclusivo_nao_melhora():
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _com_trades(ret=8.0, dd=10.0, nocional=100.0)
+    dim = _com_trades(ret=7.6, dd=6.0, nocional=50.0)
+
+    status, _ = classificar_comparacao(_cmp(base, dim, fator_medio=0.6))
+
+    assert status == "inconclusivo"

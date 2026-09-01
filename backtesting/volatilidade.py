@@ -210,6 +210,8 @@ class ComparacaoPareada:
     folds_dim: List = field(default_factory=list)
     retorno_sem_custo_base: Optional[float] = None
     retorno_sem_custo_dim: Optional[float] = None
+    validacao_base: object = None
+    validacao_dim: object = None
     fator_medio: float = 1.0
     status: str = "inconclusivo"
     motivo: str = ""
@@ -272,6 +274,18 @@ class ComparacaoPareada:
                 - _ganho_por_capital(self.sem_dimensionamento))
 
     @property
+    def delta_timing_validacao(self) -> Optional[float]:
+        """O mesmo `delta_timing`, na fatia que NAO participou da descoberta.
+
+        Sem isto, `melhora` significa apenas "melhorou onde foi medido", que e a
+        forma de aprovacao que a metodologia deste projeto recusa desde H10.
+        """
+        if self.validacao_base is None or self.validacao_dim is None:
+            return None
+        return (_ganho_por_capital(self.validacao_dim)
+                - _ganho_por_capital(self.validacao_base))
+
+    @property
     def delta_custo(self) -> float:
         """Quanto o custo de execucao pesou a mais (ou a menos) na versao
         dimensionada. Ajustar tamanho implica giro, e giro paga taxa."""
@@ -329,13 +343,41 @@ def classificar_comparacao(c: ComparacaoPareada):
     if c.delta_timing <= 0:
         return ("sem_vantagem",
                 f"drawdown caiu {abs(c.delta_drawdown):.2f}pp mas o ganho "
-                f"desaparece ao descontar exposicao "
-                f"({c.delta_exposicao:+.1f}pp de exposicao, "
-                f"{c.delta_timing:+.2f}pp de timing)")
+                f"desaparece ao descontar exposicao de capital "
+                f"({c.delta_exposicao:+.3f}pp de exposicao, "
+                f"{c.delta_timing:+.3f} de timing por capital)")
+
+    # D4: `melhora` sobre base que PERDE dinheiro nao e interpretavel.
+    #
+    # O dimensionamento encolhe a magnitude do resultado nos dois sentidos --
+    # medido: retorno cai a 0,830 do original enquanto o capital exposto cai so
+    # ~3%. Sobre uma estrategia de expectativa negativa, encolher aproxima o
+    # resultado de zero e a metrica registra melhora. O limite dessa logica e
+    # `fator_minimo` -> 0: nao operar maximizaria o criterio e nao ganharia
+    # nada. Criterio maximizado por nao operar nao mede vantagem.
+    #
+    # Medido na primeira varredura valida: correlacao -0,92 entre retorno base e
+    # delta_timing, concordancia de sinal em 8 de 8. A metrica estava seguindo o
+    # sinal da base, nao a qualidade do dimensionamento.
+    if b.total_return_pct <= 0:
+        return ("confundido",
+                f"base perde {b.total_return_pct:.2f}%: encolher posicao "
+                f"aproxima de zero e isso NAO e vantagem "
+                f"(timing {c.delta_timing:+.3f} nao interpretavel)")
+
+    dv = c.delta_timing_validacao
+    if dv is None:
+        return ("inconclusivo",
+                "sem janela de validacao: historico nao comporta o split")
+
+    if dv <= 0:
+        return ("so_na_busca",
+                f"melhorou na janela de busca ({c.delta_timing:+.3f}) e nao se "
+                f"sustentou fora dela ({dv:+.3f})")
 
     return ("melhora",
-            f"drawdown -{abs(c.delta_drawdown):.2f}pp e timing "
-            f"{c.delta_timing:+.2f}pp mesmo descontada a exposicao")
+            f"base lucrativa, timing por capital {c.delta_timing:+.3f} na busca "
+            f"e {dv:+.3f} na validacao fora da amostra")
 
 
 # --------------------------------------------------- varredura pareada (US1)
@@ -383,7 +425,8 @@ def comparar_combinacao(
     mecanismo.
     """
     from backtesting.horizonte import (
-        _simular, _walk_forward_par, derivar_n_janelas, preparar,
+        _simular, _walk_forward_par, aquecimento_candles, derivar_n_janelas,
+        preparar,
     )
 
     params = params or ParametrosVolatilidade()
@@ -427,6 +470,17 @@ def comparar_combinacao(
                       position_sizer=_Sizer(params))
     c.retorno_sem_custo_base = sc_base.total_return_pct if sc_base else None
     c.retorno_sem_custo_dim = sc_dim.total_return_pct if sc_dim else None
+
+    # E3 -- confirmacao fora da amostra. Mesmo `split_train_validation` das
+    # demais hipoteses: um criterio de amostra por spec e como se acumula
+    # discordancia sobre o que conta como evidencia.
+    from backtesting.validation import split_train_validation
+
+    _, validacao = split_train_validation(preparado)
+    if validacao is not None and len(validacao) > aquecimento_candles() + 10:
+        c.validacao_base = _simular(validacao, estrategia)
+        c.validacao_dim = _simular(validacao, estrategia,
+                                   position_sizer=_Sizer(params))
 
     n = derivar_n_janelas(len(preparado))
     if n > 0:

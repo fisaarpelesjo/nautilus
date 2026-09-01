@@ -606,19 +606,23 @@ def cmd_volatilidade():
 
     comparacoes = run_volatilidade_scan(params=params)
 
-    ordem = {"melhora": 0, "sem_vantagem": 1, "piora": 2, "inconclusivo": 3,
-             "inerte": 4, "erro": 5}
+    ordem = {"melhora": 0, "so_na_busca": 1, "confundido": 2, "sem_vantagem": 3,
+             "piora": 4, "inconclusivo": 5, "inerte": 6, "erro": 7}
     comparacoes.sort(key=lambda c: (ordem.get(c.status, 9), -c.delta_timing))
 
     conta = {k: sum(1 for c in comparacoes if c.status == k) for k in ordem}
     inertes = conta["inerte"]
-    avaliadas = [c for c in comparacoes if c.status in ("melhora", "sem_vantagem", "piora")]
+    avaliadas = [c for c in comparacoes
+                 if c.status in ("melhora", "so_na_busca", "confundido",
+                                 "sem_vantagem", "piora")]
     fatores = [c.fator_medio for c in comparacoes if c.sem_dimensionamento is not None]
 
     # Contagem ANTES da tabela: quem le uma tabela de 48 linhas forma a
     # impressao pelas primeiras que ve, e o numero agregado e o resultado.
     console.print(f"  [{C_LABEL}]avaliadas[/] {len(avaliadas)}  "
                   f"[{C_POS}]melhora[/] {conta['melhora']}  "
+                  f"[{C_CYAN}]so na busca[/] {conta['so_na_busca']}  "
+                  f"[{C_CYAN}]confundidas[/] {conta['confundido']}  "
                   f"[{C_DIM}]sem vantagem[/] {conta['sem_vantagem']}  "
                   f"[{C_NEG}]piora[/] {conta['piora']}  "
                   f"[{C_DIM}]inconclusivas[/] {conta['inconclusivo']}  "
@@ -637,7 +641,8 @@ def cmd_volatilidade():
         t.add_column(col, justify="right")
     t.add_column("Status")
 
-    cores = {"melhora": C_POS, "piora": C_NEG, "inerte": C_DIM}
+    cores = {"melhora": C_POS, "piora": C_NEG, "inerte": C_DIM,
+             "so_na_busca": C_CYAN, "confundido": C_CYAN}
     for c in comparacoes:
         b, d = c.sem_dimensionamento, c.com_dimensionamento
         cor = cores.get(c.status, C_DIM)
@@ -673,6 +678,10 @@ def cmd_volatilidade():
                   f"execucao -- nada foi medido, nao houve piora[/{C_DIM}]")
     console.print(f"  [{C_DIM}]dTiming e o ganho POR UNIDADE DE CAPITAL EXPOSTO: invariante sob "
                   f"redimensionamento puro, move-se so com reducao seletiva[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"confundido\": a base PERDE dinheiro, entao encolher a posicao "
+                  f"aproxima de zero -- o limite dessa logica e nao operar[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"so na busca\" NAO e aprovacao: melhorou onde foi medido e nao "
+                  f"se sustentou na validacao fora da amostra[/{C_DIM}]")
     console.print(f"  [{C_DIM}]dExpo e exposicao de CAPITAL; a de tempo nao se move sob este "
                   f"mecanismo (dExpoTempo, exibida para provar isso)[/{C_DIM}]")
 
