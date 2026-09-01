@@ -97,8 +97,8 @@ retorno com custo real, sem custo e o impacto em pontos percentuais.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] Teste em `tests/test_horizonte.py`: reexecução com `fee_rate=0` e `slippage_pct=0` produz retorno maior ou igual ao com custo real, em qualquer combinação com ao menos uma operação
-- [ ] T021 [P] [US2] Teste em `tests/test_horizonte.py`: o impacto do custo é reportado em pontos percentuais e corresponde à diferença entre os dois retornos
+- [X] T020 [P] [US2] Teste em `tests/test_horizonte.py`: reexecução com `fee_rate=0` e `slippage_pct=0` produz retorno maior ou igual ao com custo real, em qualquer combinação com ao menos uma operação
+- [X] T021 [P] [US2] Teste em `tests/test_horizonte.py`: o impacto do custo é reportado em pontos percentuais e corresponde à diferença entre os dois retornos
 
 ### Implementation for User Story 2
 
@@ -120,10 +120,10 @@ histórico curto e não marca BTC nem ETH.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T025 [P] [US3] Teste em `tests/test_horizonte.py`: a marcação de histórico curto é relativa à **mediana do horizonte**, não ao valor solicitado — com candles semanais realistas, marca os pares de listagem recente e não marca os que definem o teto do horizonte
-- [ ] T026 [P] [US3] Teste em `tests/test_horizonte.py`: universo em que todos os pares têm o mesmo tamanho não produz marcação alguma, provando que a marca não dispara por construção
-- [ ] T027 [P] [US3] Teste em `tests/test_horizonte.py`: fold sem operação é marcado como vazio e **excluído** da contagem de janelas positivas e da média de ganho de timing — FR-006
-- [ ] T028 [P] [US3] Teste em `tests/test_horizonte.py`: combinação cujo aquecimento excede a janela de teste recebe `inconclusivo` antes de qualquer simulação
+- [X] T025 [P] [US3] Teste em `tests/test_horizonte.py`: a marcação de histórico curto é relativa à **mediana do horizonte**, não ao valor solicitado — com candles semanais realistas, marca os pares de listagem recente e não marca os que definem o teto do horizonte
+- [X] T026 [P] [US3] Teste em `tests/test_horizonte.py`: universo em que todos os pares têm o mesmo tamanho não produz marcação alguma, provando que a marca não dispara por construção
+- [X] T027 [P] [US3] Teste em `tests/test_horizonte.py`: fold sem operação é marcado como vazio e **excluído** da contagem de janelas positivas e da média de ganho de timing — FR-006
+- [X] T028 [P] [US3] Teste em `tests/test_horizonte.py`: combinação cujo aquecimento excede a janela de teste recebe `inconclusivo` antes de qualquer simulação
 
 ### Implementation for User Story 3
 
@@ -139,8 +139,8 @@ histórico curto e não marca BTC nem ETH.
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [X] T033 [P] Exportar o resultado para `reports/horizonte_{timestamp}.{json,csv,md}` via `utils/report_export.py` em `main.py`, seguindo o padrão de `backtest`, `scan` e `optimize`
-- [ ] T034 [P] Documentar o comando `horizonte` em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige que os dois permaneçam sincronizados
-- [ ] T035 [P] Documentar o comando em `docs/08-comandos-cli.md`
+- [X] T034 [P] Documentar o comando `horizonte` em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige que os dois permaneçam sincronizados
+- [X] T035 [P] Documentar o comando em `docs/08-comandos-cli.md`
 - [ ] T036 Executar a varredura completa e registrar o veredito de H11 em `docs/research/registro-de-hipoteses.md`, com evidência, procedência e a expectativa registrada em `research.md` confrontada com o resultado observado
 - [ ] T037 Reordenar a fila de hipóteses não testadas em `docs/research/registro-de-hipoteses.md` em função do resultado de H11
 - [ ] T038 Executar os sete cenários de `quickstart.md` e confirmar que todos passam

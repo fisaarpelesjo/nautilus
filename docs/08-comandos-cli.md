@@ -56,6 +56,7 @@ graph LR
 | `python main.py scan` | Backtest nos top 30 pares por volume na Binance |
 | `python main.py compare` | Compara múltiplas estratégias/presets lado a lado, mesmos pares/timeframe |
 | `python main.py multimarket [SÍMBOLOS...]` | Varre estratégia × símbolo em vários mercados, **exigindo confirmação fora da janela de busca** — ver abaixo |
+| `python main.py horizonte [TF...]` | Avalia as estratégias em 4h/1d/1w com a bateria completa — ver abaixo |
 | `python main.py optimize` | Grid search dos melhores parâmetros |
 | `python main.py optimize --walk-forward` | Grid search com validação walk-forward |
 | `python main.py select` | Ranqueia candidatos de pares dinâmicos por liquidez, spread e volatilidade |
@@ -103,3 +104,55 @@ A maioria dos comandos de backtest/scan/optimize também grava um relatório aud
 ## Próximo capítulo
 
 [09 — Persistência de Dados](09-persistencia-dados.md) detalha exatamente o que cada comando lê e escreve em disco.
+
+---
+
+## Horizonte temporal (pesquisa — spec 024)
+
+`python main.py horizonte [TF...]` avalia as estratégias já implementadas em
+múltiplas escalas temporais, submetendo cada combinação à mesma régua usada
+pelas demais hipóteses. Sem argumento, avalia `4h 1d 1w`.
+
+**Por que existe.** Liu & Tsyvinski (2021) documentam momentum de série temporal
+em criptoativos em horizontes de **uma a quatro semanas**; o bot opera em 4h. Se
+o efeito existe nessa escala e não na atual, as hipóteses direcionais já
+reprovadas mediram a escala, não a estratégia.
+
+**Não altera o `TIMEFRAME` de produção.** O comando lê a configuração apenas
+para exibir a linha de base. Mudar o horizonte operacional por resultado de
+backtest é o que a metodologia existe para impedir.
+
+**Universo e estratégias não são parametrizáveis por CLI**, de propósito: expor
+os dois como flag convidaria a varrer combinações até achar uma que passe.
+
+### Limitação estrutural do horizonte semanal
+
+Medido em 2026-09-01: em escala semanal a Binance entrega de 311 a 473 candles
+por par. Descontado o aquecimento de 50 candles (**350 dias**, quase um ano), o
+split 70/30 produz janela de validação de 78 a 127 — abaixo do mínimo de 150 de
+`MIN_WINDOW_CANDLES`. **Nenhum par comporta a confirmação fora da amostra em
+1w**, e o resultado correto é `inconclusivo`, não `reprovado`.
+
+A execução real confirmou: 115 combinações em 1w, **0 confirmadas, 115
+inconclusivas**.
+
+### Ordem de exibição
+
+Contexto de dado → contagem → tabela → comparativo → legenda. A contagem vem
+**antes** da tabela porque uma confirmação entre 345 tentativas tem peso
+estatístico distinto de uma entre 3.
+
+### Estados
+
+| Estado | Significado |
+|---|---|
+| `confirmado` | Aprovado na busca **e** na confirmação |
+| `so na busca` | Aprovado onde foi descoberto, não sustentado fora. **Não é aprovação** |
+| `reprovado` | Falha em critério com amostra suficiente |
+| `inconclusivo` | Amostra insuficiente para julgar — **não** é ausência de vantagem |
+| `erro` | Falha ao obter dados |
+
+`inconclusivo` **precede** `reprovado`: combinação com menos operações que
+`EDGE_MIN_TRADES`, sem janela de confirmação válida, ou com menos de 3 janelas de
+walk-forward é inconclusiva mesmo que as métricas pareçam ruins. Foi essa
+distinção que separou H10 de uma reprovação indevida.

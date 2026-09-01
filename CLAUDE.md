@@ -59,6 +59,7 @@ python main.py multibacktest        # backtest em lista fixa de pares
 python main.py scan                 # backtest nos top 30 pares por volume na Binance
 python main.py compare              # compara multiplas estrategias/presets lado a lado
 python main.py multimarket [SIMB..] # varre estrategia x simbolo em varios mercados, com confirmacao fora da amostra
+python main.py horizonte [TF..]     # avalia as estrategias em 4h/1d/1w com a bateria completa (spec 024)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal

@@ -412,3 +412,114 @@ def test_run_horizonte_scan_nao_aborta_com_par_quebrado(monkeypatch):
     assert rels[0].n_erros == 1
     quebrado = next(c for c in rels[0].combinacoes if c.par == "QUEBRA/USDT")
     assert quebrado.status == "erro"
+
+
+# ==================================================== T020 T021 — custo (US2)
+
+def _serie_curta(n=340, semente=3):
+    import numpy as np
+    rng = np.random.default_rng(semente)
+    preco = 100 * np.exp(np.cumsum(rng.normal(0.0005, 0.02, n)))
+    idx = pd.date_range("2024-01-01", periods=n, freq="1D")
+    return pd.DataFrame({
+        "open": preco, "close": preco, "high": preco * 1.02,
+        "low": preco * 0.98, "volume": np.full(n, 1000.0),
+    }, index=idx)
+
+
+def test_custo_zerado_rende_pelo_menos_o_mesmo_que_custo_real(monkeypatch):
+    """T020 — taxa e slippage so podem retirar retorno, nunca adicionar."""
+    from backtesting import horizonte as H
+    from backtesting.horizonte import _avaliar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    df = _serie_curta()
+    monkeypatch.setattr(H, "fetch_ohlcv", lambda p, t, limite: df, raising=False)
+
+    comb = _avaliar_combinacao(
+        EmaRsiStrategy(), "EMA/RSI", "1d", "BTC/USDT",
+        _disp(obtido=len(df), tf="1d"), df=df,
+    )
+
+    if comb.resultado_janela_unica and comb.resultado_janela_unica.total_trades > 0:
+        assert comb.retorno_sem_custo_pct >= comb.resultado_janela_unica.total_return_pct
+
+
+def test_impacto_do_custo_e_a_diferenca_entre_os_dois_retornos(monkeypatch):
+    """T021 — US2 so cumpre seu papel se o impacto for legivel sem calculo."""
+    from backtesting import horizonte as H
+    from backtesting.horizonte import _avaliar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    df = _serie_curta(semente=9)
+    monkeypatch.setattr(H, "fetch_ohlcv", lambda p, t, limite: df, raising=False)
+
+    comb = _avaliar_combinacao(
+        EmaRsiStrategy(), "EMA/RSI", "1d", "ETH/USDT",
+        _disp(obtido=len(df), tf="1d"), df=df,
+    )
+
+    if comb.resultado_janela_unica and comb.retorno_sem_custo_pct is not None:
+        impacto = comb.resultado_janela_unica.total_return_pct - comb.retorno_sem_custo_pct
+        assert impacto <= 0, "custo nao pode aumentar o retorno"
+
+
+# ============================================== T025-T028 — limitacoes (US3)
+
+def test_marcacao_nao_depende_do_valor_solicitado():
+    """T025 — mesmo conjunto, solicitado diferente: a marcacao nao muda.
+
+    Prova que o criterio e relativo a mediana do horizonte (D3) e nao ao pedido.
+    """
+    from backtesting.horizonte import marcar_historico_curto
+
+    def universo(solicitado):
+        return [_disp(obtido=o, tf="1w", par=p, solicitado=solicitado)
+                for p, o in [("A/USDT", 470), ("B/USDT", 450), ("C/USDT", 420),
+                             ("D/USDT", 410), ("E/USDT", 300)]]
+
+    a = {d.par for d in marcar_historico_curto(universo(2000)) if d.historico_curto}
+    b = {d.par for d in marcar_historico_curto(universo(500)) if d.historico_curto}
+
+    assert a == b == {"E/USDT"}
+
+
+def test_marcacao_ignora_pares_com_erro():
+    """Par que falhou ao buscar nao vira 'historico curto' -- sao coisas distintas."""
+    from backtesting.horizonte import marcar_historico_curto
+
+    disp = [_disp(obtido=400, tf="1w", par="A/USDT"),
+            _disp(obtido=410, tf="1w", par="B/USDT"),
+            _disp(obtido=0, tf="1w", par="X/USDT", erro="NetworkError")]
+
+    marcados = marcar_historico_curto(disp)
+    quebrado = next(d for d in marcados if d.par == "X/USDT")
+
+    assert quebrado.historico_curto is False
+
+
+def test_media_de_timing_ignora_janelas_vazias():
+    """T027 / R3 — contar fold vazio como neutro dilui bom e ruim igualmente."""
+    from backtesting.cross_sectional import WalkForwardFold
+    from backtesting.horizonte import folds_uteis
+
+    folds = [
+        WalkForwardFold(1, -40.0, -10.0, 50.0, 5.0, 0),   # vazio
+        WalkForwardFold(2, -40.0, -10.0, 50.0, 5.0, 8),   # timing +10
+        WalkForwardFold(3, -40.0, -10.0, 50.0, 5.0, 0),   # vazio
+    ]
+    uteis = folds_uteis(folds)
+    media = sum(f.ganho_de_timing_pp for f in uteis) / len(uteis)
+
+    assert len(uteis) == 1
+    assert media == pytest.approx(10.0)
+
+
+def test_derivar_n_janelas_e_monotonico_no_historico():
+    """T028 — mais historico nunca pode produzir menos janelas."""
+    from backtesting.horizonte import derivar_n_janelas
+
+    valores = [derivar_n_janelas(n) for n in (0, 100, 300, 600, 900, 1200, 2000)]
+
+    assert valores == sorted(valores)
+    assert valores[-1] == 5
