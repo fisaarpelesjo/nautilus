@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from backtesting.pairs_trading import (
+    ADF_DISPONIVEL,
     PairsParams,
     estimar_hedge_ratio,
     meia_vida_reversao,
@@ -25,6 +26,16 @@ def _par_cointegrado(n=1500, meia_vida=20, semente=11):
     for t in range(1, n):
         sp[t] = sp[t - 1] + lam * sp[t - 1] + rng.normal(0, 0.02)
     return b * np.exp(sp), b
+
+
+# A selecao de pares exige o portao ADF (statsmodels). Sem ele `teste_adf`
+# devolve p=1,0 por falha fechada e nada e selecionado -- comportamento correto,
+# mas que torna estes testes inaplicaveis. statsmodels e dependencia de pesquisa
+# (requirements-dev.txt), ausente no ambiente de producao de proposito.
+precisa_adf = pytest.mark.skipif(
+    not ADF_DISPONIVEL,
+    reason="requer statsmodels (requirements-dev.txt); ausente em producao",
+)
 
 
 def _df(serie, n=None):
@@ -69,6 +80,7 @@ def test_meia_vida_sozinha_nao_separa_passeio_aleatorio():
     assert finitas >= 25
 
 
+@precisa_adf
 def test_a_selecao_rejeita_universo_de_passeios_aleatorios():
     """O portao ADF e o que separa; a meia-vida so mede negociabilidade.
 
@@ -88,6 +100,7 @@ def test_a_selecao_rejeita_universo_de_passeios_aleatorios():
     assert selecionados <= universos * 3 * 0.15
 
 
+@precisa_adf
 def test_selecao_encontra_o_par_cointegrado_e_o_ranqueia_primeiro():
     # Meia-vida 5 de proposito: e a faixa em que o ADF tem poder proximo de 100%
     # com formacao 250 (ver test_poder_do_seletor_e_baixo_para_reversao_lenta).
@@ -101,6 +114,7 @@ def test_selecao_encontra_o_par_cointegrado_e_o_ranqueia_primeiro():
     assert {pares[0].a, pares[0].b} == {"A/USDT", "B/USDT"}
 
 
+@precisa_adf
 def test_poder_do_seletor_e_baixo_para_reversao_lenta():
     """Limitacao medida, nao defeito: o ADF tem poder baixo em amostra curta.
 
@@ -158,6 +172,7 @@ def test_selecao_nao_usa_informacao_futura():
         assert cedo[0].hedge_ratio != tarde[0].hedge_ratio
 
 
+@precisa_adf
 def test_backtest_opera_o_par_cointegrado():
     a, b = _par_cointegrado()
     dados = {"A/USDT": _df(a), "B/USDT": _df(b)}
@@ -168,6 +183,7 @@ def test_backtest_opera_o_par_cointegrado():
     assert r.final_capital != r.initial_capital
 
 
+@precisa_adf
 def test_custo_zerado_rende_mais_que_custo_real():
     a, b = _par_cointegrado()
     dados = {"A/USDT": _df(a), "B/USDT": _df(b)}
