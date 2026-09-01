@@ -224,8 +224,9 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
 | H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** | Aprovada em E2; reprovada em E3/E4; seletor com 20% de poder |
+| H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra |
 
-**Taxa de aprovação: 0 de 10.** Uma inconclusiva (H10).
+**Taxa de aprovação: 0 de 11.** Duas inconclusivas (H10; H11 em escala semanal).
 
 ---
 
@@ -609,6 +610,78 @@ candles da Binance, tornando isso viável.
 
 ---
 
+### 4.12 H11 — Momentum em horizonte temporal superior
+
+**Especificação.** `backtesting/horizonte.py`, spec 024. Avalia EmaRsiStrategy,
+BreakoutStrategy, MeanReversionStrategy e SqueezeBreakoutStrategy em 4h, 1d e 1w
+sobre os 12 pares usados em H7 e H9, submetendo cada combinação à bateria E1–E6
+sem alteração de critério.
+
+**Fundamentação.** Liu & Tsyvinski (2021) documentam momentum de série temporal
+em criptoativos em horizontes de **uma a quatro semanas**. O bot opera em 4h. Se
+o efeito existe nessa escala e não na atual, as nove hipóteses direcionais já
+reprovadas mediram a escala, não a estratégia — e a investigação inteira
+precisaria ser relida.
+
+**Resultado — 144 combinações, zero confirmadas fora da amostra.**
+
+| Horizonte | Avaliadas | Confirmadas | Reprovadas | Inconclusivas | Só na busca | Julgadas com amostra suficiente |
+|---|---|---|---|---|---|---|
+| 4h | 48 | **0** | 34 | 13 | 1 | 35 / 48 |
+| 1d | 48 | **0** | 35 | 13 | 0 | 35 / 48 |
+| 1w | 48 | **0** | 0 | 48 | 0 | **0 / 48** |
+
+**A escala semanal era inconclusiva por construção, e isso foi previsto.**
+
+`research.md` da spec 024 registrou, **antes de qualquer código ser escrito**,
+que o horizonte semanal não comportaria a bateria: 311 a 473 candles por par,
+menos 50 de aquecimento (350 dias, quase um ano), produzindo janela de validação
+de 78 a 127 — abaixo do mínimo de 150 de `MIN_WINDOW_CANDLES`. O `tasks.md`
+registrou o critério de falsificação: **se a implementação produzisse 1w como
+`confirmado` ou `reprovado`, seria defeito de dimensionamento, não achado.**
+
+Resultado observado: 48 de 48 inconclusivas. A previsão se sustentou.
+
+**O achado real está na comparação entre 4h e 1d.**
+
+Decompondo as combinações julgadas por critério isolado:
+
+| Horizonte | Passaram profit factor ≥ 1,20 | Superaram buy-and-hold |
+|---|---|---|
+| 4h | **0 de 35 (0%)** | 31 de 35 (89%) |
+| 1d | **7 de 35 (20%)** | 21 de 35 (60%) |
+
+Subir de 4h para 1d **melhora a qualidade do sinal de forma mensurável**: o
+profit factor sai de 0% de aprovação para 20%. Isso é consistente com a direção
+que Liu & Tsyvinski preveem — o efeito existe mais na escala maior.
+
+Mas o ganho é anulado pela outra ponta. Em 4h o histórico cobre 333 dias de
+mercado em queda, e 89% das combinações "superam" o buy-and-hold — em boa parte
+por estarem fora do mercado. Em 1d o histórico cobre 2000 dias de apreciação
+forte, e a taxa cai para 60%. A barra de bater um buy-and-hold de 5,5 anos de
+cripto é substancialmente mais alta que a de bater 333 dias de queda.
+
+Mudam também os motivos de reprovação: em 4h, 30 de 34 reprovações são por
+profit factor; em 1d, apenas 21 de 35, com 14 passando a falhar por não superar
+o buy-and-hold.
+
+**Veredito.** REPROVADA em 4h e 1d, com amostra suficiente nas duas escalas (35
+de 48 combinações julgadas em cada). INCONCLUSIVA em 1w, por limitação
+estrutural de histórico — e a inconclusividade é a resposta correta, não uma
+falha da avaliação.
+
+**O que isso fecha.** A hipótese de que as nove reprovações anteriores mediram a
+escala errada **não se sustenta**. A escala importa — e o efeito medido tem o
+sinal previsto pela literatura — mas não o bastante para produzir vantagem que
+sobreviva à confirmação fora da amostra. As reprovações anteriores continuam
+válidas.
+
+**O que permanece aberto.** A escala semanal segue sem teste possível com o
+histórico disponível na Binance. Testá-la exigiria fonte de dados com
+profundidade maior que a da exchange, o que está fora do escopo atual.
+
+---
+
 ## 5. Achados metodológicos (defeitos de instrumentação)
 
 Distintos das hipóteses, estes achados dizem respeito à **confiabilidade do
@@ -624,6 +697,7 @@ com base em medições anteriores.
 | M5 | `.gitignore` cobria `.env` mas não `.env.bak*` | 4 arquivos com chaves reais da Binance sujeitos a `git add -A` em repositório remoto | Corrigido (2026-09-01) |
 | M6 | Janela única de confirmação insuficiente para distinguir vantagem de regime | H7 quase aprovada com +29,29pp que não replicou | Corrigido (`walk_forward`, 2026-09-01) |
 | M7 | Retorno superior ao B&H sob exposição reduzida lido como habilidade | Ver H7: variante de melhor retorno bruto possui ganho de timing de +0,72pp | Corrigido (`ganho_de_timing_pp`, 2026-09-01) |
+| M9 | Regra de amostra mínima aplicada só à janela de busca, não à de confirmação | `so_na_busca` afirma que a estratégia **não se sustentou** fora da janela de descoberta. Com menos operações que `EDGE_MIN_TRADES` na validação, a afirmação não tem suporte: não foi testada e reprovou, foi testada de menos. Na varredura de H11, **12 combinações** receberam esse rótulo indevidamente, uma delas com 2 operações na validação | Corrigido (`classificar_status`, 2026-09-01) |
 | M8 | Meia-vida de reversão usada como critério único de cointegração | O estimador OLS do coeficiente AR é enviesado para baixo (viés de Dickey-Fuller): passeio aleatório recebe meia-vida **finita**, e a estimativa **escala com a amostra** (mediana 38 em n=250, 173 em n=1000, 417 em n=3000). Taxa de falso positivo de **28%** na seleção de H10 | Corrigido (portão ADF, α=0,05, falso positivo para **4,8%**, 2026-09-01) |
 
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
@@ -638,17 +712,11 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 
 ### 6.1 Prioridade alta
 
-*(H10 avaliada em 2026-09-01 — ver secao 4.11. Status: inconclusiva, requer reavaliacao com historico mais longo.)*
+*(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.)*
 
-**H11 — Horizonte temporal superior (diário/semanal)**
+*(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico.)*
 
-- *Fundamentação:* Liu & Tsyvinski (2021) documentam momentum de série temporal
-  em horizontes de 1 a 4 semanas. A configuração atual opera em 4 h.
-- *Custo:* trivial — alteração de parâmetro. Nenhuma nova infraestrutura.
-- *Restrição:* reduz drasticamente o número de operações, agravando o problema
-  de tamanho amostral.
-
-**H12 — Dimensionamento por volatilidade (volatility targeting)**
+**H12 — Dimensionamento por volatilidade (volatility targeting)** — *próxima da fila*
 
 - *Fundamentação:* redimensionar posição inversamente à volatilidade realizada é
   o mecanismo padrão de controle de drawdown em gestão sistemática. H7 reprovou
@@ -728,9 +796,10 @@ O registro e um ciclo, nao uma lista:
 4. **Reabastecer** a fila por revisão de literatura quando a seção 6 se esgotar.
 5. **Reexecutar** a bateria sobre a fila renovada.
 
-**Estado da fila em 2026-09-01:** 9 hipoteses nao testadas (H11-H19), mais a
-reavaliacao pendente de H10 com historico mais longo. Proxima da fila: H11
-(horizonte temporal superior), de custo trivial.
+**Estado da fila em 2026-09-01:** 8 hipóteses não testadas (H12–H19), mais a
+reavaliação pendente de H10 com formação de 500+ candles. Próxima da fila: H12
+(dimensionamento por volatilidade), que ataca diretamente o critério de drawdown
+— o único que H10 reprovou em sua melhor janela.
 
 **Condição de parada:** não há. A resposta "nenhuma hipótese testada apresenta
 vantagem" é um estado do registro, não seu encerramento.
@@ -739,9 +808,9 @@ vantagem" é um estado do registro, não seu encerramento.
 
 ## 8. Conclusão do estado atual
 
-Dez hipóteses avaliadas, nenhuma aprovada em definitivo; uma inconclusiva por
-poder estatístico insuficiente (H10). Oito defeitos de instrumentação
-identificados e corrigidos.
+Onze hipóteses avaliadas, nenhuma aprovada. Duas inconclusivas: H10 por poder
+estatístico do seletor, H11 em escala semanal por limitação estrutural de
+histórico. Nove defeitos de instrumentação identificados e corrigidos.
 
 O conjunto de resultados é consistente com a literatura, que documenta
 sobrevivência rara de regras técnicas simples em criptoativos após custos de

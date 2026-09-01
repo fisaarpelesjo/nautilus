@@ -141,10 +141,10 @@ histórico curto e não marca BTC nem ETH.
 - [X] T033 [P] Exportar o resultado para `reports/horizonte_{timestamp}.{json,csv,md}` via `utils/report_export.py` em `main.py`, seguindo o padrão de `backtest`, `scan` e `optimize`
 - [X] T034 [P] Documentar o comando `horizonte` em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige que os dois permaneçam sincronizados
 - [X] T035 [P] Documentar o comando em `docs/08-comandos-cli.md`
-- [ ] T036 Executar a varredura completa e registrar o veredito de H11 em `docs/research/registro-de-hipoteses.md`, com evidência, procedência e a expectativa registrada em `research.md` confrontada com o resultado observado
-- [ ] T037 Reordenar a fila de hipóteses não testadas em `docs/research/registro-de-hipoteses.md` em função do resultado de H11
-- [ ] T038 Executar os sete cenários de `quickstart.md` e confirmar que todos passam
-- [ ] T039 Rodar a suíte completa e confirmar que a contagem total não diminuiu em relação ao commit anterior
+- [X] T036 Executar a varredura completa e registrar o veredito de H11 em `docs/research/registro-de-hipoteses.md`, com evidência, procedência e a expectativa registrada em `research.md` confrontada com o resultado observado
+- [X] T037 Reordenar a fila de hipóteses não testadas em `docs/research/registro-de-hipoteses.md` em função do resultado de H11
+- [X] T038 Executar os sete cenários de `quickstart.md` e confirmar que todos passam
+- [X] T039 Rodar a suíte completa e confirmar que a contagem total não diminuiu em relação ao commit anterior
 
 ---
 
