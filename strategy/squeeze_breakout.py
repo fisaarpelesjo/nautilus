@@ -62,7 +62,7 @@ class SqueezeBreakoutStrategy(BaseStrategy):
             return TradeSignal(Signal.BUY, price, f"Squeeze + rompimento: bandwidth={curr['bb_bandwidth']:.4f}, volume >= {self.volume_min_ratio}x media")
 
         if price < curr["bb_middle"]:
-            log.info(f"VENDA | preco voltou abaixo da media (movimento de expansao encerrado)")
+            log.info("VENDA | preco voltou abaixo da media (movimento de expansao encerrado)")
             return TradeSignal(Signal.SELL, price, "Preco cruzou de volta abaixo da BB media -- fim do movimento")
 
         return TradeSignal(Signal.HOLD, price, f"Aguardando squeeze+rompimento (bandwidth={curr['bb_bandwidth']:.4f}, limiar={curr['squeeze_threshold']:.4f})")
