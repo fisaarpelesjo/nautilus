@@ -195,24 +195,54 @@ até um passar é o problema de testes múltiplos que a metodologia contém.
 
 | Estado | Significado |
 |---|---|
-| `melhora` | Drawdown caiu **e** o ganho sobreviveu ao desconto de exposição |
-| `sem vantagem` | Drawdown caiu, **mas o ganho desapareceu ao descontar exposição** |
-| `piora` | Drawdown não caiu |
-| `inconclusivo` | Amostra insuficiente em alguma das versões — **não** é ausência de vantagem |
+| `melhora` | Base lucrativa, ganho por capital exposto subiu **e** se confirmou fora da amostra |
+| `só na busca` | Melhorou onde foi medido e não se sustentou na validação. **Não é aprovação** |
+| `confundido` | A base **perde dinheiro**: encolher a posição aproxima de zero e isso não é vantagem |
+| `sem vantagem` | O ganho desapareceu ao descontar exposição de capital |
+| `piora` | Drawdown subiu |
+| `inconclusivo` | Amostra insuficiente, ou sem janela de validação — **não** é ausência de vantagem |
+| `inerte` | O fator ficou em 1,0: as duas versões são a mesma execução, nada foi medido |
 | `erro` | Falha ao obter dados ou simular |
+
+**`inerte` não é `piora`.** Das quatro estratégias do universo, só
+`EmaRsiStrategy` calcula `atr_ratio`; nas demais o fator fica preso em 1,0 e
+não há comparação a julgar. Na avaliação de H12 isso foi **37 das 48**
+combinações — limitação do instrumento, não evidência.
+
+**`confundido` é a guarda contra M11.** Reduzir posição encolhe a magnitude do
+resultado *nos dois sentidos*. Sobre uma estratégia de expectativa negativa
+isso aproxima o resultado de zero e a métrica registra ganho; o limite da
+lógica é `fator_minimo → 0`, isto é, não operar maximizaria o critério sem
+ganhar nada. Medido em H12: correlação de **−0,92** entre retorno base e ganho
+de timing, concordância de sinal em 8 de 8.
 
 Dimensionar por volatilidade **reduz exposição por construção** — fator médio
 0,90 na medição, ou seja ~10% menos participação. Num mercado em queda isso
 sozinho melhora o retorno relativo ao buy-and-hold sem qualquer capacidade de
 seleção. É o achado M7.
 
-Por isso a decisão entre `melhora` e `sem vantagem` usa `dTiming` (variação do
-`ganho_de_timing_pp`, que já desconta exposição) e **não** `dRet`. Sem essa
-separação, H12 "passaria" trivialmente e a aprovação não significaria nada.
+Por isso a decisão usa `dTiming` e **não** `dRet`. Mas o desconto correto aqui
+não é o de tempo: `_exposure_pct` mede segundos em posição, e dimensionar muda
+*quanto* capital entra, nunca *quando*. A exposição de tempo é idêntica entre as
+duas versões — a coluna `dExpoTempo` existe para exibir esse zero, porque um
+zero mostrado é evidência e um zero omitido é só ausência.
+
+`dTiming` é o ganho **por unidade de capital exposto**. A razão importa: se o
+dimensionamento apenas escala tudo por um fator `f`, ganho e exposição escalam
+juntos e a razão fica invariante — delta exatamente zero, status `sem vantagem`.
+Ela só se move quando a redução é **seletiva**, que é a única coisa que a
+hipótese afirma.
 
 A ordem das checagens é a regra: amostra insuficiente em **qualquer** das duas
 versões produz `inconclusivo` antes de qualquer avaliação de métrica — comparar
 30 operações contra 4 mede diferença de amostra, não dimensionamento.
+
+### Confirmação fora da amostra
+
+`melhora` exige que o ganho se sustente numa fatia que não participou da
+descoberta, via o mesmo `split_train_validation` das demais hipóteses. Sem isso
+`melhora` significaria apenas "melhorou onde foi medido" — a forma de aprovação
+que este projeto recusa desde H10.
 
 ### Custo de giro
 

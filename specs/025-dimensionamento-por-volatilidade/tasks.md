@@ -129,8 +129,8 @@ ao buy-and-hold. É o achado M7.
 ## Phase 6: Polish & Cross-Cutting Concerns
 
 - [X] T031 [P] Exportar o resultado para `reports/volatilidade_{timestamp}.{json,csv,md}` via `utils/report_export.py`
-- [ ] T032 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige sincronia
-- [ ] T033 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o significado de `sem vantagem`
+- [X] T032 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige sincronia
+- [X] T033 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o significado de `sem vantagem`
 - [X] T034 Executar a varredura completa e registrar o veredito de H12 em `docs/research/registro-de-hipoteses.md`, confrontando a predição de `research.md` com o observado
 - [X] T035 Reordenar a fila de hipóteses em `docs/research/registro-de-hipoteses.md` conforme o resultado
 - [X] T036 Executar os oito cenários de `quickstart.md` e confirmar que todos passam
