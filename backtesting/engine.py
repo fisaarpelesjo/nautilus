@@ -1,7 +1,7 @@
 import pandas as pd
 from dataclasses import dataclass
 from math import sqrt
-from typing import List, Optional
+from typing import Callable, List, Optional
 from config.settings import (
     STOP_LOSS_PCT,
     TAKE_PROFIT_PCT,
@@ -200,6 +200,7 @@ def simulate_backtest(
     atr_sl_multiplier: float = ATR_SL_MULTIPLIER,
     atr_tp_multiplier: float = ATR_TP_MULTIPLIER,
     precomputed_signals: Optional[pd.Series] = None,
+    position_sizer: Optional[Callable[[pd.Series], float]] = None,
 ) -> BacktestResult:
     capital = initial_capital
     trades: List[Trade] = []
@@ -280,6 +281,13 @@ def simulate_backtest(
                 order_size = min(MAX_ORDER_SIZE_USDT, capital * 0.95)
                 if order_size * (1 + fee_rate) > capital:
                     order_size = capital / (1 + fee_rate)
+                # Dimensionamento opcional (spec 025). `None` preserva o
+                # comportamento vigente byte a byte, e o fator e aplicado DEPOIS
+                # do teto por ordem e da reserva de caixa -- compondo com as
+                # regras existentes em vez de substitui-las. O sizer devolve
+                # valor em (0, 1], entao esta linha so pode REDUZIR o tamanho.
+                if position_sizer is not None:
+                    order_size *= position_sizer(current)
                 entry_price = price * (1 + slippage_pct)
                 quantity = order_size / entry_price
                 entry_fee = order_size * fee_rate

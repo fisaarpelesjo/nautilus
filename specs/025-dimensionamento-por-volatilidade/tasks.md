@@ -26,8 +26,8 @@ documentação em `docs/`.
 
 ## Phase 1: Setup
 
-- [ ] T001 Criar `backtesting/volatilidade.py` com docstring de módulo declarando a tese de H12, o teto do fator como invariante de código, e por que `risk/manager.py` não é tocado
-- [ ] T002 Criar `tests/test_volatilidade.py` com teste de fumaça que importa o módulo e verifica a API pública
+- [X] T001 Criar `backtesting/volatilidade.py` com docstring de módulo declarando a tese de H12, o teto do fator como invariante de código, e por que `risk/manager.py` não é tocado
+- [X] T002 Criar `tests/test_volatilidade.py` com teste de fumaça que importa o módulo e verifica a API pública
 
 **Checkpoint**: módulo importável, suíte verde.
 
@@ -40,14 +40,14 @@ disso.
 
 **⚠️ BLOQUEIA todas as histórias.**
 
-- [ ] T003 [P] Teste em `tests/test_volatilidade.py`: `fator_volatilidade` nunca excede 1,0, incluindo alvo absurdamente alto (0,5) e volatilidade próxima de zero — FR-003, invariante que sustenta a proibição de alavancagem
-- [ ] T004 [P] Teste em `tests/test_volatilidade.py`: `atr_ratio` nulo, ausente, negativo ou não finito devolve fator 1,0, sem divisão por zero — FR-012
-- [ ] T005 [P] Teste em `tests/test_volatilidade.py`: fator é monotonicamente decrescente na volatilidade — dobrar `atr_ratio` reduz o fator
-- [ ] T006 [P] Teste em `tests/test_volatilidade.py`: fator respeita `fator_minimo`, nunca produzindo posição arbitrariamente pequena
-- [ ] T007 Implementar `ParametrosVolatilidade` e `fator_volatilidade(atr_ratio, params)` em `backtesting/volatilidade.py` conforme `data-model.md`, com o `min(1.0, ...)` explícito na fórmula
-- [ ] T008 Adicionar parâmetro opcional de dimensionamento a `simulate_backtest` em `backtesting/engine.py`, com default que preserva o comportamento atual
-- [ ] T009 Teste de regressão em `tests/test_volatilidade.py`: `simulate_backtest` sem o parâmetro produz resultado idêntico ao de antes desta feature, campo a campo — a garantia de que o default não muda nada
-- [ ] T010 Teste em `tests/test_volatilidade.py`: `risk/manager.py` não é importado nem referenciado por `backtesting/volatilidade.py` — FR-013, guarda contra regressão de escopo
+- [X] T003 [P] Teste em `tests/test_volatilidade.py`: `fator_volatilidade` nunca excede 1,0, incluindo alvo absurdamente alto (0,5) e volatilidade próxima de zero — FR-003, invariante que sustenta a proibição de alavancagem
+- [X] T004 [P] Teste em `tests/test_volatilidade.py`: `atr_ratio` nulo, ausente, negativo ou não finito devolve fator 1,0, sem divisão por zero — FR-012
+- [X] T005 [P] Teste em `tests/test_volatilidade.py`: fator é monotonicamente decrescente na volatilidade — dobrar `atr_ratio` reduz o fator
+- [X] T006 [P] Teste em `tests/test_volatilidade.py`: fator respeita `fator_minimo`, nunca produzindo posição arbitrariamente pequena
+- [X] T007 Implementar `ParametrosVolatilidade` e `fator_volatilidade(atr_ratio, params)` em `backtesting/volatilidade.py` conforme `data-model.md`, com o `min(1.0, ...)` explícito na fórmula
+- [X] T008 Adicionar parâmetro opcional de dimensionamento a `simulate_backtest` em `backtesting/engine.py`, com default que preserva o comportamento atual
+- [X] T009 Teste de regressão em `tests/test_volatilidade.py`: `simulate_backtest` sem o parâmetro produz resultado idêntico ao de antes desta feature, campo a campo — a garantia de que o default não muda nada
+- [X] T010 Teste em `tests/test_volatilidade.py`: `risk/manager.py` não é importado nem referenciado por `backtesting/volatilidade.py` — FR-013, guarda contra regressão de escopo
 
 **Checkpoint**: fator testado, motor aceita dimensionamento, produção intacta.
 
