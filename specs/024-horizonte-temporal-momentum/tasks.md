@@ -29,8 +29,8 @@ documentação em `docs/`. Caminhos conforme a Structure Decision do `plan.md`.
 
 **Purpose**: esqueleto do módulo, sem lógica.
 
-- [ ] T001 Criar `backtesting/horizonte.py` com docstring de módulo explicando a tese de H11, a restrição de não alterar o horizonte de produção (FR-012) e por que o módulo delega inteiramente às peças existentes em vez de introduzir critério novo
-- [ ] T002 Criar `tests/test_horizonte.py` com os imports do módulo e um teste de fumaça que apenas importa e instancia, garantindo que o arquivo entra na suíte desde o primeiro commit
+- [X] T001 Criar `backtesting/horizonte.py` com docstring de módulo explicando a tese de H11, a restrição de não alterar o horizonte de produção (FR-012) e por que o módulo delega inteiramente às peças existentes em vez de introduzir critério novo
+- [X] T002 Criar `tests/test_horizonte.py` com os imports do módulo e um teste de fumaça que apenas importa e instancia, garantindo que o arquivo entra na suíte desde o primeiro commit
 
 **Checkpoint**: módulo importável, suíte verde, nada implementado.
 
@@ -44,11 +44,11 @@ do `data-model.md`.
 
 **⚠️ BLOQUEIA todas as histórias.**
 
-- [ ] T003 [P] Escrever teste em `tests/test_horizonte.py` para `DisponibilidadeHistorico`: `utilizaveis` é `max(0, obtido − aquecimento)` e nunca negativo, inclusive quando o aquecimento excede o histórico
-- [ ] T004 [P] Escrever teste em `tests/test_horizonte.py` verificando que combinação com `erro` preenchido não é avaliada, e não é avaliada com resultado zero
-- [ ] T005 Implementar a dataclass `DisponibilidadeHistorico` em `backtesting/horizonte.py` conforme `data-model.md`, com os campos par, horizonte, solicitado, obtido, aquecimento, utilizaveis, dias_cobertos, historico_curto e erro
-- [ ] T006 Implementar `medir_disponibilidade(pares, horizonte, solicitado)` em `backtesting/horizonte.py`, buscando via `data.fetcher.fetch_ohlcv` e devolvendo uma `DisponibilidadeHistorico` por par, sem interromper a varredura quando um par falha
-- [ ] T007 Implementar `aquecimento_candles()` em `backtesting/horizonte.py` derivando o consumo de `EMA_TREND` de `config/settings.py`, e `aquecimento_dias(horizonte)` convertendo para dias — FR-010 exige as duas unidades porque 50 candles semanais são quase um ano
+- [X] T003 [P] Escrever teste em `tests/test_horizonte.py` para `DisponibilidadeHistorico`: `utilizaveis` é `max(0, obtido − aquecimento)` e nunca negativo, inclusive quando o aquecimento excede o histórico
+- [X] T004 [P] Escrever teste em `tests/test_horizonte.py` verificando que combinação com `erro` preenchido não é avaliada, e não é avaliada com resultado zero
+- [X] T005 Implementar a dataclass `DisponibilidadeHistorico` em `backtesting/horizonte.py` conforme `data-model.md`, com os campos par, horizonte, solicitado, obtido, aquecimento, utilizaveis, dias_cobertos, historico_curto e erro
+- [X] T006 Implementar `medir_disponibilidade(pares, horizonte, solicitado)` em `backtesting/horizonte.py`, buscando via `data.fetcher.fetch_ohlcv` e devolvendo uma `DisponibilidadeHistorico` por par, sem interromper a varredura quando um par falha
+- [X] T007 Implementar `aquecimento_candles()` em `backtesting/horizonte.py` derivando o consumo de `EMA_TREND` de `config/settings.py`, e `aquecimento_dias(horizonte)` convertendo para dias — FR-010 exige as duas unidades porque 50 candles semanais são quase um ano
 
 **Checkpoint**: disponibilidade medida e testada; histórias podem começar.
 
