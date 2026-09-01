@@ -87,24 +87,91 @@ def fator_volatilidade(atr_ratio, params: Optional[ParametrosVolatilidade] = Non
     """
     p = params or ParametrosVolatilidade()
 
+    if not atr_ratio_utilizavel(atr_ratio):
+        return 1.0
+
+    return max(p.fator_minimo, min(1.0, p.alvo / float(atr_ratio)))
+
+
+def atr_ratio_utilizavel(atr_ratio) -> bool:
+    """Se o valor permite dimensionar. Extraido de `fator_volatilidade` para o
+    chamador conseguir DISTINGUIR fator 1,0 por volatilidade baixa de fator 1,0
+    por leitura invalida -- os dois saem iguais da funcao e significam coisas
+    opostas. Foi essa indistincao que deixou 36 combinacoes passarem por
+    comparacao valida sem o mecanismo nunca ter atuado.
+    """
     try:
         v = float(atr_ratio)
     except (TypeError, ValueError):
-        return 1.0
-
-    if not math.isfinite(v) or v <= 0:
-        return 1.0
-
-    return max(p.fator_minimo, min(1.0, p.alvo / v))
+        return False
+    return math.isfinite(v) and v > 0
 
 
-def ganho_de_timing(resultado) -> float:
+def exposicao_de_capital(resultado) -> float:
+    """Exposicao ponderada pelo CAPITAL alocado, nao apenas pelo tempo.
+
+    POR QUE ESTA MEDIDA EXISTE (achado da primeira varredura de H12)
+
+    `engine._exposure_pct` mede tempo em mercado: segundos dentro de posicao
+    sobre segundos do periodo. Dimensionar por volatilidade muda QUANTO capital
+    entra, nunca QUANDO entra ou sai -- os instantes de entrada e saida sao os
+    mesmos. Logo a exposicao de tempo e IDENTICA entre as duas versoes, o
+    desconto de exposicao nao desconta nada, `delta_timing` vira igual a
+    `delta_retorno` por identidade, e `sem_vantagem` fica inatingivel.
+
+    Medido: 48 combinacoes, `delta_exposicao` exatamente 0,0 em todas, zero
+    ocorrencias de `sem_vantagem`. Nao era ausencia do fenomeno; era um estado
+    que o instrumento nao conseguia produzir.
+
+    A guarda contra M7 precisa da grandeza que o mecanismo de fato move. Aqui:
+
+        exposicao_capital = (nocional medio ponderado por tempo / capital
+                             inicial) x exposicao_de_tempo
+
+    O nocional medio ponderado por tempo sai dos proprios trades; o
+    denominador de tempo e recuperado da `exposure_pct` ja calculada, sem
+    alterar o motor.
+
+    NAO substitui `ganho_de_timing_pp` de `cross_sectional.py`. Aquela metrica
+    serve hipoteses que variam TEMPO em mercado (H7, H11) e continua correta
+    para elas. Esta serve as que variam CAPITAL. Trocar a de la mudaria
+    veredito ja registrado.
+    """
+    if resultado is None or not getattr(resultado, "trades", None):
+        return 0.0
+    if resultado.initial_capital <= 0 or resultado.exposure_pct <= 0:
+        return 0.0
+
+    soma_dur = 0.0
+    soma_nocional_dur = 0.0
+    for t in resultado.trades:
+        try:
+            dur = (t.exit_time - t.entry_time).total_seconds()
+        except (AttributeError, TypeError):
+            continue
+        if dur <= 0:
+            continue
+        soma_dur += dur
+        soma_nocional_dur += (t.quantity * t.entry_price) * dur
+
+    if soma_dur <= 0:
+        return 0.0
+
+    nocional_medio = soma_nocional_dur / soma_dur
+    return nocional_medio / resultado.initial_capital * resultado.exposure_pct
+
+
+def ganho_de_timing(resultado, exposicao: Optional[float] = None) -> float:
     """Retorno descontada a exposicao, em pontos percentuais.
 
-    A definicao vive em `cross_sectional.WalkForwardFold.ganho_de_timing_pp` e e
-    reusada aqui construindo um fold, em vez de reescrever a formula. Duas
-    definicoes do mesmo conceito no mesmo sistema divergem na primeira correcao
-    -- e este conceito especifico e o que separa habilidade de ausencia (M7).
+    A formula vive em `cross_sectional.WalkForwardFold.ganho_de_timing_pp` e e
+    reusada construindo um fold, em vez de reescrita. Duas definicoes do mesmo
+    conceito divergem na primeira correcao -- e este conceito e o que separa
+    habilidade de mera ausencia (M7).
+
+    `exposicao` permite alimentar a MESMA formula com a medida certa para o
+    mecanismo em avaliacao: tempo em mercado por padrao, capital alocado quando
+    o chamador passa `exposicao_de_capital(resultado)`.
     """
     if resultado is None:
         return 0.0
@@ -112,10 +179,18 @@ def ganho_de_timing(resultado) -> float:
         janela=0,
         buy_hold_pct=resultado.buy_hold_return_pct,
         retorno_pct=resultado.total_return_pct,
-        exposicao_pct=resultado.exposure_pct,
+        exposicao_pct=(resultado.exposure_pct if exposicao is None else exposicao),
         max_drawdown_pct=resultado.max_drawdown_pct,
         trades=resultado.total_trades,
     ).ganho_de_timing_pp
+
+
+def _ganho_por_capital(resultado) -> float:
+    """Ganho de timing por ponto de exposicao de capital. Ver `delta_timing`."""
+    ec = exposicao_de_capital(resultado)
+    if ec <= 0:
+        return 0.0
+    return ganho_de_timing(resultado, ec) / ec
 
 
 @dataclass
@@ -156,6 +231,15 @@ class ComparacaoPareada:
 
     @property
     def delta_exposicao(self) -> float:
+        """Exposicao de CAPITAL. A de tempo e invariante sob este mecanismo --
+        ver `exposicao_de_capital`."""
+        return (exposicao_de_capital(self.com_dimensionamento)
+                - exposicao_de_capital(self.sem_dimensionamento))
+
+    @property
+    def delta_exposicao_tempo(self) -> float:
+        """Mantida para o relatorio poder EXIBIR que ela nao se move. Um zero
+        exibido e evidencia; um zero omitido e so ausencia."""
         return self._delta("exposure_pct")
 
     @property
@@ -164,13 +248,28 @@ class ComparacaoPareada:
 
     @property
     def delta_timing(self) -> float:
-        """Variacao do ganho ATRIBUIVEL A ESCOLHA, descontada a exposicao.
+        """Variacao do ganho POR UNIDADE DE CAPITAL EXPOSTO.
 
-        E a grandeza que decide entre `melhora` e `sem_vantagem`. Sem ela, uma
-        versao que apenas participa menos num mercado em queda apresenta retorno
-        melhor e seria lida como habilidosa.
+        E a grandeza que decide entre `melhora` e `sem_vantagem`, e a razao de
+        ser uma razao esta num contraexemplo concreto.
+
+        Descontar exposicao do ganho absoluto nao basta. Se o dimensionamento
+        apenas escala tudo por um fator f, entao ganho e exposicao escalam
+        JUNTOS: ganho_dim = f x ganho_base. Quando o ganho base e negativo --
+        estrategia perdedora, que e o caso da maioria do universo -- multiplicar
+        por f < 1 o aproxima de zero, e o delta absoluto sai POSITIVO. A versao
+        dimensionada apareceria como `melhora` por ter apostado menos numa
+        estrategia ruim, que e literalmente a leitura que US2 existe para
+        impedir, so que em capital em vez de tempo.
+
+        Dividir pela exposicao de capital torna a grandeza INVARIANTE sob
+        escalonamento puro: f cancela, o delta da exatamente zero, e o status
+        sai `sem_vantagem`. Ela so se move quando o dimensionamento reduz
+        tamanho SELETIVAMENTE -- mais nos periodos ruins que nos bons -- que e a
+        unica coisa que a hipotese afirma.
         """
-        return ganho_de_timing(self.com_dimensionamento) - ganho_de_timing(self.sem_dimensionamento)
+        return (_ganho_por_capital(self.com_dimensionamento)
+                - _ganho_por_capital(self.sem_dimensionamento))
 
     @property
     def delta_custo(self) -> float:
@@ -203,16 +302,29 @@ def classificar_comparacao(c: ComparacaoPareada):
     if b is None or d is None:
         return "erro", "uma das versoes nao produziu resultado"
 
+    # `inerte` precede tudo: se o fator ficou em 1,0 as duas versoes sao a mesma
+    # execucao, e nao ha comparacao a julgar -- nem por amostra, nem por
+    # metrica. Antes desta checagem essas combinacoes saiam como `piora`, que
+    # afirma deterioracao onde nada mudou.
+    if c.fator_medio >= 1.0:
+        return ("inerte",
+                "fator permaneceu em 1,0: as duas versoes sao a mesma execucao")
+
     for nome, r in (("base", b), ("dimensionada", d)):
         if r.total_trades < EDGE_MIN_TRADES:
             return ("inconclusivo",
                     f"versao {nome} com {r.total_trades} operacoes, "
                     f"abaixo do minimo de {EDGE_MIN_TRADES}")
 
-    if c.delta_drawdown >= 0:
+    # Estritamente maior: drawdown identico nao e deterioracao.
+    if c.delta_drawdown > 0:
         return ("piora",
-                f"drawdown nao caiu ({b.max_drawdown_pct:.2f}% -> "
+                f"drawdown subiu ({b.max_drawdown_pct:.2f}% -> "
                 f"{d.max_drawdown_pct:.2f}%)")
+
+    if c.delta_drawdown == 0:
+        return ("sem_vantagem",
+                "drawdown nao mudou apesar de o fator ter atuado")
 
     if c.delta_timing <= 0:
         return ("sem_vantagem",
@@ -289,6 +401,16 @@ def comparar_combinacao(
     if preparado is None:
         c.status = "erro"
         c.motivo = "indicadores nao puderam ser calculados"
+        return c
+
+    # D1: sem a coluna, TODO candle cai no fallback de leitura invalida e o
+    # fator fica preso em 1,0. Das quatro estrategias do universo, so a EmaRsi
+    # calcula `atr_ratio` -- as outras tres produziriam 36 comparacoes vazias
+    # indistinguiveis de comparacoes reais.
+    if "atr_ratio" not in preparado.columns:
+        c.status = "inerte"
+        c.motivo = (f"{nome_estrategia} nao calcula atr_ratio: "
+                    f"dimensionamento inaplicavel, nada foi medido")
         return c
 
     sizer = _Sizer(params)

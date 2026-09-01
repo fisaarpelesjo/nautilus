@@ -606,10 +606,12 @@ def cmd_volatilidade():
 
     comparacoes = run_volatilidade_scan(params=params)
 
-    ordem = {"melhora": 0, "sem_vantagem": 1, "piora": 2, "inconclusivo": 3, "erro": 4}
+    ordem = {"melhora": 0, "sem_vantagem": 1, "piora": 2, "inconclusivo": 3,
+             "inerte": 4, "erro": 5}
     comparacoes.sort(key=lambda c: (ordem.get(c.status, 9), -c.delta_timing))
 
     conta = {k: sum(1 for c in comparacoes if c.status == k) for k in ordem}
+    inertes = conta["inerte"]
     avaliadas = [c for c in comparacoes if c.status in ("melhora", "sem_vantagem", "piora")]
     fatores = [c.fator_medio for c in comparacoes if c.sem_dimensionamento is not None]
 
@@ -620,6 +622,7 @@ def cmd_volatilidade():
                   f"[{C_DIM}]sem vantagem[/] {conta['sem_vantagem']}  "
                   f"[{C_NEG}]piora[/] {conta['piora']}  "
                   f"[{C_DIM}]inconclusivas[/] {conta['inconclusivo']}  "
+                  f"[{C_DIM}]inertes[/] {inertes}  "
                   f"[{C_DIM}]erro[/] {conta['erro']}")
     if fatores:
         console.print(f"  [{C_LABEL}]fator medio aplicado[/] "
@@ -630,17 +633,17 @@ def cmd_volatilidade():
     for col in ("Estrategia", "Par"):
         t.add_column(col)
     for col in ("DD base", "DD dim", "dDD", "Ret base", "Ret dim", "dRet",
-                "dExpo", "dTiming", "Ops", "dCusto"):
+                "dExpo", "dExpoTempo", "dTiming", "Ops", "dCusto"):
         t.add_column(col, justify="right")
     t.add_column("Status")
 
-    cores = {"melhora": C_POS, "piora": C_NEG}
+    cores = {"melhora": C_POS, "piora": C_NEG, "inerte": C_DIM}
     for c in comparacoes:
         b, d = c.sem_dimensionamento, c.com_dimensionamento
         cor = cores.get(c.status, C_DIM)
         rotulo = c.status.replace("_", " ")
         if b is None or d is None:
-            t.add_row(c.estrategia, c.par, *["-"] * 10,
+            t.add_row(c.estrategia, c.par, *["-"] * 11,
                       f"[{cor}]{rotulo}[/{cor}]")
             continue
         medido = c.retorno_sem_custo_base is not None and c.retorno_sem_custo_dim is not None
@@ -650,7 +653,8 @@ def cmd_volatilidade():
             f"{c.delta_drawdown:+.2f}",
             f"{b.total_return_pct:.2f}", f"{d.total_return_pct:.2f}",
             f"{c.delta_retorno:+.2f}",
-            f"{c.delta_exposicao:+.1f}", f"{c.delta_timing:+.2f}",
+            f"{c.delta_exposicao:+.2f}", f"{c.delta_exposicao_tempo:+.1f}",
+            f"{c.delta_timing:+.3f}",
             f"{b.total_trades}/{d.total_trades}",
             # "-" e nao "0,00": custo nao medido nao e custo nulo.
             f"{c.delta_custo:+.2f}" if medido else "-",
@@ -665,8 +669,12 @@ def cmd_volatilidade():
                   f"ao descontar exposicao -- participar menos nao e habilidade[/{C_DIM}]")
     console.print(f"  [{C_DIM}]\"inconclusivo\" significa amostra insuficiente para julgar, "
                   f"nao ausencia de vantagem[/{C_DIM}]")
-    console.print(f"  [{C_DIM}]dTiming e a variacao do retorno JA descontada a exposicao; "
-                  f"e ele, nao dRet, que separa habilidade de menor participacao[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"inerte\": o fator ficou em 1,0 e as duas versoes sao a mesma "
+                  f"execucao -- nada foi medido, nao houve piora[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]dTiming e o ganho POR UNIDADE DE CAPITAL EXPOSTO: invariante sob "
+                  f"redimensionamento puro, move-se so com reducao seletiva[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]dExpo e exposicao de CAPITAL; a de tempo nao se move sob este "
+                  f"mecanismo (dExpoTempo, exibida para provar isso)[/{C_DIM}]")
 
     # Agregado de custo de giro (T030). Responde se a diferenca entre versoes
     # persiste com custo zerado -- se o dRet medio for negativo mas o dRet medio
@@ -701,7 +709,9 @@ def cmd_volatilidade():
           "retorno_base": c.sem_dimensionamento.total_return_pct if c.sem_dimensionamento else None,
           "retorno_dim": c.com_dimensionamento.total_return_pct if c.com_dimensionamento else None,
           "delta_drawdown": c.delta_drawdown, "delta_retorno": c.delta_retorno,
-          "delta_exposicao": c.delta_exposicao, "delta_timing": c.delta_timing,
+          "delta_exposicao_capital": c.delta_exposicao,
+          "delta_exposicao_tempo": c.delta_exposicao_tempo,
+          "delta_timing": c.delta_timing,
           "delta_operacoes": c.delta_operacoes, "delta_custo": c.delta_custo,
           "retorno_sem_custo_base": c.retorno_sem_custo_base,
           "retorno_sem_custo_dim": c.retorno_sem_custo_dim}
