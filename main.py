@@ -89,7 +89,10 @@ def cmd_multimarket():
     from backtesting.multimarket import run_scan
     from config.settings import RESEARCH_SYMBOLS, TIMEFRAME
     from strategy.breakout import BreakoutStrategy
+    from strategy.day_filter import DayFilterStrategy
     from strategy.ema_rsi import EmaRsiStrategy
+    from strategy.mean_reversion import MeanReversionStrategy
+    from strategy.squeeze_breakout import SqueezeBreakoutStrategy
     from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
     from utils.report_export import export_report
 
@@ -99,7 +102,19 @@ def cmd_multimarket():
         print("Ou defina RESEARCH_SYMBOLS no .env (aceita cripto, acoes, forex, futuros, indices).")
         return
 
-    estrategias = {"EMA/RSI": EmaRsiStrategy(), "Breakout 150": BreakoutStrategy(window=150)}
+    # As cinco da mesma lista de `compare`, para os dois comandos responderem
+    # sobre o mesmo conjunto. Aqui cada uma passa pela confirmacao fora da
+    # amostra, que e o que separa aprovacao real de aprovacao por acaso --
+    # quanto mais combinacoes na varredura, mais isso importa.
+    from backtesting.compare import DIA_BLOQUEADO_SEGUNDA
+
+    estrategias = {
+        "EMA/RSI": EmaRsiStrategy(),
+        "Breakout 150": BreakoutStrategy(window=150),
+        "Mean Reversion": MeanReversionStrategy(),
+        "Squeeze Breakout": SqueezeBreakoutStrategy(),
+        "EMA/RSI sem segunda": DayFilterStrategy(EmaRsiStrategy(), DIA_BLOQUEADO_SEGUNDA),
+    }
 
     header()
     console.print(f"[bold {C_CYAN}]varredura multi-mercado[/]")

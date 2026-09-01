@@ -10,7 +10,10 @@ from backtesting.approval import ApprovalVerdict, evaluate_approval, ranking_key
 from backtesting.engine import run_backtest
 from strategy.base import BaseStrategy
 from strategy.breakout import BreakoutStrategy
+from strategy.day_filter import DayFilterStrategy
 from strategy.ema_rsi import EmaRsiStrategy
+from strategy.mean_reversion import MeanReversionStrategy
+from strategy.squeeze_breakout import SqueezeBreakoutStrategy
 from utils.logger import get_logger
 
 log = get_logger("compare")
@@ -23,9 +26,19 @@ console = Console(file=_stdout_utf8, highlight=False, force_terminal=True, width
 DEFAULT_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
 DEFAULT_TIMEFRAME = "4h"
 
+# Segunda-feira concentrou a perda inteira dos 28 trades de paper (-35,42 de
+# um total de -27,87). O dia foi escolhido a partir desses trades e e testado
+# no historico de backtest -- dados diferentes, para a escolha nao contaminar o
+# teste. So segunda: bloquear os quatro dias negativos da amostra seria ajustar
+# a ruido, com ~4 trades por dia da semana.
+DIA_BLOQUEADO_SEGUNDA = [0]
+
 DEFAULT_STRATEGIES: Dict[str, BaseStrategy] = {
     "EMA/RSI padrao": EmaRsiStrategy(),
     "Breakout 150": BreakoutStrategy(window=150),
+    "Mean Reversion": MeanReversionStrategy(),
+    "Squeeze Breakout": SqueezeBreakoutStrategy(),
+    "EMA/RSI sem segunda": DayFilterStrategy(EmaRsiStrategy(), DIA_BLOQUEADO_SEGUNDA),
 }
 
 
