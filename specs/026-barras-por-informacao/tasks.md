@@ -26,8 +26,8 @@ documentação em `docs/`.
 
 ## Phase 1: Setup
 
-- [ ] T001 Criar `data/bars.py` com docstring de módulo declarando a tese de H13, por que o índice da barra é o instante de fechamento, e a perda declarada em relação a dados de negociação (~12% da largura típica, D1)
-- [ ] T002 [P] Criar `tests/test_bars.py` com teste de fumaça que importa o módulo e verifica a API pública
+- [X] T001 Criar `data/bars.py` com docstring de módulo declarando a tese de H13, por que o índice da barra é o instante de fechamento, e a perda declarada em relação a dados de negociação (~12% da largura típica, D1)
+- [X] T002 [P] Criar `tests/test_bars.py` com teste de fumaça que importa o módulo e verifica a API pública
 - [ ] T003 [P] Criar `backtesting/barras.py` e `tests/test_barras_scan.py` com o mesmo padrão
 
 **Checkpoint**: módulos importáveis, suíte verde.
@@ -44,21 +44,21 @@ ser olhado, senão há incentivo a racionalizar um número bom.
 
 ### Tests ⚠️
 
-- [ ] T004 [P] Teste em `tests/test_bars.py`: agregação de um grupo de candles produz `open` do primeiro, `high` máximo, `low` mínimo, `close` do último, `volume` somado — data-model.md
-- [ ] T005 [P] Teste em `tests/test_bars.py`: o índice de cada barra é o instante do **último** candle do grupo, nunca o do primeiro — indexar pela abertura dataria a barra num momento em que seu conteúdo era desconhecido
-- [ ] T006 [P] [US3] Teste de **causalidade** em `tests/test_bars.py`: barras construídas incrementalmente prefixo a prefixo são idênticas às construídas sobre a série completa — FR-003, a maior fonte de falso positivo desta spec (classe de defeito de M2)
-- [ ] T007 [P] Teste em `tests/test_bars.py`: a última barra, se não cruzou o limiar, **não** aparece na saída — FR-004
-- [ ] T008 [P] Teste em `tests/test_bars.py`: limiar não positivo é rejeitado, sem produzir série degenerada
-- [ ] T009 [P] Teste em `tests/test_bars.py`: série sem coluna de volume, ou com volume zerado, produz erro explícito e nunca uma barra silenciosamente errada
+- [X] T004 [P] Teste em `tests/test_bars.py`: agregação de um grupo de candles produz `open` do primeiro, `high` máximo, `low` mínimo, `close` do último, `volume` somado — data-model.md
+- [X] T005 [P] Teste em `tests/test_bars.py`: o índice de cada barra é o instante do **último** candle do grupo, nunca o do primeiro — indexar pela abertura dataria a barra num momento em que seu conteúdo era desconhecido
+- [X] T006 [P] [US3] Teste de **causalidade** em `tests/test_bars.py`: barras construídas incrementalmente prefixo a prefixo são idênticas às construídas sobre a série completa — FR-003, a maior fonte de falso positivo desta spec (classe de defeito de M2)
+- [X] T007 [P] Teste em `tests/test_bars.py`: a última barra, se não cruzou o limiar, **não** aparece na saída — FR-004
+- [X] T008 [P] Teste em `tests/test_bars.py`: limiar não positivo é rejeitado, sem produzir série degenerada
+- [X] T009 [P] Teste em `tests/test_bars.py`: série sem coluna de volume, ou com volume zerado, produz erro explícito e nunca uma barra silenciosamente errada
 
 ### Implementation
 
-- [ ] T010 Implementar `TipoBarra` e `ParametrosBarra` em `data/bars.py` conforme data-model.md
-- [ ] T011 Implementar `construir_dollar_bars(df, limiar)` em `data/bars.py`, acumulando `close × volume` e fechando ao cruzar
-- [ ] T012 Implementar `construir_cusum_bars(df, limiar)` em `data/bars.py`, acumulando desvio positivo e negativo de retornos
-- [ ] T013 Implementar `calibrar_limiar(df, tipo, barras_alvo, tolerancia, max_iteracoes)` em `data/bars.py` com o passo de Newton de D2, consultando **exclusivamente a contagem de barras**
-- [ ] T014 Teste em `tests/test_bars.py`: `calibrar_limiar` converge para dentro da tolerância em no máximo 6 iterações, e nenhuma métrica de retorno participa da calibração — FR-014
-- [ ] T015 Implementar `candles_origem` e `duracao_horas` nas séries produzidas, usados pelo diagnóstico de reamostragem
+- [X] T010 Implementar `TipoBarra` e `ParametrosBarra` em `data/bars.py` conforme data-model.md
+- [X] T011 Implementar `construir_dollar_bars(df, limiar)` em `data/bars.py`, acumulando `close × volume` e fechando ao cruzar
+- [X] T012 Implementar `construir_cusum_bars(df, limiar)` em `data/bars.py`, acumulando desvio positivo e negativo de retornos
+- [X] T013 Implementar `calibrar_limiar(df, tipo, barras_alvo, tolerancia, max_iteracoes)` em `data/bars.py` com o passo de Newton de D2, consultando **exclusivamente a contagem de barras**
+- [X] T014 Teste em `tests/test_bars.py`: `calibrar_limiar` converge para dentro da tolerância em no máximo 6 iterações, e nenhuma métrica de retorno participa da calibração — FR-014
+- [X] T015 Implementar `candles_origem` e `duracao_horas` nas séries produzidas, usados pelo diagnóstico de reamostragem
 
 **Checkpoint**: barras construídas, causalidade provada, calibração convergindo.
 
