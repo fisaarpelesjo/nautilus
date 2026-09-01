@@ -214,3 +214,91 @@ def _resultado_vazio(initial_capital: float) -> BacktestResult:
         total_return_pct=0.0, win_rate=0.0, total_trades=0, max_drawdown_pct=0.0,
         buy_hold_return_pct=0.0, edge_return_pct=0.0, **metrics,
     )
+
+# --------------------------------------------------------------- walk-forward
+
+@dataclass
+class WalkForwardFold:
+    """Resultado de uma janela do walk-forward."""
+    janela: int
+    buy_hold_pct: float
+    retorno_pct: float
+    exposicao_pct: float
+    max_drawdown_pct: float
+    trades: int
+
+    @property
+    def regime(self) -> str:
+        if self.buy_hold_pct > 5:
+            return "alta"
+        return "baixa" if self.buy_hold_pct < -5 else "lado"
+
+    @property
+    def passivo_pct(self) -> float:
+        """Buy-and-hold mantido na MESMA fracao de capital, sem nenhum timing.
+
+        E a referencia certa para uma estrategia que fica parcialmente em caixa:
+        sem ela, "perdi 6% enquanto o mercado caiu 55%" parece habilidade quando
+        pode ser apenas nao ter estado la.
+        """
+        return self.buy_hold_pct * (self.exposicao_pct / 100)
+
+    @property
+    def ganho_de_timing_pp(self) -> float:
+        """Quanto a ESCOLHA dos ativos rendeu, descontada a reducao de exposicao."""
+        return self.retorno_pct - self.passivo_pct
+
+
+def walk_forward(
+    dados: Dict[str, pd.DataFrame],
+    params: CrossSectionalParams,
+    n_janelas: int = 5,
+    initial_capital: float = 1000.0,
+) -> List[WalkForwardFold]:
+    """Roda a mesma configuracao em janelas contiguas e nao sobrepostas.
+
+    Por que existe: uma janela unica de confirmacao nao distingue vantagem de
+    sorte de regime. Uma configuracao desta estrategia mediu +29pp de edge numa
+    janela e, nas cinco janelas, entregou ganho de timing MEDIO negativo -- o
+    resultado bom era a janela, nao a estrategia.
+
+    Nao seleciona nada: recebe uma configuracao pronta e informa como ela se
+    comporta em cada regime. Escolher a melhor de uma varredura grande e o
+    mecanismo que produz vantagem inexistente.
+    """
+    if not dados:
+        return []
+    n = min(len(v) for v in dados.values())
+    tam = n // max(1, n_janelas)
+    if tam <= params.lookback:
+        log.warning("janelas menores que o lookback -- walk-forward nao aplicavel")
+        return []
+
+    folds: List[WalkForwardFold] = []
+    for j in range(n_janelas):
+        fatia = {k: v.iloc[j * tam:(j + 1) * tam] for k, v in dados.items()}
+        r = run_cross_sectional_backtest(fatia, params, initial_capital=initial_capital)
+        folds.append(WalkForwardFold(
+            janela=j + 1,
+            buy_hold_pct=r.buy_hold_return_pct,
+            retorno_pct=r.total_return_pct,
+            exposicao_pct=r.exposure_pct,
+            max_drawdown_pct=r.max_drawdown_pct,
+            trades=r.total_trades,
+        ))
+    return folds
+
+
+def resumir_walk_forward(folds: List[WalkForwardFold]) -> dict:
+    """Consolida o walk-forward. A media do ganho de timing e o numero que decide."""
+    if not folds:
+        return {"janelas": 0}
+    ganhos = [f.ganho_de_timing_pp for f in folds]
+    return {
+        "janelas": len(folds),
+        "timing_medio_pp": sum(ganhos) / len(ganhos),
+        "timing_pior_pp": min(ganhos),
+        "janelas_com_timing_positivo": sum(1 for g in ganhos if g > 0),
+        "retorno_medio_pct": sum(f.retorno_pct for f in folds) / len(folds),
+        "drawdown_maximo_pct": max(f.max_drawdown_pct for f in folds),
+    }

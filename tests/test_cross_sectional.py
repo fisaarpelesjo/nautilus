@@ -3,6 +3,9 @@ import pandas as pd
 import pytest
 
 from backtesting.cross_sectional import (
+    WalkForwardFold,
+    resumir_walk_forward,
+    walk_forward,
     CrossSectionalParams,
     _alinhar,
     run_cross_sectional_backtest,
@@ -89,3 +92,57 @@ def test_universo_vazio_nao_quebra():
 
     assert r.total_trades == 0
     assert r.final_capital == r.initial_capital
+
+
+def test_walk_forward_divide_em_janelas_e_mede_cada_uma():
+    dados = _universo([0.003, 0.001, -0.001, -0.003], n=1000)
+    folds = walk_forward(dados, CrossSectionalParams(lookback=30, top_k=2, rebalance_every=12), n_janelas=4)
+
+    assert len(folds) == 4
+    assert [f.janela for f in folds] == [1, 2, 3, 4]
+
+
+def test_ganho_de_timing_desconta_a_reducao_de_exposicao():
+    # O ponto do indicador: uma estrategia que so fica menos exposta num mercado
+    # em queda parece habilidosa. O ganho de timing tem que zerar nesse caso.
+    fold = WalkForwardFold(janela=1, buy_hold_pct=-50.0, retorno_pct=-25.0,
+                           exposicao_pct=50.0, max_drawdown_pct=5.0, trades=4)
+
+    assert fold.passivo_pct == pytest.approx(-25.0)
+    assert fold.ganho_de_timing_pp == pytest.approx(0.0)
+
+
+def test_ganho_de_timing_positivo_quando_a_escolha_agrega():
+    # Mesma exposicao do caso acima, mas perdendo menos: ai ha escolha, nao so
+    # ausencia.
+    fold = WalkForwardFold(janela=1, buy_hold_pct=-50.0, retorno_pct=-10.0,
+                           exposicao_pct=50.0, max_drawdown_pct=5.0, trades=4)
+
+    assert fold.ganho_de_timing_pp == pytest.approx(15.0)
+
+
+def test_classificacao_de_regime():
+    def r(bh):
+        return WalkForwardFold(1, bh, 0.0, 0.0, 0.0, 0).regime
+
+    assert r(20.0) == "alta"
+    assert r(-20.0) == "baixa"
+    assert r(1.0) == "lado"
+
+
+def test_walk_forward_recusa_janela_menor_que_o_lookback():
+    dados = _universo([0.001, -0.001], n=100)
+    assert walk_forward(dados, CrossSectionalParams(lookback=90), n_janelas=5) == []
+
+
+def test_resumo_do_walk_forward_consolida_o_ganho_de_timing():
+    folds = [
+        WalkForwardFold(1, -50.0, -10.0, 50.0, 5.0, 3),   # timing +15
+        WalkForwardFold(2, 20.0, 5.0, 100.0, 8.0, 3),     # timing -15
+    ]
+    resumo = resumir_walk_forward(folds)
+
+    assert resumo["janelas"] == 2
+    assert resumo["timing_medio_pp"] == pytest.approx(0.0)
+    assert resumo["timing_pior_pp"] == pytest.approx(-15.0)
+    assert resumo["janelas_com_timing_positivo"] == 1
