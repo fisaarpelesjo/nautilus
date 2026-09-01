@@ -67,16 +67,16 @@ aparece como reprovada.
 
 > Escrever primeiro e confirmar que falham antes de implementar.
 
-- [ ] T008 [P] [US1] Teste em `tests/test_horizonte.py`: combinação com número de operações abaixo de `EDGE_MIN_TRADES` recebe status `inconclusivo`, nunca `reprovado` — FR-003, a regra que separou H10 de reprovação indevida
-- [ ] T009 [P] [US1] Teste em `tests/test_horizonte.py`: combinação sem janela de validação válida (fatia abaixo de `MIN_WINDOW_CANDLES`) recebe `inconclusivo` com motivo declarando amostra insuficiente
-- [ ] T010 [P] [US1] Teste em `tests/test_horizonte.py`: `n_janelas` é derivado como `min(5, utilizaveis // MIN_WINDOW_CANDLES)` e resulta em `inconclusivo` quando fica abaixo de 3 — conforme decisão D2 de `research.md`
-- [ ] T011 [P] [US1] Teste em `tests/test_horizonte.py`: aprovação restrita à janela de descoberta produz `so_na_busca` e **não** `confirmado`
+- [X] T008 [P] [US1] Teste em `tests/test_horizonte.py`: combinação com número de operações abaixo de `EDGE_MIN_TRADES` recebe status `inconclusivo`, nunca `reprovado` — FR-003, a regra que separou H10 de reprovação indevida
+- [X] T009 [P] [US1] Teste em `tests/test_horizonte.py`: combinação sem janela de validação válida (fatia abaixo de `MIN_WINDOW_CANDLES`) recebe `inconclusivo` com motivo declarando amostra insuficiente
+- [X] T010 [P] [US1] Teste em `tests/test_horizonte.py`: `n_janelas` é derivado como `min(5, utilizaveis // MIN_WINDOW_CANDLES)` e resulta em `inconclusivo` quando fica abaixo de 3 — conforme decisão D2 de `research.md`
+- [X] T011 [P] [US1] Teste em `tests/test_horizonte.py`: aprovação restrita à janela de descoberta produz `so_na_busca` e **não** `confirmado`
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implementar a dataclass `CombinacaoAvaliada` em `backtesting/horizonte.py` conforme `data-model.md`, com os cinco estados de status
+- [X] T012 [US1] Implementar a dataclass `CombinacaoAvaliada` em `backtesting/horizonte.py` conforme `data-model.md`, com os cinco estados de status
 - [ ] T013 [US1] Implementar `_avaliar_combinacao(estrategia, horizonte, par, disponibilidade)` em `backtesting/horizonte.py`, delegando a `run_backtest` para E2, `split_train_validation` para E3 e `walk_forward` para E4, sem alterar nenhum limiar
-- [ ] T014 [US1] Implementar a precedência de `inconclusivo` sobre `reprovado` em `backtesting/horizonte.py`: amostra insuficiente decide o status antes de qualquer avaliação de métrica
+- [X] T014 [US1] Implementar a precedência de `inconclusivo` sobre `reprovado` em `backtesting/horizonte.py`: amostra insuficiente decide o status antes de qualquer avaliação de métrica
 - [ ] T015 [US1] Implementar `run_horizonte_scan(estrategias, pares, horizontes)` em `backtesting/horizonte.py`, varrendo as combinações e capturando exceção por combinação sem abortar a varredura, como faz `backtesting/multimarket.py::run_scan`
 - [ ] T016 [US1] Implementar a dataclass `RelatorioHorizonte` em `backtesting/horizonte.py` com as contagens agregadas de confirmadas e inconclusivas
 - [ ] T017 [US1] Implementar `cmd_horizonte()` em `main.py` e registrar os aliases `horizonte` e `horizontes` no despacho de comandos, conforme `contracts/cli-horizonte.md`

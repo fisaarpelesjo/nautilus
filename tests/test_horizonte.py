@@ -133,3 +133,119 @@ def test_medir_disponibilidade_calcula_cobertura_em_dias(monkeypatch):
     resultado = medir_disponibilidade(["BTC/USDT"], "1w", solicitado=2000)
 
     assert resultado[0].dias_cobertos == pytest.approx(2800.0)
+
+
+# =========================================================== F3 / US1
+
+def _fake_result(trades=20, pf=1.5, dd=5.0, ret=10.0, bh=0.0):
+    """BacktestResult minimo, so com os campos que o veredito consulta."""
+    from backtesting.engine import BacktestResult, _calculate_advanced_metrics
+
+    metrics = _calculate_advanced_metrics([])
+    metrics.update(profit_factor=pf, exposure_pct=50.0)
+    return BacktestResult(
+        trades=[], initial_capital=1000.0, final_capital=1000.0 + ret * 10,
+        total_return_pct=ret, win_rate=50.0, total_trades=trades,
+        max_drawdown_pct=dd, buy_hold_return_pct=bh, edge_return_pct=ret - bh,
+        **metrics,
+    )
+
+
+# --------------------------------------------------- T008 precedencia FR-003
+
+def test_amostra_abaixo_do_minimo_e_inconclusiva_nunca_reprovada():
+    """FR-003 / R1 — a regra que separou H10 de uma reprovacao indevida.
+
+    Metricas ruins com amostra insuficiente NAO sao evidencia de ausencia de
+    vantagem. O status tem de ser decidido pela amostra antes de qualquer
+    avaliacao de metrica.
+    """
+    from backtesting.horizonte import classificar_status
+    from config.settings import EDGE_MIN_TRADES
+
+    ruim = _fake_result(trades=EDGE_MIN_TRADES - 1, pf=0.2, dd=40.0, ret=-30.0)
+    status, motivo = classificar_status(
+        resultado=ruim, confirmacao=None, n_janelas=5, utilizaveis=2000,
+    )
+
+    assert status == "inconclusivo"
+    assert "operac" in motivo.lower()
+
+
+def test_amostra_suficiente_com_metrica_ruim_e_reprovada():
+    from backtesting.horizonte import classificar_status
+
+    ruim = _fake_result(trades=50, pf=0.3, dd=40.0, ret=-30.0)
+    status, _ = classificar_status(
+        resultado=ruim, confirmacao=None, n_janelas=5, utilizaveis=2000,
+    )
+
+    assert status == "reprovado"
+
+
+# ----------------------------------------------- T009 janela de confirmacao
+
+def test_sem_janela_de_validacao_valida_o_status_e_inconclusivo():
+    from backtesting.horizonte import classificar_status
+    from backtesting.validation import MIN_WINDOW_CANDLES
+
+    bom = _fake_result(trades=30, pf=1.8, dd=5.0, ret=20.0)
+    status, motivo = classificar_status(
+        resultado=bom, confirmacao=None, n_janelas=5,
+        utilizaveis=MIN_WINDOW_CANDLES,  # cabe a busca, nao a confirmacao
+    )
+
+    assert status == "inconclusivo"
+    assert "amostra" in motivo.lower() or "janela" in motivo.lower()
+
+
+# ------------------------------------------------------ T010 n_janelas D2
+
+def test_n_janelas_derivado_do_historico_utilizavel():
+    from backtesting.horizonte import derivar_n_janelas
+    from backtesting.validation import MIN_WINDOW_CANDLES
+
+    assert derivar_n_janelas(1950) == 5                      # 4h e 1d
+    assert derivar_n_janelas(MIN_WINDOW_CANDLES * 3) == 3
+    assert derivar_n_janelas(MIN_WINDOW_CANDLES * 2) == 2    # 1w: abaixo do minimo
+    assert derivar_n_janelas(100) == 0
+
+
+def test_menos_de_tres_janelas_torna_o_resultado_inconclusivo():
+    """D2 — em escala semanal sobram 1 ou 2 janelas, insuficiente para E4."""
+    from backtesting.horizonte import classificar_status
+
+    bom = _fake_result(trades=30, pf=1.8, dd=5.0, ret=20.0)
+    status, motivo = classificar_status(
+        resultado=bom, confirmacao=_fake_result(trades=15, pf=1.5),
+        n_janelas=2, utilizaveis=400,
+    )
+
+    assert status == "inconclusivo"
+    assert "janela" in motivo.lower()
+
+
+# --------------------------------------------------------- T011 so_na_busca
+
+def test_aprovado_na_busca_e_reprovado_na_confirmacao_vira_so_na_busca():
+    from backtesting.horizonte import classificar_status
+
+    status, _ = classificar_status(
+        resultado=_fake_result(trades=30, pf=1.8, dd=5.0, ret=20.0),
+        confirmacao=_fake_result(trades=20, pf=0.4, dd=5.0, ret=-8.0),
+        n_janelas=5, utilizaveis=2000,
+    )
+
+    assert status == "so_na_busca"
+
+
+def test_aprovado_nas_duas_janelas_vira_confirmado():
+    from backtesting.horizonte import classificar_status
+
+    status, _ = classificar_status(
+        resultado=_fake_result(trades=30, pf=1.8, dd=5.0, ret=20.0),
+        confirmacao=_fake_result(trades=20, pf=1.6, dd=6.0, ret=15.0),
+        n_janelas=5, utilizaveis=2000,
+    )
+
+    assert status == "confirmado"

@@ -39,11 +39,16 @@ RESTRICAO OPERACIONAL
 Nao altera TIMEFRAME de producao (FR-012). O modulo le a configuracao apenas
 para exibir a linha de base; nunca escreve em .env nem em estado do bot.
 """
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple
 
-from config.settings import EMA_TREND, RSI_PERIOD
+from backtesting.approval import evaluate_approval
+from backtesting.cross_sectional import WalkForwardFold
+from backtesting.engine import BacktestResult, simulate_backtest
+from backtesting.validation import MIN_WINDOW_CANDLES
+from config.settings import EDGE_MIN_TRADES, EMA_TREND, RSI_PERIOD
 from data.fetcher import fetch_ohlcv
+from strategy.base import BaseStrategy
 from utils.logger import get_logger
 
 log = get_logger("horizonte")
@@ -64,6 +69,13 @@ DIAS_POR_CANDLE = {
 # marcava os 12 pares em 1w, e alerta que dispara sempre equivale a alerta
 # nenhum.
 LIMIAR_HISTORICO_CURTO = 0.80
+
+# Numero maximo de janelas de walk-forward, e minimo exigido pela etapa E4 da
+# bateria. Abaixo de MIN_JANELAS_E4 o resultado e inconclusivo: tres janelas e o
+# piso para distinguir vantagem de sorte de regime, e foi por ter olhado UMA
+# janela que H7 quase foi aprovada com +29pp que nao replicou.
+MAX_JANELAS = 5
+MIN_JANELAS_E4 = 3
 
 
 @dataclass
@@ -157,3 +169,98 @@ def marcar_historico_curto(
     disponibilidades: List[DisponibilidadeHistorico],
 ) -> List[DisponibilidadeHistorico]:
     raise NotImplementedError("T029")
+
+
+# ----------------------------------------------------------- avaliacao (US1)
+
+@dataclass
+class CombinacaoAvaliada:
+    """Uma estrategia, em um horizonte, sobre um par."""
+
+    estrategia: str
+    horizonte: str
+    par: str
+    disponibilidade: DisponibilidadeHistorico
+    resultado_janela_unica: Optional[BacktestResult] = None
+    resultado_busca: Optional[BacktestResult] = None
+    resultado_confirmacao: Optional[BacktestResult] = None
+    folds: List[WalkForwardFold] = field(default_factory=list)
+    retorno_sem_custo_pct: Optional[float] = None
+    n_janelas: int = 0
+    status: str = "inconclusivo"
+    motivo: str = ""
+
+
+def derivar_n_janelas(utilizaveis: int) -> int:
+    """Quantas janelas de walk-forward o historico comporta (D2).
+
+    Nao e numero fixo: cinco janelas contiguas sobre poucos candles semanais
+    produzem fatias sem operacao alguma -- aconteceu em H10, onde a janela 1
+    teve zero trades. O piso de MIN_WINDOW_CANDLES por fatia e o mesmo ja usado
+    pela confirmacao fora da amostra, para as duas etapas nao discordarem sobre
+    o que e amostra suficiente.
+    """
+    return min(MAX_JANELAS, utilizaveis // MIN_WINDOW_CANDLES)
+
+
+def classificar_status(
+    resultado: Optional[BacktestResult],
+    confirmacao: Optional[BacktestResult],
+    n_janelas: int,
+    utilizaveis: int,
+) -> Tuple[str, str]:
+    """Veredito consolidado. `inconclusivo` PRECEDE `reprovado` (R1, FR-003).
+
+    A ordem das checagens e o conteudo da regra: amostra insuficiente decide o
+    status ANTES de qualquer avaliacao de metrica. Inverter a ordem faria uma
+    combinacao com 3 operacoes e profit factor 0,2 ser reportada como reprovada,
+    quando o que houve foi ausencia de amostra -- e ausencia de amostra nao e
+    evidencia de ausencia de vantagem.
+    """
+    if resultado is None:
+        return "inconclusivo", "sem resultado de simulacao"
+
+    if resultado.total_trades < EDGE_MIN_TRADES:
+        return ("inconclusivo",
+                f"{resultado.total_trades} operacoes, abaixo do minimo de {EDGE_MIN_TRADES}")
+
+    # A janela de descoberta e avaliada ANTES de exigir confirmacao: se a
+    # estrategia ja reprova onde foi descoberta, nao ha o que confirmar. A
+    # janela de confirmacao so pode REBAIXAR um resultado, nunca promove-lo.
+    veredito_busca = evaluate_approval(resultado)
+    if veredito_busca.status != "aprovado":
+        return "reprovado", "; ".join(veredito_busca.reasons[:3])
+
+    if confirmacao is None:
+        return ("inconclusivo",
+                f"amostra nao comporta janela de confirmacao "
+                f"({utilizaveis} candles uteis, minimo {MIN_WINDOW_CANDLES} por fatia)")
+
+    if n_janelas < MIN_JANELAS_E4:
+        return ("inconclusivo",
+                f"{n_janelas} janelas de walk-forward, abaixo do minimo de {MIN_JANELAS_E4}")
+
+    veredito_conf = evaluate_approval(confirmacao)
+    if veredito_conf.status != "aprovado":
+        # Aprovada onde foi descoberta e nao sustentada fora. NAO e aprovacao.
+        return "so_na_busca", "; ".join(veredito_conf.reasons[:3])
+
+    return "confirmado", "aprovado na busca e na confirmacao"
+
+
+def _simular(df, estrategia: BaseStrategy, **kwargs) -> Optional[BacktestResult]:
+    """Simula sobre um DataFrame ja obtido, para nao rebuscar a mesma serie.
+
+    `run_backtest` busca dados por conta propria; aqui a serie ja esta em maos e
+    precisa ser fatiada em busca/confirmacao, entao o caminho e `simulate_backtest`.
+    """
+    if df is None or len(df) < aquecimento_candles() + 10:
+        return None
+    try:
+        preparado = estrategia.calculate_indicators(df.copy())
+        return simulate_backtest(
+            preparado, estrategia, start_index=aquecimento_candles(), **kwargs
+        )
+    except Exception as exc:
+        log.warning(f"simulacao falhou: {type(exc).__name__}: {str(exc)[:60]}")
+        return None
