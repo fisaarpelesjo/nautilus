@@ -61,6 +61,7 @@ python main.py compare              # compara multiplas estrategias/presets lado
 python main.py multimarket [SIMB..] # varre estrategia x simbolo em varios mercados, com confirmacao fora da amostra
 python main.py horizonte [TF..]     # avalia as estrategias em 4h/1d/1w com a bateria completa (spec 024)
 python main.py volatilidade [ALVO]  # compara cada estrategia com e sem dimensionamento por volatilidade (spec 025)
+python main.py barras [TIPO]        # compara amostragem por tempo vs por informacao (dollar/cusum, spec 026)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal

@@ -58,6 +58,7 @@ graph LR
 | `python main.py multimarket [SÍMBOLOS...]` | Varre estratégia × símbolo em vários mercados, **exigindo confirmação fora da janela de busca** — ver abaixo |
 | `python main.py horizonte [TF...]` | Avalia as estratégias em 4h/1d/1w com a bateria completa — ver abaixo |
 | `python main.py volatilidade [ALVO]` | Compara cada estratégia com e sem dimensionamento por volatilidade — ver abaixo |
+| `python main.py barras [TIPO]` | Compara amostragem por tempo contra amostragem por informação — ver abaixo |
 | `python main.py optimize` | Grid search dos melhores parâmetros |
 | `python main.py optimize --walk-forward` | Grid search com validação walk-forward |
 | `python main.py select` | Ranqueia candidatos de pares dinâmicos por liquidez, spread e volatilidade |
@@ -250,3 +251,72 @@ Ajustar o tamanho implica giro, e giro paga taxa. A coluna `dCusto` e o agregado
 ao fim separam "o mecanismo não ajuda" de "o mecanismo ajuda e o custo come o
 ganho" — conclusões diferentes. Custo não medido aparece como `-`, nunca como
 `0,00`.
+
+---
+
+## Barras dirigidas por informação (pesquisa — spec 026)
+
+`python main.py barras [dollar|cusum]` (alias `bars`) roda cada estratégia
+**duas vezes sobre a mesma base de 1h**: uma agrupada por relógio, outra
+agrupada por atividade acumulada.
+
+**Por que existe.** As doze hipóteses avaliadas antes rodaram todas sobre
+candles de tempo fixo. Informação não chega uniformemente no tempo — chega em
+rajadas —, e uma barra de 4h numa madrugada parada é tratada como equivalente a
+uma barra de 4h durante uma liquidação. Se o esquema de amostragem for o
+problema, cada hipótese direcional reprovada mediu o **relógio**, não a
+estratégia.
+
+### As três decisões que tornam a comparação válida
+
+**Base de 1h × 8.000 candles.** Dá 333,3 dias, que é a mesma janela de
+calendário do `4h × 2.000` usado por todas as avaliações anteriores. Foi
+possível porque `fetch_ohlcv` pagina; com o limite de 2.000, 1h daria apenas 83
+dias e a comparação mediria períodos diferentes.
+
+**Limiar calibrado, não escolhido.** O limiar é ajustado por iteração até a
+contagem de barras parear com a de tempo, consultando **exclusivamente essa
+contagem** — nenhuma métrica de retorno participa. Sem isso, a comparação seria
+entre 1.532 barras e 2.000 candles, o que mede tamanho de amostra e não esquema
+de amostragem. É calibração de escala, como o alvo de volatilidade de H12.
+
+**Rótulo é o instante em que a barra termina.** Nas duas versões. Isso faz
+`close` ser função apenas do rótulo: uma barra rotulada T tem close igual ao
+preço em T, larga ou estreita. É o que torna o buy-and-hold **idêntico** entre
+as amostragens, e o buy-and-hold é o único ponto fixo entre elas.
+
+> Esta última só apareceu ao comparar dado real: `pandas.resample` rotula pela
+> borda esquerda e a construção de barras rotulava pelo último candle. Duas
+> convenções diferentes faziam o mesmo instante ter closes diferentes — 111.170
+> contra 110.422 — e a guarda de ancoragem reprovava todas as combinações.
+
+### Estados
+
+| Estado | Significado |
+|---|---|
+| `melhora` | Base lucrativa, ganho sobreviveu ao desconto de exposição **e** se confirmou fora da amostra |
+| `só na busca` | Melhorou onde foi medido, não se sustentou na validação. **Não é aprovação** |
+| `confundido` | A versão de tempo **perde dinheiro**: operar menos aproxima de zero e isso não é vantagem |
+| `sem vantagem` | O ganho desapareceu ao descontar exposição |
+| `piora` | Drawdown subiu |
+| `inconclusivo` | Amostra insuficiente, aquecimento que não cabe na janela, ou sem janela de validação |
+| `inerte` | Cada candle de base virou uma barra: as duas versões são a mesma série |
+| `erro` | Falha ao obter dados, construir barras, ou buy-and-hold desancorado |
+
+**`inerte` se mede contra a base, não contra a versão de tempo.** Consequência
+direta da calibração: `n_barras ≈ n_tempo` é o resultado *desejado*. Medir
+inércia por essa razão marcaria como inerte exatamente o caso bem calibrado.
+
+**`dTiming` desconta exposição de TEMPO aqui**, diferente da spec 025, que usa
+capital. Mudar a amostragem muda *quando* as decisões acontecem, então a
+exposição de tempo responde — medido entre −3,2 e +8,0 pontos percentuais. Em
+H12 o mecanismo alterava só o tamanho da posição e a exposição de tempo era
+invariante por construção, e foi por isso que M10 exigiu a medida de capital.
+
+### Executabilidade
+
+Seria executável: construir barras ao vivo é aritmética sobre candles que o bot
+já busca. **Ressalva:** o limiar é calibrado sobre histórico e regimes de volume
+mudam, então operar isto exigiria recalibração periódica — mecanismo que não
+existe e que a spec 026 não implementa. Aprovar algo inexecutável é pior que
+reprovar, por isso a ressalva aparece na própria saída do comando.
