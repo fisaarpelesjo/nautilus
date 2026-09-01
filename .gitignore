@@ -1,4 +1,9 @@
 .env
+# Qualquer variante do .env (backup, local, por-ambiente) carrega as mesmas
+# chaves da Binance. Sem esta linha, .env.bak entra num git add -A -- foram
+# encontrados 4 deles nao rastreados em 2026-09-01.
+.env.*
+!.env.example
 logs/
 __pycache__/
 *.pyc
