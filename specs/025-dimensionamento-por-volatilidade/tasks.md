@@ -133,8 +133,8 @@ ao buy-and-hold. É o achado M7.
 - [ ] T033 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o significado de `sem vantagem`
 - [X] T034 Executar a varredura completa e registrar o veredito de H12 em `docs/research/registro-de-hipoteses.md`, confrontando a predição de `research.md` com o observado
 - [X] T035 Reordenar a fila de hipóteses em `docs/research/registro-de-hipoteses.md` conforme o resultado
-- [ ] T036 Executar os oito cenários de `quickstart.md` e confirmar que todos passam
-- [ ] T037 Confirmar `git diff --stat risk/manager.py` vazio e rodar a suíte completa sem redução na contagem
+- [X] T036 Executar os oito cenários de `quickstart.md` e confirmar que todos passam
+- [X] T037 Confirmar `git diff --stat risk/manager.py` vazio e rodar a suíte completa sem redução na contagem
 
 ---
 
