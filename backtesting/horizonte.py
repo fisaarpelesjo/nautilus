@@ -298,6 +298,15 @@ def classificar_status(
         return ("inconclusivo",
                 f"{n_janelas} janelas de walk-forward, abaixo do minimo de {MIN_JANELAS_E4}")
 
+    # A mesma checagem de amostra da janela de busca, aplicada a de confirmacao.
+    # `so_na_busca` afirma algo substantivo -- "passou onde foi descoberta e NAO
+    # se sustentou fora". Com menos operacoes que o minimo, essa afirmacao nao
+    # tem suporte: nao foi testada e reprovou, foi testada de menos.
+    if confirmacao.total_trades < EDGE_MIN_TRADES:
+        return ("inconclusivo",
+                f"janela de confirmacao com {confirmacao.total_trades} operacoes, "
+                f"abaixo do minimo de {EDGE_MIN_TRADES}")
+
     veredito_conf = evaluate_approval(confirmacao)
     if veredito_conf.status != "aprovado":
         # Aprovada onde foi descoberta e nao sustentada fora. NAO e aprovacao.

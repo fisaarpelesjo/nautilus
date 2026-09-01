@@ -523,3 +523,36 @@ def test_derivar_n_janelas_e_monotonico_no_historico():
 
     assert valores == sorted(valores)
     assert valores[-1] == 5
+
+
+def test_confirmacao_com_amostra_insuficiente_e_inconclusiva_nao_so_na_busca():
+    """M9 — R1 valia so para a janela de busca; a de confirmacao ficou de fora.
+
+    Varredura de 2026-09-01 classificou 12 combinacoes como `so_na_busca` cujo
+    motivo real era amostra insuficiente na validacao (uma delas com 2 trades).
+    `so_na_busca` afirma que a estrategia NAO se sustentou fora -- afirmacao sem
+    suporte quando a janela mal foi exercitada.
+    """
+    from backtesting.horizonte import classificar_status
+    from config.settings import EDGE_MIN_TRADES
+
+    status, motivo = classificar_status(
+        resultado=_fake_result(trades=30, pf=1.8, dd=5.0, ret=20.0),
+        confirmacao=_fake_result(trades=EDGE_MIN_TRADES - 1, pf=0.3, dd=8.0, ret=-5.0),
+        n_janelas=5, utilizaveis=2000,
+    )
+
+    assert status == "inconclusivo"
+    assert "confirmacao" in motivo.lower()
+
+
+def test_confirmacao_com_amostra_suficiente_e_metrica_ruim_vira_so_na_busca():
+    from backtesting.horizonte import classificar_status
+
+    status, _ = classificar_status(
+        resultado=_fake_result(trades=30, pf=1.8, dd=5.0, ret=20.0),
+        confirmacao=_fake_result(trades=25, pf=0.3, dd=8.0, ret=-5.0),
+        n_janelas=5, utilizaveis=2000,
+    )
+
+    assert status == "so_na_busca"
