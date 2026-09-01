@@ -165,11 +165,11 @@ propósito. Esta fase acrescenta o que torna a propriedade **visível**.
 - [X] T043 [P] Exportar o resultado para `reports/barras_{timestamp}.{json,csv,md}` via `utils/report_export.py`
 - [X] T044 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige sincronia
 - [X] T045 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o significado de `inerte` e `confundido` e a ressalva de executabilidade (D6)
-- [ ] T046 Executar a varredura completa e registrar o veredito de H13 em `docs/research/registro-de-hipoteses.md`, confrontando a predição de `research.md` com o observado
-- [ ] T047 Registrar em `docs/research/registro-de-hipoteses.md` a declaração de executabilidade operacional (FR-017), incluindo a ressalva de recalibração de limiar
-- [ ] T048 Reordenar a fila de hipóteses conforme o resultado
-- [ ] T049 Executar os dez cenários de `quickstart.md` e confirmar que todos passam
-- [ ] T050 Confirmar `git diff --stat` vazio em `risk/`, `execution/`, `trading/` e `data/fetcher.py`, e rodar a suíte completa sem redução na contagem
+- [X] T046 Executar a varredura completa e registrar o veredito de H13 em `docs/research/registro-de-hipoteses.md`, confrontando a predição de `research.md` com o observado
+- [X] T047 Registrar em `docs/research/registro-de-hipoteses.md` a declaração de executabilidade operacional (FR-017), incluindo a ressalva de recalibração de limiar
+- [X] T048 Reordenar a fila de hipóteses conforme o resultado
+- [X] T049 Executar os dez cenários de `quickstart.md` e confirmar que todos passam
+- [X] T050 Confirmar `git diff --stat` vazio em `risk/`, `execution/`, `trading/` e `data/fetcher.py`, e rodar a suíte completa sem redução na contagem
 
 ---
 

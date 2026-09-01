@@ -226,8 +226,9 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** | Aprovada em E2; reprovada em E3/E4; seletor com 20% de poder |
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
+| H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 
-**Taxa de aprovação: 0 de 12.** Três inconclusivas (H10; H11 em escala
+**Taxa de aprovação: 0 de 13.** Três inconclusivas (H10; H11 em escala
 semanal; H12 por impossibilidade estrutural de teste — ver 4.13).
 
 ---
@@ -782,6 +783,139 @@ spec `025-dimensionamento-por-volatilidade`.
 
 ---
 
+### 4.14 H13 — Barras dirigidas por informação
+
+**Tese.** Amostrar em intervalos de tempo fixos é uma escolha arbitrária, não
+uma propriedade do mercado. Informação chega em rajadas: uma barra de 4h numa
+madrugada parada e outra durante uma liquidação em cascata são tratadas como
+observações equivalentes. Barras que fecham quando uma quantidade de
+**atividade** se acumula produziriam retornos mais próximos das premissas que os
+indicadores assumem.
+
+**Procedência interna.** As doze hipóteses anteriores rodaram **todas** sobre
+candles de tempo fixo. Se o esquema de amostragem fosse o problema, cada
+hipótese direcional reprovada teria medido o **relógio**, não a estratégia — e
+H1 a H7 precisariam de reavaliação. Esta é a pergunta que H13 fecha.
+
+**Método.** Base de 1h × 8.000 candles = 333,3 dias, a mesma janela de
+calendário do 4h × 2.000 usado por todas as avaliações anteriores. Cada
+estratégia roda duas vezes sobre a **mesma base**: agrupada por relógio e
+agrupada por atividade. Limiar calibrado até a contagem de barras parear com a
+de tempo, consultando exclusivamente essa contagem.
+
+#### Resultado
+
+| Estado | Combinações |
+|---|---|
+| **melhora** | **1** |
+| só na busca | 0 |
+| confundida | 6 |
+| sem vantagem | 14 |
+| piora | 35 |
+| inconclusiva | 40 |
+| inerte | 0 |
+| erro | 0 |
+| **total** | **96** |
+
+#### O instrumento funcionou — e isso é o que separa H13 de H12
+
+| Verificação | Resultado |
+|---|---|
+| Divergência máxima de buy-and-hold entre as versões | **0,00000000 pp** |
+| Combinações inertes | **0 de 96** |
+| Barras por candle de base (mediana) | 0,243 (dollar) · 0,250 (cusum) |
+| Barras de um candle só (mediana) | 15,7% (dollar) · 22,1% (cusum) |
+
+A reamostragem **atuou em todas as combinações**, e a âncora de referência é
+exata, não aproximada. Em H12, 37 de 48 combinações não mediram nada e o
+veredito precisou ser inconclusivo. Aqui a evidência é utilizável.
+
+#### A direção do efeito é negativa, não neutra
+
+Agregado das 56 combinações avaliadas:
+
+| Grandeza | Mediana | Média | Positivas |
+|---|---|---|---|
+| Ganho de timing (pp) | **−0,959** | −1,183 | 14 de 56 |
+| Retorno (pp) | −0,444 | −0,461 | 19 de 56 |
+
+Amostrar por informação **piorou** o resultado em três de cada quatro
+combinações avaliadas.
+
+**E não é custo de giro.** A separação de E6 mostra `dRet` médio de −0,46pp com
+custo e **−0,57pp sem custo**: removendo taxa e slippage o resultado fica
+ligeiramente pior, não melhor. A degradação vem da amostragem em si.
+
+#### A única melhora é menos do que o acaso produziria
+
+`Squeeze Breakout × SOL/USDT × CUSUM` — retorno +0,18% → +1,21%, drawdown 1,30%
+→ 0,58%, ganho de timing +0,695pp na busca e +0,531pp na validação fora da
+amostra. Passou a confirmação.
+
+E ainda assim **não é evidência de efeito**. Foram **96 combinações testadas**.
+Sob a hipótese nula, com o nível de significância convencional que a confirmação
+fora da amostra aproxima, esperar-se-iam cerca de **cinco** aprovações
+espúrias. Observar **uma** está *abaixo* da expectativa do acaso.
+
+Este é o mesmo raciocínio que a seção 2.2 estabeleceu e que fundamentou a
+rejeição de H5: uma aprovação isolada dentro de uma varredura ampla é o
+resultado esperado de testar muitas coisas, não a descoberta de um efeito.
+Registrar a combinação nominalmente é honesto; tratá-la como achado não seria.
+
+Por variante: **dollar 0 melhoras em 48**; **CUSUM 1 em 48**.
+
+#### Veredito: REPROVADA
+
+Não inconclusiva. Diferente de H12, aqui todas as pré-condições de mensuração
+foram satisfeitas: instrumento ativo em 100% das combinações, âncora exata, 56
+combinações com amostra suficiente, confirmação fora da amostra aplicada. O
+efeito medido é negativo e consistente.
+
+**A pergunta que H13 fecha:** as doze reprovações anteriores **não** mediram o
+relógio. Trocar o esquema de amostragem não as recupera — piora-as. A suspeita
+de que a amostragem por tempo fosse a causa das reprovações está encerrada, e
+H1 a H7 **não** precisam de reavaliação por esse motivo.
+
+#### Predições registradas antes da execução
+
+Ambas em `specs/026-barras-por-informacao/research.md`, escritas antes de
+qualquer código:
+
+| Predição | Observado |
+|---|---|
+| "O resultado mais provável é que a amostragem mude os números sem mudar o veredito" | **Confirmada**, e mais forte: mudou os números para pior |
+| "Espera-se `delta_exposicao_tempo` diferente de zero, diferente de H12" | **Confirmada**: medido entre −3,2 e +8,0pp. A exposição de tempo responde, e a medida original de M7 serve — não há quarta forma da família nesta dimensão |
+
+#### Executabilidade operacional (FR-017)
+
+**Seria executável.** Construir barras ao vivo é aritmética sobre candles que o
+bot já busca; não exige infraestrutura nova.
+
+**Ressalva:** o limiar é calibrado sobre histórico e regimes de volume mudam. Um
+limiar de 2025 aplicado em 2027 produziria barras sistematicamente mais largas
+ou mais finas do que o pretendido. Operar isto exigiria recalibração periódica —
+mecanismo que não existe e que a spec 026 não implementa. A ressalva é registrada
+mesmo com o veredito negativo, porque a decisão sobre ela pertenceria ao usuário.
+
+#### Limitação declarada
+
+Barras dirigidas por informação canônicas se constroem de **dados de negociação
+individuais**. Este projeto consome candles agregados, então uma barra é sempre
+união de candles inteiros e suas fronteiras só caem em marcas de hora. Com
+mediana de ~4 candles de 1h por barra, o erro de posicionamento de fronteira é
+de até ±0,5h, cerca de **12% da largura típica**.
+
+A reprovação vale para barras construíveis a partir de OHLCV agregado. Um
+resultado diferente com dados de tick não está excluído por esta evidência — mas
+exigiria uma fonte de dados que o projeto não possui, e o efeito precisaria ser
+grande o bastante para inverter uma degradação mediana de −0,96pp no ganho de
+timing.
+
+**Reprodução:** `python main.py barras` · `reports/barras_*.json` · spec
+`026-barras-por-informacao`.
+
+---
+
 ## 5. Achados metodológicos (defeitos de instrumentação)
 
 Distintos das hipóteses, estes achados dizem respeito à **confiabilidade do
@@ -803,6 +937,8 @@ com base em medições anteriores.
 | M10 | Desconto de exposição medido em **tempo**, cego a mecanismos que variam **capital** | `_exposure_pct` mede segundos em posição sobre segundos do período. Dimensionar por volatilidade muda quanto capital entra, nunca quando entra ou sai. Consequência: `delta_exposicao` deu **exatamente 0,0 nas 48 combinações**, o desconto não descontou nada, e o estado `sem_vantagem` — a guarda contra M7 — era **inatingível por construção**. Zero ocorrências não era ausência do fenômeno: era um estado que o instrumento não conseguia produzir | Corrigido (`exposicao_de_capital`, 2026-09-01) |
 | M11 | Melhora sobre base de expectativa negativa lida como vantagem | Reduzir posição encolhe a magnitude do resultado **nos dois sentidos**. Sobre estratégia perdedora isso aproxima o resultado de zero e a métrica registra ganho. Medido em H12: correlação de **−0,92** entre retorno base e ganho de timing, concordância de sinal em **8 de 8** combinações — a métrica seguia o sinal da base, não a qualidade do dimensionamento. O limite da lógica é não operar, que maximizaria o critério sem ganhar nada | Corrigido (status `confundido`, 2026-09-01) |
 
+| M12 | Duas convenções de índice convivendo ao comparar amostragens | `pandas.resample` rotula a barra pela borda **esquerda** (abertura) enquanto a construção de barras dirigidas rotulava pelo último candle do grupo. O mesmo instante passava a ter preços de fechamento diferentes em cada versão — medido: 111.169,92 contra 110.422,10 — e o buy-and-hold de cada amostragem media um trecho ligeiramente distinto, desancorando a comparação. A guarda de ancoragem reprovava **todas** as combinações, corretamente. Correção: rotular pelo instante em que a barra **termina**, nas duas versões, o que faz `close` ser função apenas do rótulo e torna a âncora exata (divergência 0,00000000pp) | Corrigido (`data/bars.py`, `backtesting/barras.py`, 2026-09-01) |
+
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
 falso positivo, não instâncias.
@@ -820,6 +956,14 @@ observado com a predição registrada antes da execução. O primeiro fio foi o
 fator médio de **0,983 medido contra 0,901 previsto** — discrepância pequena o
 bastante para passar despercebida se a previsão não estivesse escrita.
 
+**M12 tem procedência diferente das demais.** Não veio de confrontar resultado
+com predição, e sim de um **teste de fumaça em dado real** rodado antes da
+varredura. A guarda que o detectou (`FR-007`, buy-and-hold ancorado) tinha sido
+escrita para outro propósito — verificar que as janelas cobriam o mesmo período
+— e capturou uma causa que ninguém havia previsto. É argumento a favor de
+guardas declaradas antes de existir suspeita: elas pegam o que não se pensou em
+procurar.
+
 ---
 
 ## 6. Hipóteses não testadas
@@ -835,22 +979,21 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 *(H12 avaliada em 2026-09-01 — ver seção 4.13. Status: inconclusiva. **Movida
 para 6.4**: depende de uma estratégia lucrativa existir antes.)*
 
-**H13 — Barras dirigidas por informação (CUSUM, volume bars, dollar bars)** — *próxima da fila*
+*(H13 avaliada em 2026-09-01 — ver seção 4.14. Status: **reprovada**. 96
+combinações, 1 melhora, abaixo do que o acaso produziria; efeito mediano
+negativo em três de cada quatro combinações avaliadas.)*
 
-- *Fundamentação:* amostragem por tempo fixo viola homocedasticidade; barras por
-  volume ou valor negociado produzem retornos mais próximos de normalidade.
-- *Custo:* médio — nova camada de amostragem antes do cálculo de indicadores.
-- *Por que subiu:* é hipótese sobre o **sinal**, e o registro precisa de sinal
-  com expectativa positiva antes de qualquer refinamento de gestão. H12
-  demonstrou que hipóteses de dimensionamento não são testáveis sem isso.
-
-### 6.2 Prioridade média
-
-**H14 — Aprendizado de máquina supervisionado com rotulagem de barreira tripla**
+**H14 — Aprendizado de máquina supervisionado com rotulagem de barreira tripla** — *próxima da fila*
 
 - *Fundamentação:* literatura reporta ganho de acurácia preditiva; método de
   rotulagem consolidado.
-- *Risco dominante:* sobreajuste. Exigiria walk-forward mais rigoroso que o atual.
+- *Risco dominante:* sobreajuste. Exigiria walk-forward mais rigoroso que o
+  atual, e H13 mostra por quê: 96 combinações produziram **uma** aprovação
+  confirmada fora da amostra, e ainda assim isso está abaixo da expectativa do
+  acaso. Um modelo com muitos graus de liberdade multiplicaria o problema.
+- *Custo:* alto — a hipótese mais cara da fila.
+
+### 6.2 Prioridade média
 
 **H15 — Arbitragem entre exchanges**
 
@@ -874,6 +1017,32 @@ volatilidade sem gestão de cauda.
 
 **H19 — Estratégias com opções (covered calls)** — mercado de opções cripto de
 liquidez restrita; fora do escopo spot.
+
+### 6.3-b Padrão acumulado após treze hipóteses
+
+Vale registrar o que treze avaliações desenham, porque isso deveria informar a
+ordem da fila mais do que a razão evidência/custo isolada de cada item.
+
+**Toda hipótese que exige prever direção falhou** — H1 a H7, H11, H13. As duas
+que chegaram mais perto de significar algo não eram direcionais: H10
+(cointegração) foi a única a passar em E2, com profit factor de 1,58, e falhou
+por poder estatístico do seletor, não por ausência de efeito; H8 (funding rate)
+mediu um efeito **real**, apenas pequeno demais — +3,21% ao ano contra os 10–30%
+alegados na literatura popular.
+
+Isso sugere que a família promissora é a **relativa e não-preditiva**: explorar
+relações observáveis entre instrumentos, em vez de prever o movimento de um.
+H15 (arbitragem entre corretoras) pertence a ela; H14 (aprendizado
+supervisionado) é direcional e carrega o risco dominante de sobreajuste.
+
+**A fila mantém H14 antes de H15** por dois motivos declarados: H14 gera sinal
+próprio, e o registro precisa de sinal antes de qualquer refinamento de gestão
+(§4.13); e o obstáculo de H15 é **operacional**, não de evidência — exige
+capital em múltiplas corretoras, latência competitiva e risco de transferência,
+decisões que pertencem ao usuário e não à avaliação.
+
+Se H14 reprovar, reordenar para a família relativa deixa de ser sugestão e passa
+a ser a leitura direta do registro.
 
 ### 6.4 Bloqueadas por pré-condição
 
