@@ -189,6 +189,46 @@ def marcar_historico_curto(
     return disponibilidades
 
 
+
+# ------------------------------------------------------------- escopo de H11
+
+# Universo: os mesmos 12 pares usados na avaliacao de H7 (momentum transversal)
+# e H9 (premio de rebalanceamento). A spec exige "o mesmo universo das
+# avaliacoes anteriores, para que os resultados sejam comparaveis" -- usar
+# `PAIRS` traria listagens recentes sem historico semanal algum, que nao
+# aparecem nas hipoteses ja registradas.
+UNIVERSO_H11 = [
+    "BTC/USDT", "ETH/USDT", "SOL/USDT", "LINK/USDT", "BCH/USDT", "TRX/USDT",
+    "XRP/USDT", "AVAX/USDT", "LTC/USDT", "DOT/USDT", "ADA/USDT", "ATOM/USDT",
+]
+
+
+def ESTRATEGIAS_H11():
+    """As quatro estrategias no escopo da spec 024.
+
+    NAO inclui os wrappers (DayFilterStrategy, NoSellExitStrategy): a spec lista
+    nominalmente EmaRsi, Breakout, MeanReversion e SqueezeBreakout, e H11 mede a
+    ESCALA TEMPORAL, nao o sinal. Wrapper e variacao de sinal.
+
+    Custo medido da exclusao, serie de 2000 candles: DayFilterStrategy consome
+    86,67 s por combinacao contra 0,27 s da EmaRsi que ela envolve -- e wrapper
+    sem `.params`, cai no caminho por candle E rechama a estrategia base a cada
+    vela. Incluir os 5 levaria a varredura de 31 para 159 minutos sem responder
+    nada que a spec tenha perguntado.
+    """
+    from strategy.breakout import BreakoutStrategy
+    from strategy.ema_rsi import EmaRsiStrategy
+    from strategy.mean_reversion import MeanReversionStrategy
+    from strategy.squeeze_breakout import SqueezeBreakoutStrategy
+
+    return {
+        "EMA/RSI": EmaRsiStrategy(),
+        "Breakout 150": BreakoutStrategy(window=150),
+        "Mean Reversion": MeanReversionStrategy(),
+        "Squeeze Breakout": SqueezeBreakoutStrategy(),
+    }
+
+
 # ----------------------------------------------------------- avaliacao (US1)
 
 @dataclass
@@ -266,16 +306,41 @@ def classificar_status(
     return "confirmado", "aprovado na busca e na confirmacao"
 
 
-def _simular(df, estrategia: BaseStrategy, **kwargs) -> Optional[BacktestResult]:
-    """Simula sobre um DataFrame ja obtido, para nao rebuscar a mesma serie.
+def preparar(df, estrategia: BaseStrategy):
+    """Calcula indicadores UMA vez sobre a serie completa.
 
-    `run_backtest` busca dados por conta propria; aqui a serie ja esta em maos e
-    precisa ser fatiada em busca/confirmacao, entao o caminho e `simulate_backtest`.
+    Motivacao dupla, e a segunda importa mais que a primeira.
+
+    DESEMPENHO: cada combinacao passa 9 vezes pela serie (janela unica, busca,
+    confirmacao, N folds, execucao sem custo). Recalcular indicadores em cada
+    passagem multiplica por 9 o custo de dados sobrepostos. Medido: a varredura
+    de 345 combinacoes consumia 3 nucleos continuamente sem terminar em 11 min.
+
+    CORRECAO: recalcular por fatia da a cada fold um aquecimento proprio,
+    cegando-o para o historico anterior. Producao nunca opera assim -- o bot tem
+    a serie inteira em maos. Indicadores do projeto (EMA, RSI, ADX, Bollinger,
+    ATR) sao causais, usam apenas o passado, entao calcular no todo e fatiar
+    entrega a cada fold exatamente a informacao que o bot ao vivo teria. Nao ha
+    vazamento de futuro; ha remocao de uma descontinuidade artificial.
     """
-    if df is None or len(df) < aquecimento_candles() + 10:
+    if df is None or len(df) == 0:
         return None
     try:
-        preparado = estrategia.calculate_indicators(df.copy())
+        return estrategia.calculate_indicators(df.copy())
+    except Exception as exc:
+        log.warning(f"indicadores falharam: {type(exc).__name__}: {str(exc)[:60]}")
+        return None
+
+
+def _simular(preparado, estrategia: BaseStrategy, **kwargs) -> Optional[BacktestResult]:
+    """Simula sobre um DataFrame JA PREPARADO por `preparar()`.
+
+    Recebe indicadores prontos de proposito: ver a docstring de `preparar` para
+    por que recalcular por fatia e mais lento E menos correto.
+    """
+    if preparado is None or len(preparado) < aquecimento_candles() + 10:
+        return None
+    try:
 
         # Caminho vetorizado quando a estrategia o suporta. `precompute_signals`
         # exige `.params` (so EmaRsiStrategy expoe hoje); as demais caem no
@@ -300,7 +365,7 @@ def _simular(df, estrategia: BaseStrategy, **kwargs) -> Optional[BacktestResult]
 
 
 def _walk_forward_par(
-    df, estrategia: BaseStrategy, n_janelas: int,
+    preparado, estrategia: BaseStrategy, n_janelas: int,
 ) -> List[WalkForwardFold]:
     """Walk-forward para backtest de PAR UNICO.
 
@@ -314,16 +379,16 @@ def _walk_forward_par(
     das agregacoes (R3, FR-006). Conta-la como neutra diluiria tanto resultado
     bom quanto ruim.
     """
-    if n_janelas <= 0 or df is None or len(df) == 0:
+    if n_janelas <= 0 or preparado is None or len(preparado) == 0:
         return []
 
-    tam = len(df) // n_janelas
+    tam = len(preparado) // n_janelas
     if tam <= aquecimento_candles():
         return []
 
     folds: List[WalkForwardFold] = []
     for j in range(n_janelas):
-        fatia = df.iloc[j * tam:(j + 1) * tam]
+        fatia = preparado.iloc[j * tam:(j + 1) * tam]
         r = _simular(fatia, estrategia)
         if r is None:
             folds.append(WalkForwardFold(
@@ -387,20 +452,27 @@ def _avaliar_combinacao(
             comb.motivo = f"{type(exc).__name__}: {str(exc)[:80]}"
             return comb
 
+    # Indicadores UMA vez; todas as passagens fatiam o resultado preparado.
+    preparado = preparar(df, estrategia)
+    if preparado is None:
+        comb.status = "erro"
+        comb.motivo = "falha ao calcular indicadores"
+        return comb
+
     # E2 -- janela unica
-    comb.resultado_janela_unica = _simular(df, estrategia)
+    comb.resultado_janela_unica = _simular(preparado, estrategia)
 
     # E3 -- confirmacao fora da amostra
-    treino, validacao = split_train_validation(df)
+    treino, validacao = split_train_validation(preparado)
     comb.resultado_busca = _simular(treino, estrategia)
     comb.resultado_confirmacao = _simular(validacao, estrategia) if validacao is not None else None
 
     # E4/E5 -- walk-forward com desconto de exposicao
     comb.n_janelas = derivar_n_janelas(disponibilidade.utilizaveis)
-    comb.folds = _walk_forward_par(df, estrategia, comb.n_janelas)
+    comb.folds = _walk_forward_par(preparado, estrategia, comb.n_janelas)
 
     # E6 -- sensibilidade a custo
-    sem_custo = _simular(df, estrategia, fee_rate=0.0, slippage_pct=0.0)
+    sem_custo = _simular(preparado, estrategia, fee_rate=0.0, slippage_pct=0.0)
     comb.retorno_sem_custo_pct = sem_custo.total_return_pct if sem_custo else None
 
     comb.status, comb.motivo = classificar_status(

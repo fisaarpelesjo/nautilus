@@ -443,15 +443,19 @@ def cmd_horizonte():
     from rich import box
     from rich.table import Table
 
-    from backtesting.compare import DEFAULT_STRATEGIES
-    from backtesting.horizonte import folds_uteis, run_horizonte_scan
-    from config.settings import PAIRS, TIMEFRAME
+    from backtesting.horizonte import (
+        ESTRATEGIAS_H11,
+        UNIVERSO_H11,
+        folds_uteis,
+        run_horizonte_scan,
+    )
+    from config.settings import TIMEFRAME
     from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
     from utils.report_export import export_report
 
     horizontes = sys.argv[2:] or ["4h", "1d", "1w"]
-    pares = list(PAIRS)
-    estrategias = DEFAULT_STRATEGIES
+    pares = list(UNIVERSO_H11)
+    estrategias = ESTRATEGIAS_H11()
 
     header()
     console.print(f"[bold {C_CYAN}]varredura por horizonte temporal (H11)[/]")
