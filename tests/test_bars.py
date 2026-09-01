@@ -55,20 +55,42 @@ def test_agregacao_usa_primeiro_maximo_minimo_ultimo_e_soma():
 
 # ------------------------------------------------ T005 índice é o fechamento
 
-def test_indice_da_barra_e_o_instante_do_ultimo_candle():
-    """Indexar pela abertura dataria a barra num momento em que seu conteúdo
-    ainda era desconhecido — vazamento de futuro por convenção de índice."""
+def test_indice_da_barra_e_o_instante_em_que_ela_termina():
+    """O rótulo é o fim do período do último candle do grupo.
+
+    Consequência que só apareceu ao comparar amostragens: com este rótulo,
+    `close` vira função apenas do rótulo — uma barra rotulada T tem close igual
+    ao preço em T, larga ou estreita. É o que permite ancorar duas amostragens
+    diferentes no mesmo buy-and-hold.
+    """
     df = _serie(n=60)
     barras = construir_barras(df, "dollar", limiar=calibrar_limiar(
         df, "dollar", ParametrosBarra(tipo="dollar", barras_alvo=10)))
 
     assert len(barras) > 0
-    for ts in barras.index:
-        assert ts in df.index
-    # O primeiro instante da série só pode ser índice de barra se a primeira
-    # barra tiver exatamente um candle.
-    if barras.iloc[0]["candles_origem"] > 1:
-        assert barras.index[0] != df.index[0]
+    passo = df.index[1] - df.index[0]
+    # Nunca rotulada pela abertura do grupo.
+    assert barras.index[0] != df.index[0]
+    # Cada rótulo é o instante seguinte ao último candle incluído.
+    consumidos = 0
+    for ts, n in zip(barras.index, barras["candles_origem"], strict=True):
+        consumidos += int(n)
+        assert ts == df.index[consumidos - 1] + passo
+
+
+def test_close_da_barra_e_funcao_apenas_do_rotulo():
+    """Duas granularidades diferentes, mesmo rótulo, mesmo close. É a
+    propriedade que torna a âncora de buy-and-hold exata em vez de aproximada."""
+    df = _serie(n=400, semente=9)
+    grossa = construir_barras(df, "dollar", limiar=calibrar_limiar(
+        df, "dollar", ParametrosBarra(barras_alvo=20)))
+    fina = construir_barras(df, "dollar", limiar=calibrar_limiar(
+        df, "dollar", ParametrosBarra(barras_alvo=80)))
+
+    comuns = grossa.index.intersection(fina.index)
+    assert len(comuns) > 0
+    for ts in comuns:
+        assert grossa.loc[ts, "close"] == fina.loc[ts, "close"]
 
 
 # ==================================================== T006 CAUSALIDADE (US3)
@@ -129,8 +151,12 @@ def test_barra_incompleta_nao_aparece_na_saida():
     barras = construir_barras(df, "dollar", limiar=2000.0)
 
     assert len(barras) == 2
-    assert barras.index[-1] == df.index[3]
-    assert df.index[4] not in barras.index
+    # O candle 4 nao foi consumido por barra nenhuma: 4 dos 5 entraram.
+    assert barras["candles_origem"].sum() == 4
+    # Rotulo da ultima barra e o fim do periodo do candle 3, isto e, o instante
+    # do candle 4 -- e nao um rotulo APOS o fim dos dados.
+    assert barras.index[-1] == df.index[4]
+    assert barras.index[-1] <= df.index[-1]
 
 
 def test_nenhuma_barra_quando_o_limiar_nunca_e_cruzado():

@@ -18,12 +18,22 @@ As doze hipoteses avaliadas rodaram TODAS sobre candles de tempo fixo. Se o
 esquema de amostragem for o problema, cada hipotese direcional reprovada mediu a
 AMOSTRAGEM, nao a estrategia.
 
-O INDICE DA BARRA E O INSTANTE DE FECHAMENTO
+O INDICE DA BARRA E O INSTANTE EM QUE ELA TERMINA
 
-Nao o de abertura. E o instante em que a barra passa a existir e em que uma
-decisao poderia ser tomada sobre ela. Indexar pela abertura dataria a barra num
-momento em que seu conteudo ainda era desconhecido -- vazamento de futuro por
-convencao de indice.
+Nao o do primeiro candle, nem o do ultimo: o instante em que a barra passa a
+estar COMPLETA, isto e, o fim do periodo do ultimo candle do grupo. Indexar pela
+abertura dataria a barra num momento em que seu conteudo ainda era desconhecido.
+
+A escolha tem uma consequencia que so apareceu ao comparar duas amostragens: com
+este rotulo, `close` vira funcao APENAS do rotulo. Uma barra rotulada T tem
+close igual ao preco em T, seja ela larga ou estreita, seja por tempo ou por
+informacao. Duas amostragens do mesmo periodo passam a compartilhar exatamente o
+mesmo preco em qualquer instante comum -- e sem isso o buy-and-hold de cada uma
+mede um trecho ligeiramente diferente e a comparacao fica desancorada.
+
+Medido antes desta correcao: no mesmo instante, a versao de tempo reportava
+close 111.169,92 e a de dollar bars 110.422,10, porque `pandas.resample` rotula
+pela borda ESQUERDA e a construcao aqui rotulava pelo ultimo candle.
 
 CAUSALIDADE E A MAIOR FONTE DE FALSO POSITIVO DESTA SPEC
 
@@ -156,6 +166,7 @@ def construir_barras(
     if not fronteiras:
         return df.iloc[0:0].copy()
 
+    passo = _passo_base(df)
     linhas = []
     indices = []
     inicio = 0
@@ -170,10 +181,33 @@ def construir_barras(
             "candles_origem": len(grupo),
             "duracao_horas": _duracao_horas(grupo),
         })
-        indices.append(grupo.index[-1])
+        indices.append(_fim_do_periodo(df, fim, passo))
         inicio = fim + 1
 
     return pd.DataFrame(linhas, index=pd.Index(indices, name=df.index.name))
+
+
+def _passo_base(df: pd.DataFrame):
+    """Intervalo de um candle da serie de origem, inferido do proprio indice."""
+    if len(df) < 2:
+        return None
+    try:
+        return df.index[1] - df.index[0]
+    except (AttributeError, TypeError):
+        return None
+
+
+def _fim_do_periodo(df: pd.DataFrame, ultimo: int, passo):
+    """Instante em que a barra fica completa.
+
+    E o inicio do candle seguinte quando ele existe -- assim o rotulo nunca
+    depende de inferencia. Caindo no fim da serie, usa o passo inferido.
+    """
+    if ultimo + 1 < len(df):
+        return df.index[ultimo + 1]
+    if passo is not None:
+        return df.index[ultimo] + passo
+    return df.index[ultimo]
 
 
 def _duracao_horas(grupo: pd.DataFrame) -> float:

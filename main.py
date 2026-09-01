@@ -728,6 +728,176 @@ def cmd_volatilidade():
     )
 
 
+def cmd_barras():
+    """H13 -- barras dirigidas por informacao (spec 026).
+
+    Roda cada estrategia duas vezes sobre a MESMA base de 1h: uma agrupada por
+    relogio, outra agrupada por atividade acumulada. As duas cobrem o mesmo
+    intervalo de calendario e compartilham o mesmo buy-and-hold, que e o unico
+    ponto fixo entre amostragens diferentes.
+
+    O limiar NAO e parametrizavel: e calibrado ate a contagem de barras parear
+    com a de tempo, consultando exclusivamente essa contagem. Expo-lo como flag
+    convidaria a varre-lo ate um passar.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.barras import BASE_CANDLES, BASE_TIMEFRAME, run_barras_scan
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    tipos = None
+    if len(sys.argv) > 2:
+        pedido = sys.argv[2].lower()
+        if pedido not in ("dollar", "cusum"):
+            print(f"tipo invalido: {sys.argv[2]}; use dollar ou cusum")
+            sys.exit(1)
+        tipos = [pedido]
+
+    header()
+    console.print(f"[bold {C_CYAN}]barras dirigidas por informacao (H13)[/]")
+    console.print(f"  [{C_DIM}]base {BASE_TIMEFRAME} x {BASE_CANDLES} candles; a versao de "
+                  f"tempo e a MESMA base agrupada por relogio -- mesmo intervalo de "
+                  f"calendario, mesmo buy-and-hold[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]limiar calibrado ate parear a contagem de barras; producao "
+                  f"nao e tocada[/{C_DIM}]")
+    console.print()
+
+    comparacoes = run_barras_scan(tipos=tipos)
+
+    ordem = {"melhora": 0, "so_na_busca": 1, "confundido": 2, "sem_vantagem": 3,
+             "piora": 4, "inconclusivo": 5, "inerte": 6, "erro": 7}
+    comparacoes.sort(key=lambda c: (ordem.get(c.status, 9), -c.delta_timing))
+    conta = {k: sum(1 for c in comparacoes if c.status == k) for k in ordem}
+    avaliadas = [c for c in comparacoes if c.status in
+                 ("melhora", "so_na_busca", "confundido", "sem_vantagem", "piora")]
+
+    console.print(f"  [{C_LABEL}]avaliadas[/] {len(avaliadas)}  "
+                  f"[{C_POS}]melhora[/] {conta['melhora']}  "
+                  f"[{C_CYAN}]so na busca[/] {conta['so_na_busca']}  "
+                  f"[{C_CYAN}]confundidas[/] {conta['confundido']}  "
+                  f"[{C_DIM}]sem vantagem[/] {conta['sem_vantagem']}  "
+                  f"[{C_NEG}]piora[/] {conta['piora']}  "
+                  f"[{C_DIM}]inconclusivas[/] {conta['inconclusivo']}  "
+                  f"[{C_DIM}]inertes[/] {conta['inerte']}  "
+                  f"[{C_DIM}]erro[/] {conta['erro']}")
+    console.print()
+
+    t = Table(box=box.SIMPLE_HEAD)
+    for col in ("Estrategia", "Par", "Tipo"):
+        t.add_column(col)
+    for col in ("N tempo", "N barras", "DD tempo", "DD barras", "dDD",
+                "Ret tempo", "Ret barras", "dRet", "dExpo", "dTiming",
+                "Ops", "dCusto"):
+        t.add_column(col, justify="right")
+    t.add_column("Status")
+
+    cores = {"melhora": C_POS, "piora": C_NEG, "inerte": C_DIM,
+             "so_na_busca": C_CYAN, "confundido": C_CYAN}
+    for c in comparacoes:
+        cor = cores.get(c.status, C_DIM)
+        rotulo = c.status.replace("_", " ")
+        if c.tempo is None or c.barras is None:
+            t.add_row(c.estrategia, c.par, c.tipo, *["-"] * 12,
+                      f"[{cor}]{rotulo}[/{cor}]")
+            continue
+        medido = (c.retorno_sem_custo_tempo is not None
+                  and c.retorno_sem_custo_barras is not None)
+        t.add_row(
+            c.estrategia, c.par, c.tipo,
+            str(c.n_tempo), str(c.n_barras),
+            f"{c.tempo.max_drawdown_pct:.2f}", f"{c.barras.max_drawdown_pct:.2f}",
+            f"{c.delta_drawdown:+.2f}",
+            f"{c.tempo.total_return_pct:.2f}", f"{c.barras.total_return_pct:.2f}",
+            f"{c.delta_retorno:+.2f}",
+            f"{c.delta_exposicao:+.1f}", f"{c.delta_timing:+.2f}",
+            f"{c.tempo.total_trades}/{c.barras.total_trades}",
+            f"{c.delta_custo:+.2f}" if medido else "-",
+            f"[{cor}]{rotulo}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    # Diagnostico da reamostragem (T038). E o numero que distingue "nao houve
+    # vantagem" de "o instrumento nao mediu nada" -- H12 so descobriu que 37 de
+    # 48 combinacoes eram inertes ao confrontar o fator medio com o previsto.
+    com_barras = [c for c in comparacoes if c.n_barras > 0]
+    if com_barras:
+        console.print(f"  [bold {C_CYAN}]diagnostico da reamostragem[/]")
+        for tipo in sorted({c.tipo for c in com_barras}):
+            do_tipo = [c for c in com_barras if c.tipo == tipo]
+            pct = sorted(c.pct_barras_1_candle for c in do_tipo)
+            razao = sorted(c.n_barras / c.n_base for c in do_tipo if c.n_base)
+            console.print(
+                f"    [{C_LABEL}]{tipo}[/] {len(do_tipo)} combinacoes: "
+                f"barras por candle de base, mediana {razao[len(razao) // 2]:.3f}; "
+                f"barras de 1 candle, mediana {pct[len(pct) // 2]:.1f}%")
+        console.print()
+
+    console.print(f"  [{C_DIM}]\"inerte\": cada candle de base virou uma barra -- as duas "
+                  f"versoes sao a mesma serie, nada foi medido[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"confundido\": a versao de tempo PERDE dinheiro, entao operar "
+                  f"menos aproxima de zero -- o limite dessa logica e nao operar[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"so na busca\" NAO e aprovacao: melhorou onde foi medido e nao "
+                  f"se sustentou na validacao fora da amostra[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"inconclusivo\": amostra insuficiente ou aquecimento que nao "
+                  f"cabe na janela -- nao e ausencia de vantagem[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]dTiming desconta a exposicao de TEMPO, a grandeza que este "
+                  f"mecanismo move (D4) -- e ele, nao dRet, que separa habilidade de "
+                  f"menor participacao[/{C_DIM}]")
+
+    com_custo = [c for c in avaliadas if c.retorno_sem_custo_tempo is not None
+                 and c.retorno_sem_custo_barras is not None]
+    if com_custo:
+        n = len(com_custo)
+        d_ret = sum(c.delta_retorno for c in com_custo) / n
+        d_sem = sum(c.retorno_sem_custo_barras - c.retorno_sem_custo_tempo
+                    for c in com_custo) / n
+        d_custo = sum(c.delta_custo for c in com_custo) / n
+        d_ops = sum(c.delta_operacoes for c in com_custo) / n
+        console.print()
+        console.print(f"  [{C_LABEL}]custo de giro[/] em {n} comparacoes: "
+                      f"dRet medio {d_ret:+.2f}pp, dRet sem custo {d_sem:+.2f}pp, "
+                      f"diferenca atribuivel a custo {d_custo:+.2f}pp, "
+                      f"dOperacoes medio {d_ops:+.1f}")
+
+    console.print()
+    console.print(f"  [{C_DIM}]executabilidade (D6): seria executavel -- e aritmetica sobre "
+                  f"candles que o bot ja busca. RESSALVA: o limiar e calibrado em historico "
+                  f"e regimes de volume mudam; operar exigiria recalibracao periodica, "
+                  f"mecanismo que esta spec NAO implementa[/{C_DIM}]")
+
+    export_report(
+        "barras",
+        {"base_timeframe": BASE_TIMEFRAME, "base_candles": BASE_CANDLES,
+         "tipos": sorted({c.tipo for c in comparacoes}),
+         "pares": len({c.par for c in comparacoes}),
+         "estrategias": sorted({c.estrategia for c in comparacoes})},
+        [{"estrategia": c.estrategia, "par": c.par, "tipo": c.tipo,
+          "status": c.status, "motivo": c.motivo,
+          "n_base": c.n_base, "n_tempo": c.n_tempo, "n_barras": c.n_barras,
+          "dias_janela": c.dias_janela,
+          "aquecimento_dias_tempo": c.aquecimento_dias_tempo,
+          "aquecimento_dias_barras": c.aquecimento_dias_barras,
+          "pct_barras_1_candle": c.pct_barras_1_candle,
+          "limiar_calibrado": c.limiar_calibrado,
+          "drawdown_tempo": c.tempo.max_drawdown_pct if c.tempo else None,
+          "drawdown_barras": c.barras.max_drawdown_pct if c.barras else None,
+          "retorno_tempo": c.tempo.total_return_pct if c.tempo else None,
+          "retorno_barras": c.barras.total_return_pct if c.barras else None,
+          "buy_hold_tempo": c.tempo.buy_hold_return_pct if c.tempo else None,
+          "buy_hold_barras": c.barras.buy_hold_return_pct if c.barras else None,
+          "delta_drawdown": c.delta_drawdown, "delta_retorno": c.delta_retorno,
+          "delta_exposicao": c.delta_exposicao, "delta_timing": c.delta_timing,
+          "delta_timing_validacao": c.delta_timing_validacao,
+          "delta_operacoes": c.delta_operacoes, "delta_custo": c.delta_custo,
+          "retorno_sem_custo_tempo": c.retorno_sem_custo_tempo,
+          "retorno_sem_custo_barras": c.retorno_sem_custo_barras}
+         for c in comparacoes],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -739,6 +909,8 @@ COMMANDS = {
     "horizontes":    cmd_horizonte,
     "volatilidade":  cmd_volatilidade,
     "voltarget":     cmd_volatilidade,
+    "barras":        cmd_barras,
+    "bars":          cmd_barras,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

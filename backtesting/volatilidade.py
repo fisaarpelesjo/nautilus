@@ -161,7 +161,11 @@ def exposicao_de_capital(resultado) -> float:
     return nocional_medio / resultado.initial_capital * resultado.exposure_pct
 
 
-def ganho_de_timing(resultado, exposicao: Optional[float] = None) -> float:
+def ganho_de_timing(
+    resultado,
+    exposicao: Optional[float] = None,
+    buy_hold: Optional[float] = None,
+) -> float:
     """Retorno descontada a exposicao, em pontos percentuais.
 
     A formula vive em `cross_sectional.WalkForwardFold.ganho_de_timing_pp` e e
@@ -172,12 +176,18 @@ def ganho_de_timing(resultado, exposicao: Optional[float] = None) -> float:
     `exposicao` permite alimentar a MESMA formula com a medida certa para o
     mecanismo em avaliacao: tempo em mercado por padrao, capital alocado quando
     o chamador passa `exposicao_de_capital(resultado)`.
+
+    `buy_hold` permite injetar uma referencia COMUM. Serve a spec 026, onde duas
+    amostragens do mesmo periodo produzem estimativas ligeiramente diferentes do
+    mesmo buy-and-hold por efeito de fronteira de barra; a referencia correta e
+    a do periodo, calculada uma vez sobre a serie base. Default preserva o
+    comportamento vigente.
     """
     if resultado is None:
         return 0.0
     return WalkForwardFold(
         janela=0,
-        buy_hold_pct=resultado.buy_hold_return_pct,
+        buy_hold_pct=(resultado.buy_hold_return_pct if buy_hold is None else buy_hold),
         retorno_pct=resultado.total_return_pct,
         exposicao_pct=(resultado.exposure_pct if exposicao is None else exposicao),
         max_drawdown_pct=resultado.max_drawdown_pct,

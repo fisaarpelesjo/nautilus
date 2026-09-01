@@ -28,7 +28,7 @@ documentação em `docs/`.
 
 - [X] T001 Criar `data/bars.py` com docstring de módulo declarando a tese de H13, por que o índice da barra é o instante de fechamento, e a perda declarada em relação a dados de negociação (~12% da largura típica, D1)
 - [X] T002 [P] Criar `tests/test_bars.py` com teste de fumaça que importa o módulo e verifica a API pública
-- [ ] T003 [P] Criar `backtesting/barras.py` e `tests/test_barras_scan.py` com o mesmo padrão
+- [X] T003 [P] Criar `backtesting/barras.py` e `tests/test_barras_scan.py` com o mesmo padrão
 
 **Checkpoint**: módulos importáveis, suíte verde.
 
@@ -74,20 +74,20 @@ observações, intervalo comum e métricas de cada versão.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T016 [P] [US1] Teste em `tests/test_barras_scan.py`: `ComparacaoBarras` calcula `delta_drawdown`, `delta_retorno` e `razao_observacoes` como barras menos tempo
-- [ ] T017 [P] [US1] Teste em `tests/test_barras_scan.py`: buy-and-hold divergente entre as versões além da tolerância produz `erro`, não uma comparação silenciosa — FR-007
-- [ ] T018 [P] [US1] Teste em `tests/test_barras_scan.py`: reamostragem que produz aproximadamente uma barra por candle recebe `inerte`, nunca `piora` — FR-012, a lição de H12
-- [ ] T019 [P] [US1] Teste em `tests/test_barras_scan.py`: aquecimento que não cabe no histórico **em dias de calendário** produz `inconclusivo` — FR-010, a lição de H11
-- [ ] T020 [P] [US1] Teste em `tests/test_barras_scan.py`: amostra abaixo do mínimo em **qualquer** das versões produz `inconclusivo`, nunca `piora` — FR-011
+- [X] T016 [P] [US1] Teste em `tests/test_barras_scan.py`: `ComparacaoBarras` calcula `delta_drawdown`, `delta_retorno` e `razao_observacoes` como barras menos tempo
+- [X] T017 [P] [US1] Teste em `tests/test_barras_scan.py`: buy-and-hold divergente entre as versões além da tolerância produz `erro`, não uma comparação silenciosa — FR-007
+- [X] T018 [P] [US1] Teste em `tests/test_barras_scan.py`: reamostragem que produz aproximadamente uma barra por candle recebe `inerte`, nunca `piora` — FR-012, a lição de H12
+- [X] T019 [P] [US1] Teste em `tests/test_barras_scan.py`: aquecimento que não cabe no histórico **em dias de calendário** produz `inconclusivo` — FR-010, a lição de H11
+- [X] T020 [P] [US1] Teste em `tests/test_barras_scan.py`: amostra abaixo do mínimo em **qualquer** das versões produz `inconclusivo`, nunca `piora` — FR-011
 
 ### Implementation for User Story 1
 
-- [ ] T021 [US1] Implementar `ComparacaoBarras` em `backtesting/barras.py` com as grandezas derivadas de data-model.md
-- [ ] T022 [US1] Implementar `comparar_amostragem(estrategia, nome, par, tipo, params)` em `backtesting/barras.py`, buscando base 1h × 8000, construindo as duas versões e reusando `preparar()` de `horizonte.py`
-- [ ] T023 [US1] Garantir em `comparar_amostragem` que as duas versões cobrem o mesmo intervalo de calendário, e registrar `inicio`/`fim` na comparação — FR-005
-- [ ] T024 [US1] Implementar `run_barras_scan(estrategias, pares, tipos, params)` em `backtesting/barras.py`, sem abortar a varredura quando uma combinação falha — FR-016
-- [ ] T025 [US1] Implementar `cmd_barras()` em `main.py` e registrar os aliases `barras` e `bars`, conforme contracts/cli-barras.md
-- [ ] T026 [US1] Implementar a exibição em `main.py`: parâmetros, contagem por estado **antes** da tabela, tabela pareada com observações e deltas
+- [X] T021 [US1] Implementar `ComparacaoBarras` em `backtesting/barras.py` com as grandezas derivadas de data-model.md
+- [X] T022 [US1] Implementar `comparar_amostragem(estrategia, nome, par, tipo, params)` em `backtesting/barras.py`, buscando base 1h × 8000, construindo as duas versões e reusando `preparar()` de `horizonte.py`
+- [X] T023 [US1] Garantir em `comparar_amostragem` que as duas versões cobrem o mesmo intervalo de calendário, e registrar `inicio`/`fim` na comparação — FR-005
+- [X] T024 [US1] Implementar `run_barras_scan(estrategias, pares, tipos, params)` em `backtesting/barras.py`, sem abortar a varredura quando uma combinação falha — FR-016
+- [X] T025 [US1] Implementar `cmd_barras()` em `main.py` e registrar os aliases `barras` e `bars`, conforme contracts/cli-barras.md
+- [X] T026 [US1] Implementar a exibição em `main.py`: parâmetros, contagem por estado **antes** da tabela, tabela pareada com observações e deltas
 
 **Checkpoint**: US1 funcional. **Ainda não é MVP defensável — falta US2.**
 
@@ -104,18 +104,18 @@ M10, M11) e a nota de M11 avisa que é razoável supor que existam outras.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T027 [P] [US2] Teste em `tests/test_barras_scan.py`: combinação cujo ganho não sobrevive ao desconto de exposição recebe `sem_vantagem`, não `melhora` — FR-009
-- [ ] T028 [P] [US2] Teste em `tests/test_barras_scan.py`: combinação cuja versão de tempo tem retorno ≤ 0 recebe `confundido`, nunca `melhora` — guarda M11 reusada de `volatilidade.py`
-- [ ] T029 [P] [US2] Teste em `tests/test_barras_scan.py`: `melhora` exige confirmação na fatia fora da amostra; sem ela, `so_na_busca` ou `inconclusivo` — lição de H10
-- [ ] T030 [P] [US2] Teste em `tests/test_barras_scan.py`: `delta_exposicao` usa exposição de **tempo** e é reportado em toda comparação avaliada — FR-008, D4
+- [X] T027 [P] [US2] Teste em `tests/test_barras_scan.py`: combinação cujo ganho não sobrevive ao desconto de exposição recebe `sem_vantagem`, não `melhora` — FR-009
+- [X] T028 [P] [US2] Teste em `tests/test_barras_scan.py`: combinação cuja versão de tempo tem retorno ≤ 0 recebe `confundido`, nunca `melhora` — guarda M11 reusada de `volatilidade.py`
+- [X] T029 [P] [US2] Teste em `tests/test_barras_scan.py`: `melhora` exige confirmação na fatia fora da amostra; sem ela, `so_na_busca` ou `inconclusivo` — lição de H10
+- [X] T030 [P] [US2] Teste em `tests/test_barras_scan.py`: `delta_exposicao` usa exposição de **tempo** e é reportado em toda comparação avaliada — FR-008, D4
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] Implementar `delta_exposicao` e `delta_timing` em `ComparacaoBarras` reusando `ganho_de_timing` de `volatilidade.py` com a exposição de tempo — sem redefinir a métrica
-- [ ] T032 [US2] Implementar a fatia de validação em `comparar_amostragem` via `split_train_validation`, e `delta_timing_validacao`
-- [ ] T033 [US2] Implementar `classificar_comparacao_barras` em `backtesting/barras.py` com os 12 estados de data-model.md, **na ordem declarada**
-- [ ] T034 [US2] Exibir `delta_exposicao` e `delta_timing` na tabela de `main.py`, adjacentes ao delta de drawdown
-- [ ] T035 [US2] Adicionar legenda em `main.py` declarando o significado de `inerte`, `confundido`, `só na busca` e o que `dTiming` desconta
+- [X] T031 [US2] Implementar `delta_exposicao` e `delta_timing` em `ComparacaoBarras` reusando `ganho_de_timing` de `volatilidade.py` com a exposição de tempo — sem redefinir a métrica
+- [X] T032 [US2] Implementar a fatia de validação em `comparar_amostragem` via `split_train_validation`, e `delta_timing_validacao`
+- [X] T033 [US2] Implementar `classificar_comparacao_barras` em `backtesting/barras.py` com os 12 estados de data-model.md, **na ordem declarada**
+- [X] T034 [US2] Exibir `delta_exposicao` e `delta_timing` na tabela de `main.py`, adjacentes ao delta de drawdown
+- [X] T035 [US2] Adicionar legenda em `main.py` declarando o significado de `inerte`, `confundido`, `só na busca` e o que `dTiming` desconta
 
 **Checkpoint**: MVP defensável. As histórias P1 de comparação completas.
 
@@ -131,12 +131,12 @@ propósito. Esta fase acrescenta o que torna a propriedade **visível**.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T036 [P] [US3] Teste em `tests/test_bars.py`: construção incremental sobre as 12 séries reais do universo produz igualdade exata com a construção completa — a versão do T006 sobre dado real, não sintético
-- [ ] T037 [P] [US3] Teste em `tests/test_bars.py`: nenhum campo de uma barra depende de candle posterior ao seu fechamento, verificado por perturbação — alterar um candle futuro não altera barras já fechadas
+- [X] T036 [P] [US3] Teste em `tests/test_bars.py`: construção incremental sobre as 12 séries reais do universo produz igualdade exata com a construção completa — a versão do T006 sobre dado real, não sintético
+- [X] T037 [P] [US3] Teste em `tests/test_bars.py`: nenhum campo de uma barra depende de candle posterior ao seu fechamento, verificado por perturbação — alterar um candle futuro não altera barras já fechadas
 
 ### Implementation for User Story 3
 
-- [ ] T038 [US3] Implementar o diagnóstico de reamostragem em `main.py`: candles por barra (mediana e p90) e percentual de barras de um candle só, por variante — é o número que distingue "não houve vantagem" de "o instrumento não mediu nada"
+- [X] T038 [US3] Implementar o diagnóstico de reamostragem em `main.py`: candles por barra (mediana e p90) e percentual de barras de um candle só, por variante — é o número que distingue "não houve vantagem" de "o instrumento não mediu nada"
 
 **Checkpoint**: causalidade provada em dado real e diagnóstico visível.
 
@@ -148,13 +148,13 @@ propósito. Esta fase acrescenta o que torna a propriedade **visível**.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T039 [P] [US4] Teste em `tests/test_barras_scan.py`: `delta_operacoes` e `delta_custo` são calculados entre as versões
-- [ ] T040 [P] [US4] Teste em `tests/test_barras_scan.py`: reexecução sem custo produz retorno maior ou igual em ambas as versões
+- [X] T039 [P] [US4] Teste em `tests/test_barras_scan.py`: `delta_operacoes` e `delta_custo` são calculados entre as versões
+- [X] T040 [P] [US4] Teste em `tests/test_barras_scan.py`: reexecução sem custo produz retorno maior ou igual em ambas as versões
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] Implementar `retorno_sem_custo_tempo` e `retorno_sem_custo_barras` em `comparar_amostragem`, reexecutando com `fee_rate=0.0` e `slippage_pct=0.0`
-- [ ] T042 [US4] Exibir operações e custo de cada versão na tabela de `main.py`, e o agregado de custo de giro no resumo
+- [X] T041 [US4] Implementar `retorno_sem_custo_tempo` e `retorno_sem_custo_barras` em `comparar_amostragem`, reexecutando com `fee_rate=0.0` e `slippage_pct=0.0`
+- [X] T042 [US4] Exibir operações e custo de cada versão na tabela de `main.py`, e o agregado de custo de giro no resumo
 
 **Checkpoint**: as quatro histórias funcionam de forma independente.
 
