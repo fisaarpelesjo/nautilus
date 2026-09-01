@@ -225,8 +225,10 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
 | H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** | Aprovada em E2; reprovada em E3/E4; seletor com 20% de poder |
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra |
+| H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 
-**Taxa de aprovação: 0 de 11.** Duas inconclusivas (H10; H11 em escala semanal).
+**Taxa de aprovação: 0 de 12.** Três inconclusivas (H10; H11 em escala
+semanal; H12 por impossibilidade estrutural de teste — ver 4.13).
 
 ---
 
@@ -682,6 +684,104 @@ profundidade maior que a da exchange, o que está fora do escopo atual.
 
 ---
 
+### 4.13 H12 — Dimensionamento de posição por volatilidade
+
+**Tese.** Escalar a posição inversamente à volatilidade realizada mantém a
+exposição ao risco aproximadamente constante, em vez do valor nocional. É o
+mecanismo padrão de controle de drawdown em gestão sistemática.
+
+**Procedência interna.** H7 foi a única hipótese do registro a reprovar
+**exclusivamente** no limite de risco: drawdown de 11,76% contra o teto de
+10,0%, com profit factor, número de operações e retorno contra buy-and-hold
+todos passando. Se o excesso fosse consequência do dimensionamento, H7 voltaria
+a ser testável.
+
+**Implementação.** `fator = min(1,0; alvo / atr_ratio)`, alvo 0,02 — próximo à
+mediana medida de `atr_ratio` (0,0187 em 23.412 observações de 4h, 12 pares). O
+teto de 1,0 é a fórmula, não validação defensiva: o mecanismo só pode reduzir
+posição. `risk/manager.py` não foi tocado.
+
+**Predição registrada antes da execução** (`specs/025-dimensionamento-por-volatilidade/research.md`):
+o drawdown vai cair, porque é o que o mecanismo faz; a pergunta aberta é se o
+retorno cai na mesma proporção.
+
+#### Resultado
+
+| Estado | Combinações |
+|---|---|
+| **melhora** | **0** |
+| só na busca | 0 |
+| confundida (base perde dinheiro) | 6 |
+| sem vantagem | 1 |
+| piora | 1 |
+| inconclusiva (amostra) | 3 |
+| inerte (mecanismo não pôde atuar) | 37 |
+| **total** | **48** |
+
+Fator médio efetivamente aplicado: 0,933.
+
+**Resposta à predição: o retorno não caiu na mesma proporção — caiu mais.**
+`ret_dim / ret_base` teve mediana de **0,830** enquanto a exposição de capital
+caiu apenas ~3%. O mecanismo encolhe a magnitude do resultado
+desproporcionalmente, e o faz **nos dois sentidos**.
+
+#### Por que 37 combinações são inertes
+
+Das quatro estratégias do universo, apenas `EmaRsiStrategy` calcula
+`atr_ratio`. Nas demais o fator ficou preso em 1,0 e as duas versões eram a
+mesma execução. Isto é limitação do instrumento, **não evidência sobre a
+hipótese**.
+
+#### Por que 6 combinações são confundidas
+
+As seis têm retorno base **negativo**. Encolher uma estratégia de expectativa
+negativa aproxima o resultado de zero, e qualquer métrica de melhora registra
+isso como ganho. O limite dessa lógica é `fator_minimo` tendendo a zero: **não
+operar maximizaria o critério sem ganhar nada.** Ver M11.
+
+#### A evidência interpretável
+
+Restam **duas** combinações com base lucrativa, onde "melhorar" não se confunde
+com encolher uma perdedora:
+
+| Par | Ret base | Ret dim | DD base | DD dim | dTiming | Status |
+|---|---|---|---|---|---|---|
+| ETH/USDT | +2,20% | +1,90% | 0,69% | 0,69% | −0,598 | sem vantagem |
+| BTC/USDT | +0,13% | +0,07% | 0,89% | 0,89% | −0,136 | piora |
+
+Nas duas, o dimensionamento **custou retorno e não reduziu drawdown nenhum**.
+
+#### Veredito: INCONCLUSIVA
+
+Não REPROVADA, pela regra que o próprio projeto aplicou em H10 e H11 e que M9
+formalizou: amostra insuficiente precede reprovação. Duas combinações
+interpretáveis não sustentam a reprovação de uma hipótese.
+
+Mas a inconclusão tem causa estrutural, e ela é a conclusão útil:
+
+> **H12 não pode ser testada enquanto nenhuma estratégia tiver expectativa
+> positiva.** Sobre base perdedora, "reduzir posição melhora o resultado" é
+> verdade trivial e nada informa sobre dimensionamento. O teste exige uma
+> estratégia lucrativa para dimensionar — e o registro não tem nenhuma.
+
+H12 é portanto **descendente** da busca por vantagem, não um caminho até ela.
+Reordenada na fila conforme 6.4.
+
+**Sobre a motivação original:** o drawdown de H7 **não** se mostrou problema de
+dimensionamento. Nas duas combinações limpas o drawdown não se moveu (0,69% para
+0,69%; 0,89% para 0,89%) enquanto o retorno caiu. A explicação é direta: o
+drawdown veio de trades perdedores concentrados, não de tamanho excessivo
+uniforme.
+
+**Custo de giro:** irrelevante nesta avaliação. `dOperacoes` foi 0 em todas as
+combinações — o dimensionamento altera o tamanho da entrada, não a decisão de
+entrar, então não há giro adicional. Diferença atribuível a custo: +0,03pp.
+
+**Reprodução:** `python main.py volatilidade` · `reports/volatilidade_*.json` ·
+spec `025-dimensionamento-por-volatilidade`.
+
+---
+
 ## 5. Achados metodológicos (defeitos de instrumentação)
 
 Distintos das hipóteses, estes achados dizem respeito à **confiabilidade do
@@ -700,9 +800,25 @@ com base em medições anteriores.
 | M9 | Regra de amostra mínima aplicada só à janela de busca, não à de confirmação | `so_na_busca` afirma que a estratégia **não se sustentou** fora da janela de descoberta. Com menos operações que `EDGE_MIN_TRADES` na validação, a afirmação não tem suporte: não foi testada e reprovou, foi testada de menos. Na varredura de H11, **12 combinações** receberam esse rótulo indevidamente, uma delas com 2 operações na validação | Corrigido (`classificar_status`, 2026-09-01) |
 | M8 | Meia-vida de reversão usada como critério único de cointegração | O estimador OLS do coeficiente AR é enviesado para baixo (viés de Dickey-Fuller): passeio aleatório recebe meia-vida **finita**, e a estimativa **escala com a amostra** (mediana 38 em n=250, 173 em n=1000, 417 em n=3000). Taxa de falso positivo de **28%** na seleção de H10 | Corrigido (portão ADF, α=0,05, falso positivo para **4,8%**, 2026-09-01) |
 
+| M10 | Desconto de exposição medido em **tempo**, cego a mecanismos que variam **capital** | `_exposure_pct` mede segundos em posição sobre segundos do período. Dimensionar por volatilidade muda quanto capital entra, nunca quando entra ou sai. Consequência: `delta_exposicao` deu **exatamente 0,0 nas 48 combinações**, o desconto não descontou nada, e o estado `sem_vantagem` — a guarda contra M7 — era **inatingível por construção**. Zero ocorrências não era ausência do fenômeno: era um estado que o instrumento não conseguia produzir | Corrigido (`exposicao_de_capital`, 2026-09-01) |
+| M11 | Melhora sobre base de expectativa negativa lida como vantagem | Reduzir posição encolhe a magnitude do resultado **nos dois sentidos**. Sobre estratégia perdedora isso aproxima o resultado de zero e a métrica registra ganho. Medido em H12: correlação de **−0,92** entre retorno base e ganho de timing, concordância de sinal em **8 de 8** combinações — a métrica seguia o sinal da base, não a qualidade do dimensionamento. O limite da lógica é não operar, que maximizaria o critério sem ganhar nada | Corrigido (status `confundido`, 2026-09-01) |
+
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
 falso positivo, não instâncias.
+
+**M7, M10 e M11 são a mesma família.** Os três descrevem uma estratégia que
+*participa menos* sendo lida como uma estratégia que *escolhe melhor* — em
+tempo (M7), em capital (M10) e no sinal do resultado base (M11). Cada vez que a
+guarda foi construída, o mecanismo seguinte encontrou uma dimensão que ela não
+cobria. É razoável supor que existam outras.
+
+**Sobre a densidade de defeitos em H12.** Cinco defeitos de instrumentação numa
+única hipótese, consolidados em M10 e M11, é o maior número do registro. Nenhum
+apareceu em revisão de código: todos apareceram ao confrontar o resultado
+observado com a predição registrada antes da execução. O primeiro fio foi o
+fator médio de **0,983 medido contra 0,901 previsto** — discrepância pequena o
+bastante para passar despercebida se a previsão não estivesse escrita.
 
 ---
 
@@ -716,20 +832,19 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 
 *(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico.)*
 
-**H12 — Dimensionamento por volatilidade (volatility targeting)** — *próxima da fila*
+*(H12 avaliada em 2026-09-01 — ver seção 4.13. Status: inconclusiva. **Movida
+para 6.4**: depende de uma estratégia lucrativa existir antes.)*
 
-- *Fundamentação:* redimensionar posição inversamente à volatilidade realizada é
-  o mecanismo padrão de controle de drawdown em gestão sistemática. H7 reprovou
-  exclusivamente por drawdown em sua melhor janela.
-- *Custo:* baixo — camada sobre `risk/manager.py`.
-
-### 6.2 Prioridade média
-
-**H13 — Barras dirigidas por informação (CUSUM, volume bars, dollar bars)**
+**H13 — Barras dirigidas por informação (CUSUM, volume bars, dollar bars)** — *próxima da fila*
 
 - *Fundamentação:* amostragem por tempo fixo viola homocedasticidade; barras por
   volume ou valor negociado produzem retornos mais próximos de normalidade.
 - *Custo:* médio — nova camada de amostragem antes do cálculo de indicadores.
+- *Por que subiu:* é hipótese sobre o **sinal**, e o registro precisa de sinal
+  com expectativa positiva antes de qualquer refinamento de gestão. H12
+  demonstrou que hipóteses de dimensionamento não são testáveis sem isso.
+
+### 6.2 Prioridade média
 
 **H14 — Aprendizado de máquina supervisionado com rotulagem de barreira tripla**
 
@@ -759,6 +874,30 @@ volatilidade sem gestão de cauda.
 
 **H19 — Estratégias com opções (covered calls)** — mercado de opções cripto de
 liquidez restrita; fora do escopo spot.
+
+### 6.4 Bloqueadas por pré-condição
+
+Hipóteses que **não são testáveis** no estado atual do registro. Não estão
+reprovadas nem despriorizadas por mérito: falta-lhes uma pré-condição que
+nenhuma hipótese avaliada até aqui satisfez.
+
+**H12 — Dimensionamento por volatilidade** *(avaliada, inconclusiva — 4.13)*
+
+- *Pré-condição:* uma estratégia com expectativa positiva para dimensionar.
+- *Por quê:* dimensionamento decide QUANTO, nunca SE. Aplicado a uma estratégia
+  perdedora, reduzir posição aproxima o resultado de zero e qualquer métrica de
+  melhora registra isso como ganho — o limite da lógica é não operar. Medido:
+  correlação de −0,92 entre retorno base e ganho de timing, 8 de 8 combinações
+  concordando em sinal (M11).
+- *Quando reavaliar:* assim que qualquer hipótese for aprovada. A infraestrutura
+  já existe (`python main.py volatilidade`), com as guardas M10 e M11 no lugar.
+
+**Regra geral que H12 estabeleceu.** Hipóteses de **gestão** (dimensionamento,
+alocação, controle de risco) são descendentes de hipóteses de **sinal**, não
+alternativas a elas. Enquanto a taxa de aprovação de sinal for 0, a fila deve
+priorizar sinal. H14 (aprendizado supervisionado) e H15 (arbitragem entre
+corretoras) não caem nesta categoria: a primeira gera sinal próprio, a segunda
+não depende de previsão.
 
 ---
 
