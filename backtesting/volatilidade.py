@@ -296,6 +296,16 @@ def comparar_combinacao(
     c.com_dimensionamento = _simular(preparado, estrategia, position_sizer=sizer)
     c.fator_medio = sizer.media
 
+    # E6 -- custo de giro (US3). Reexecuta as duas versoes com taxa e slippage
+    # zerados. Ajustar o tamanho pela volatilidade implica giro, e giro paga
+    # taxa: sem separar, um delta de retorno negativo nao distingue "o mecanismo
+    # nao ajuda" de "o mecanismo ajuda mas o custo come o ganho".
+    sc_base = _simular(preparado, estrategia, fee_rate=0.0, slippage_pct=0.0)
+    sc_dim = _simular(preparado, estrategia, fee_rate=0.0, slippage_pct=0.0,
+                      position_sizer=_Sizer(params))
+    c.retorno_sem_custo_base = sc_base.total_return_pct if sc_base else None
+    c.retorno_sem_custo_dim = sc_dim.total_return_pct if sc_dim else None
+
     n = derivar_n_janelas(len(preparado))
     if n > 0:
         c.folds_base = _walk_forward_par(preparado, estrategia, n)

@@ -630,7 +630,7 @@ def cmd_volatilidade():
     for col in ("Estrategia", "Par"):
         t.add_column(col)
     for col in ("DD base", "DD dim", "dDD", "Ret base", "Ret dim", "dRet",
-                "dExpo", "dTiming", "Ops"):
+                "dExpo", "dTiming", "Ops", "dCusto"):
         t.add_column(col, justify="right")
     t.add_column("Status")
 
@@ -640,9 +640,10 @@ def cmd_volatilidade():
         cor = cores.get(c.status, C_DIM)
         rotulo = c.status.replace("_", " ")
         if b is None or d is None:
-            t.add_row(c.estrategia, c.par, *["-"] * 9,
+            t.add_row(c.estrategia, c.par, *["-"] * 10,
                       f"[{cor}]{rotulo}[/{cor}]")
             continue
+        medido = c.retorno_sem_custo_base is not None and c.retorno_sem_custo_dim is not None
         t.add_row(
             c.estrategia, c.par,
             f"{b.max_drawdown_pct:.2f}", f"{d.max_drawdown_pct:.2f}",
@@ -651,6 +652,8 @@ def cmd_volatilidade():
             f"{c.delta_retorno:+.2f}",
             f"{c.delta_exposicao:+.1f}", f"{c.delta_timing:+.2f}",
             f"{b.total_trades}/{d.total_trades}",
+            # "-" e nao "0,00": custo nao medido nao e custo nulo.
+            f"{c.delta_custo:+.2f}" if medido else "-",
             f"[{cor}]{rotulo}[/{cor}]",
         )
     console.print(t)
@@ -665,6 +668,27 @@ def cmd_volatilidade():
     console.print(f"  [{C_DIM}]dTiming e a variacao do retorno JA descontada a exposicao; "
                   f"e ele, nao dRet, que separa habilidade de menor participacao[/{C_DIM}]")
 
+    # Agregado de custo de giro (T030). Responde se a diferenca entre versoes
+    # persiste com custo zerado -- se o dRet medio for negativo mas o dRet medio
+    # sem custo for positivo, o mecanismo ajuda e o giro come o ganho, que e
+    # conclusao diferente de "o mecanismo nao ajuda".
+    com_custo = [c for c in avaliadas
+                 if c.retorno_sem_custo_base is not None
+                 and c.retorno_sem_custo_dim is not None]
+    if com_custo:
+        n = len(com_custo)
+        d_ret = sum(c.delta_retorno for c in com_custo) / n
+        d_sem = sum(c.retorno_sem_custo_dim - c.retorno_sem_custo_base
+                    for c in com_custo) / n
+        d_custo = sum(c.delta_custo for c in com_custo) / n
+        d_ops = sum(c.delta_operacoes for c in com_custo) / n
+        console.print()
+        console.print(f"  [{C_LABEL}]custo de giro[/] em {n} comparacoes: "
+                      f"dRet medio {d_ret:+.2f}pp, "
+                      f"dRet sem custo {d_sem:+.2f}pp, "
+                      f"diferenca atribuivel a custo {d_custo:+.2f}pp, "
+                      f"dOperacoes medio {d_ops:+.1f}")
+
     export_report(
         "volatilidade",
         {"alvo": alvo, "fator_minimo": params.fator_minimo,
@@ -678,7 +702,9 @@ def cmd_volatilidade():
           "retorno_dim": c.com_dimensionamento.total_return_pct if c.com_dimensionamento else None,
           "delta_drawdown": c.delta_drawdown, "delta_retorno": c.delta_retorno,
           "delta_exposicao": c.delta_exposicao, "delta_timing": c.delta_timing,
-          "delta_operacoes": c.delta_operacoes}
+          "delta_operacoes": c.delta_operacoes, "delta_custo": c.delta_custo,
+          "retorno_sem_custo_base": c.retorno_sem_custo_base,
+          "retorno_sem_custo_dim": c.retorno_sem_custo_dim}
          for c in comparacoes],
     )
 

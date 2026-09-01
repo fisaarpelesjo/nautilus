@@ -430,3 +430,44 @@ def test_scan_nao_aborta_quando_uma_combinacao_falha():
     assert len(saida) == 2
     assert {c.estrategia for c in saida} == {"boa", "ruim"}
     assert next(c for c in saida if c.estrategia == "ruim").status == "erro"
+
+
+# ================================================ F5/US3 — custo de giro
+
+def test_execucao_sem_custo_rende_mais_ou_igual_nas_duas_versoes():
+    """T027 — zerar taxa e slippage não pode piorar o retorno. Se piorar, o
+    custo não está sendo aplicado onde se pensa que está."""
+    from backtesting.volatilidade import comparar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    c = comparar_combinacao(EmaRsiStrategy(), "EMA/RSI", "BTC/USDT", df=_serie_longa())
+
+    assert c.retorno_sem_custo_base is not None
+    assert c.retorno_sem_custo_dim is not None
+    assert c.retorno_sem_custo_base >= c.sem_dimensionamento.total_return_pct - 1e-9
+    assert c.retorno_sem_custo_dim >= c.com_dimensionamento.total_return_pct - 1e-9
+
+
+def test_custo_de_giro_e_separavel_da_vantagem():
+    """FR-014 — dimensionar implica giro, e giro paga taxa. Sem separar, um
+    delta negativo não distingue mecanismo ruim de custo adicional."""
+    from backtesting.volatilidade import comparar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    c = comparar_combinacao(EmaRsiStrategy(), "EMA/RSI", "BTC/USDT", df=_serie_longa())
+
+    delta_sem_custo = c.retorno_sem_custo_dim - c.retorno_sem_custo_base
+
+    # O delta observado é o delta sem custo mais o que o custo adicional levou.
+    assert c.delta_retorno == pytest.approx(delta_sem_custo + c.delta_custo, abs=1e-6)
+
+
+def test_custo_ausente_nao_vira_zero_silencioso():
+    """Reexecução sem custo pode falhar. Nesse caso `delta_custo` devolve 0,0 —
+    mas os campos ficam None, para o relatório poder distinguir 'custo nulo' de
+    'custo não medido'."""
+    c = _cmp(_res(trades=20), _res(trades=20))
+
+    assert c.retorno_sem_custo_base is None
+    assert c.retorno_sem_custo_dim is None
+    assert c.delta_custo == 0.0

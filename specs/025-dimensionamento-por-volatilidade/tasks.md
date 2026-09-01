@@ -113,14 +113,14 @@ ao buy-and-hold. É o achado M7.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T026 [P] [US3] Teste em `tests/test_volatilidade.py`: `delta_operacoes` e `delta_custo` são calculados entre as versões
-- [ ] T027 [P] [US3] Teste em `tests/test_volatilidade.py`: reexecução sem custo produz retorno maior ou igual em ambas as versões
+- [X] T026 [P] [US3] Teste em `tests/test_volatilidade.py`: `delta_operacoes` e `delta_custo` são calculados entre as versões
+- [X] T027 [P] [US3] Teste em `tests/test_volatilidade.py`: reexecução sem custo produz retorno maior ou igual em ambas as versões
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Implementar `retorno_sem_custo_base` e `retorno_sem_custo_dim` em `comparar_combinacao`, reexecutando as duas versões com custo zerado
-- [ ] T029 [US3] Exibir operações e custo de cada versão na tabela de `main.py`
-- [ ] T030 [US3] Adicionar ao resumo de `main.py` o agregado de custo de giro, permitindo verificar se a diferença entre versões persiste com custo zerado
+- [X] T028 [US3] Implementar `retorno_sem_custo_base` e `retorno_sem_custo_dim` em `comparar_combinacao`, reexecutando as duas versões com custo zerado
+- [X] T029 [US3] Exibir operações e custo de cada versão na tabela de `main.py`
+- [X] T030 [US3] Adicionar ao resumo de `main.py` o agregado de custo de giro, permitindo verificar se a diferença entre versões persiste com custo zerado
 
 **Checkpoint**: as três histórias funcionam de forma independente.
 
