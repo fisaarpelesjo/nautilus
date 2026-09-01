@@ -342,6 +342,11 @@ def _walk_forward_par(
     return folds
 
 
+def folds_uteis(folds: List[WalkForwardFold]) -> List[WalkForwardFold]:
+    """Alias de folds_nao_vazios, nome curto para uso na exibicao."""
+    return folds_nao_vazios(folds)
+
+
 def folds_nao_vazios(folds: List[WalkForwardFold]) -> List[WalkForwardFold]:
     """Exclui janelas sem operacao (R3, FR-006)."""
     return [f for f in folds if f.trades > 0]

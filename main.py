@@ -430,6 +430,135 @@ def cmd_debug():
         color = C_POS if ok else (C_NEG if value is False else C_DIM)
         console.print(f"  [{C_LABEL}]{key}[/{C_LABEL}]  [{color}]{value}[/{color}]")
 
+
+def cmd_horizonte():
+    """H11 -- avalia as estrategias em horizonte diario e semanal.
+
+    Nao altera o TIMEFRAME de producao (FR-012): le a configuracao apenas para
+    exibir a linha de base. Universo e estrategias NAO sao parametrizaveis por
+    CLI de proposito -- expor os dois como flag convidaria a varrer combinacoes
+    ate achar uma que passe, que e o mecanismo de testes multiplos que a
+    confirmacao fora da amostra existe para conter.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.compare import DEFAULT_STRATEGIES
+    from backtesting.horizonte import folds_uteis, run_horizonte_scan
+    from config.settings import PAIRS, TIMEFRAME
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    horizontes = sys.argv[2:] or ["4h", "1d", "1w"]
+    pares = list(PAIRS)
+    estrategias = DEFAULT_STRATEGIES
+
+    header()
+    console.print(f"[bold {C_CYAN}]varredura por horizonte temporal (H11)[/]")
+    console.print(f"  [{C_DIM}]{len(estrategias)} estrategias x {len(horizontes)} horizontes "
+                  f"x {len(pares)} pares -- horizonte de producao {TIMEFRAME}, inalterado[/{C_DIM}]")
+    console.print()
+
+    relatorios = run_horizonte_scan(estrategias, pares, horizontes)
+
+    cores = {"confirmado": C_POS, "so_na_busca": C_CYAN, "reprovado": C_NEG,
+             "inconclusivo": C_DIM, "erro": C_NEG}
+    rotulos = {"confirmado": "confirmado", "so_na_busca": "so na busca",
+               "reprovado": "reprovado", "inconclusivo": "inconclusivo", "erro": "erro"}
+
+    for rel in relatorios:
+        console.print(f"[bold]{rel.horizonte}[/bold]")
+
+        # Contexto de dado ANTES de tudo (T032, FR-009/FR-010): sem ele, uma
+        # tabela de resultados semanais parece comparavel a uma diaria.
+        curtos = sorted({c.par for c in rel.combinacoes if c.disponibilidade.historico_curto})
+        console.print(f"  [{C_LABEL}]candles medianos[/{C_LABEL}] [white]{rel.candles_medianos}[/white]"
+                      f"   [{C_LABEL}]aquecimento[/{C_LABEL}] "
+                      f"[white]{rel.aquecimento_dias_horizonte:.0f} dias[/white]")
+        if curtos:
+            console.print(f"  [{C_LABEL}]historico curto[/{C_LABEL}] "
+                          f"[{C_DIM}]{', '.join(x.replace('/USDT', '') for x in curtos)}[/{C_DIM}]")
+
+        # Contagem ANTES da tabela: uma confirmacao entre 144 tentativas tem
+        # peso estatistico distinto de uma entre 3.
+        console.print(f"  [{C_LABEL}]avaliadas[/{C_LABEL}] [white]{rel.n_avaliadas}[/white]"
+                      f"   [{C_LABEL}]confirmadas fora da amostra[/{C_LABEL}] "
+                      f"[white]{rel.n_confirmadas}[/white]"
+                      f"   [{C_LABEL}]inconclusivas[/{C_LABEL}] "
+                      f"[white]{rel.n_inconclusivas}[/white]")
+        console.print()
+
+        tabela = Table(box=box.SIMPLE_HEAVY, title=None, header_style=C_LABEL)
+        for col in ("Estrategia", "Par", "Trades", "Ret %", "B&H %",
+                    "Sem custo %", "Custo pp", "PF", "DD %", "Timing pp", "Status"):
+            tabela.add_column(col, justify="left" if col in ("Estrategia", "Par", "Status") else "right")
+
+        for c in rel.ordenadas():
+            r = c.resultado_janela_unica
+            trades = f"{r.total_trades}" if r else "-"
+            ret = f"{r.total_return_pct:.2f}" if r else "-"
+            bh = f"{r.buy_hold_return_pct:.2f}" if r else "-"
+            pf = f"{r.profit_factor:.2f}" if r else "-"
+            dd = f"{r.max_drawdown_pct:.2f}" if r else "-"
+            sem = f"{c.retorno_sem_custo_pct:.2f}" if c.retorno_sem_custo_pct is not None else "-"
+            custo = (f"{r.total_return_pct - c.retorno_sem_custo_pct:+.2f}"
+                     if r and c.retorno_sem_custo_pct is not None else "-")
+            uteis = folds_uteis(c.folds)
+            timing = (f"{sum(f.ganho_de_timing_pp for f in uteis) / len(uteis):+.2f}"
+                      if uteis else "-")
+            cor = cores.get(c.status, C_DIM)
+            tabela.add_row(c.estrategia, c.par.replace("/USDT", ""), trades, ret, bh,
+                           sem, custo, pf, dd, timing,
+                           f"[{cor}]{rotulos.get(c.status, c.status)}[/{cor}]")
+
+        console.print(tabela)
+        console.print()
+
+    # Quadro comparativo entre horizontes (T024): horizonte maior negocia menos
+    # e paga menos taxa, e essa e exatamente a confusao que US2 existe para
+    # desfazer -- por isso o impacto de custo aparece lado a lado.
+    console.print(f"[bold {C_CYAN}]comparativo entre horizontes[/]")
+    comp = Table(box=box.SIMPLE_HEAVY, header_style=C_LABEL)
+    for col in ("Horizonte", "Avaliadas", "Confirmadas", "Inconclusivas",
+                "Candles med.", "Aquec. dias", "Custo medio pp"):
+        comp.add_column(col, justify="left" if col == "Horizonte" else "right")
+    for rel in relatorios:
+        impactos = [c.resultado_janela_unica.total_return_pct - c.retorno_sem_custo_pct
+                    for c in rel.combinacoes
+                    if c.resultado_janela_unica and c.retorno_sem_custo_pct is not None]
+        medio = f"{sum(impactos) / len(impactos):+.2f}" if impactos else "-"
+        comp.add_row(rel.horizonte, str(rel.n_avaliadas), str(rel.n_confirmadas),
+                     str(rel.n_inconclusivas), str(rel.candles_medianos),
+                     f"{rel.aquecimento_dias_horizonte:.0f}", medio)
+    console.print(comp)
+    console.print()
+
+    # Legenda (T019): sem ela, "so na busca" e lido como aprovacao fraca e
+    # "inconclusivo" como reprovacao.
+    console.print(f"  [{C_DIM}]\"so na busca\" NAO e aprovacao -- passou onde foi descoberta "
+                  f"e nao se sustentou fora[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"inconclusivo\" significa amostra insuficiente para julgar, "
+                  f"nao ausencia de vantagem[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"Custo pp\" e quanto a taxa e o slippage retiraram do retorno "
+                  f"bruto[/{C_DIM}]")
+
+    export_report(
+        "horizonte",
+        {"horizontes": horizontes, "pares": pares, "estrategias": list(estrategias)},
+        [{"horizonte": rel.horizonte, "avaliadas": rel.n_avaliadas,
+          "confirmadas": rel.n_confirmadas, "inconclusivas": rel.n_inconclusivas,
+          "candles_medianos": rel.candles_medianos,
+          "combinacoes": [{"estrategia": c.estrategia, "par": c.par,
+                           "status": c.status, "motivo": c.motivo,
+                           "trades": c.resultado_janela_unica.total_trades if c.resultado_janela_unica else 0,
+                           "retorno_pct": c.resultado_janela_unica.total_return_pct if c.resultado_janela_unica else None,
+                           "retorno_sem_custo_pct": c.retorno_sem_custo_pct,
+                           "n_janelas": c.n_janelas}
+                          for c in rel.ordenadas()]}
+         for rel in relatorios],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -437,6 +566,8 @@ COMMANDS = {
     "scan":          cmd_scan,
     "compare":       cmd_comparar,
     "multimarket":   cmd_multimarket,
+    "horizonte":     cmd_horizonte,
+    "horizontes":    cmd_horizonte,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

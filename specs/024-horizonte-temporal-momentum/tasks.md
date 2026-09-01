@@ -79,9 +79,9 @@ aparece como reprovada.
 - [X] T014 [US1] Implementar a precedência de `inconclusivo` sobre `reprovado` em `backtesting/horizonte.py`: amostra insuficiente decide o status antes de qualquer avaliação de métrica
 - [X] T015 [US1] Implementar `run_horizonte_scan(estrategias, pares, horizontes)` em `backtesting/horizonte.py`, varrendo as combinações e capturando exceção por combinação sem abortar a varredura, como faz `backtesting/multimarket.py::run_scan`
 - [X] T016 [US1] Implementar a dataclass `RelatorioHorizonte` em `backtesting/horizonte.py` com as contagens agregadas de confirmadas e inconclusivas
-- [ ] T017 [US1] Implementar `cmd_horizonte()` em `main.py` e registrar os aliases `horizonte` e `horizontes` no despacho de comandos, conforme `contracts/cli-horizonte.md`
-- [ ] T018 [US1] Implementar a exibição em `main.py` com a contagem de avaliadas / confirmadas / inconclusivas **antes** da tabela, seguindo o padrão de `multimarket` — ler a tabela sem a contagem convida à leitura errada
-- [ ] T019 [US1] Adicionar legenda na saída de `main.py` declarando que `so na busca` não é aprovação e que `inconclusivo` significa amostra insuficiente, não ausência de vantagem
+- [X] T017 [US1] Implementar `cmd_horizonte()` em `main.py` e registrar os aliases `horizonte` e `horizontes` no despacho de comandos, conforme `contracts/cli-horizonte.md`
+- [X] T018 [US1] Implementar a exibição em `main.py` com a contagem de avaliadas / confirmadas / inconclusivas **antes** da tabela, seguindo o padrão de `multimarket` — ler a tabela sem a contagem convida à leitura errada
+- [X] T019 [US1] Adicionar legenda na saída de `main.py` declarando que `so na busca` não é aprovação e que `inconclusivo` significa amostra insuficiente, não ausência de vantagem
 
 **Checkpoint**: US1 funcional e testável isoladamente.
 
@@ -102,9 +102,9 @@ retorno com custo real, sem custo e o impacto em pontos percentuais.
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Adicionar `retorno_sem_custo_pct` a `CombinacaoAvaliada` e calculá-lo em `_avaliar_combinacao` em `backtesting/horizonte.py`, reexecutando o backtest com custo zerado
-- [ ] T023 [US2] Exibir retorno líquido, retorno sem custo e impacto na tabela de `main.py`, para que a distinção seja legível sem cálculo mental
-- [ ] T024 [US2] Adicionar ao quadro comparativo entre horizontes em `main.py` a diferença de impacto de custo entre escalas — horizonte maior negocia menos e paga menos taxa, e essa é a confusão que US2 existe para desfazer
+- [X] T022 [US2] Adicionar `retorno_sem_custo_pct` a `CombinacaoAvaliada` e calculá-lo em `_avaliar_combinacao` em `backtesting/horizonte.py`, reexecutando o backtest com custo zerado
+- [X] T023 [US2] Exibir retorno líquido, retorno sem custo e impacto na tabela de `main.py`, para que a distinção seja legível sem cálculo mental
+- [X] T024 [US2] Adicionar ao quadro comparativo entre horizontes em `main.py` a diferença de impacto de custo entre escalas — horizonte maior negocia menos e paga menos taxa, e essa é a confusão que US2 existe para desfazer
 
 **Checkpoint**: US1 e US2 funcionam de forma independente.
 
@@ -130,7 +130,7 @@ histórico curto e não marca BTC nem ETH.
 - [X] T029 [US3] Implementar `marcar_historico_curto(disponibilidades)` em `backtesting/horizonte.py` usando a mediana do próprio horizonte como referência, conforme decisão D3 de `research.md`
 - [X] T030 [US3] Implementar o guard de aquecimento em `_avaliar_combinacao` em `backtesting/horizonte.py`: se `aquecimento >= utilizaveis`, a combinação é inconclusiva sem simular
 - [X] T031 [US3] Ajustar a agregação de folds em `backtesting/horizonte.py` para excluir janelas vazias da contagem de positivas e da média de ganho de timing
-- [ ] T032 [US3] Exibir o contexto de dado por horizonte em `main.py` — candles medianos, aquecimento em dias, pares marcados — antes da contagem e da tabela
+- [X] T032 [US3] Exibir o contexto de dado por horizonte em `main.py` — candles medianos, aquecimento em dias, pares marcados — antes da contagem e da tabela
 
 **Checkpoint**: as três histórias funcionam de forma independente.
 
@@ -138,7 +138,7 @@ histórico curto e não marca BTC nem ETH.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T033 [P] Exportar o resultado para `reports/horizonte_{timestamp}.{json,csv,md}` via `utils/report_export.py` em `main.py`, seguindo o padrão de `backtest`, `scan` e `optimize`
+- [X] T033 [P] Exportar o resultado para `reports/horizonte_{timestamp}.{json,csv,md}` via `utils/report_export.py` em `main.py`, seguindo o padrão de `backtest`, `scan` e `optimize`
 - [ ] T034 [P] Documentar o comando `horizonte` em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige que os dois permaneçam sincronizados
 - [ ] T035 [P] Documentar o comando em `docs/08-comandos-cli.md`
 - [ ] T036 Executar a varredura completa e registrar o veredito de H11 em `docs/research/registro-de-hipoteses.md`, com evidência, procedência e a expectativa registrada em `research.md` confrontada com o resultado observado
