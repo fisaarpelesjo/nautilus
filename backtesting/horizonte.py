@@ -374,7 +374,7 @@ def _simular(preparado, estrategia: BaseStrategy, **kwargs) -> Optional[Backtest
 
 
 def _walk_forward_par(
-    preparado, estrategia: BaseStrategy, n_janelas: int,
+    preparado, estrategia: BaseStrategy, n_janelas: int, **kwargs,
 ) -> List[WalkForwardFold]:
     """Walk-forward para backtest de PAR UNICO.
 
@@ -383,6 +383,11 @@ def _walk_forward_par(
     `ganho_de_timing_pp`, que desconta exposicao do retorno. Sem esse desconto,
     uma estrategia que fica em caixa durante queda parece habilidosa sem ser
     (achado M7).
+
+    `kwargs` sao repassados a `_simular` -- e como a spec 025 roda o MESMO
+    walk-forward com e sem dimensionamento, em vez de duplicar este laco. Duas
+    implementacoes do mesmo fatiamento divergiriam na primeira correcao, que e o
+    defeito M1 em escala menor.
 
     Janela sem operacao alguma e devolvida com trades=0 e o consumidor a exclui
     das agregacoes (R3, FR-006). Conta-la como neutra diluiria tanto resultado
@@ -398,7 +403,7 @@ def _walk_forward_par(
     folds: List[WalkForwardFold] = []
     for j in range(n_janelas):
         fatia = preparado.iloc[j * tam:(j + 1) * tam]
-        r = _simular(fatia, estrategia)
+        r = _simular(fatia, estrategia, **kwargs)
         if r is None:
             folds.append(WalkForwardFold(
                 janela=j + 1, buy_hold_pct=0.0, retorno_pct=0.0,

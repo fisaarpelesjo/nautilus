@@ -47,6 +47,10 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from backtesting.cross_sectional import WalkForwardFold
+from config.settings import EDGE_MIN_TRADES, TIMEFRAME
+from data.fetcher import fetch_ohlcv
+from strategy.base import BaseStrategy
 from utils.logger import get_logger
 
 log = get_logger("volatilidade")
@@ -94,8 +98,35 @@ def fator_volatilidade(atr_ratio, params: Optional[ParametrosVolatilidade] = Non
     return max(p.fator_minimo, min(1.0, p.alvo / v))
 
 
+def ganho_de_timing(resultado) -> float:
+    """Retorno descontada a exposicao, em pontos percentuais.
+
+    A definicao vive em `cross_sectional.WalkForwardFold.ganho_de_timing_pp` e e
+    reusada aqui construindo um fold, em vez de reescrever a formula. Duas
+    definicoes do mesmo conceito no mesmo sistema divergem na primeira correcao
+    -- e este conceito especifico e o que separa habilidade de ausencia (M7).
+    """
+    if resultado is None:
+        return 0.0
+    return WalkForwardFold(
+        janela=0,
+        buy_hold_pct=resultado.buy_hold_return_pct,
+        retorno_pct=resultado.total_return_pct,
+        exposicao_pct=resultado.exposure_pct,
+        max_drawdown_pct=resultado.max_drawdown_pct,
+        trades=resultado.total_trades,
+    ).ganho_de_timing_pp
+
+
 @dataclass
 class ComparacaoPareada:
+    """Uma estrategia sobre um par, nas duas versoes.
+
+    H12 nao pergunta "a versao dimensionada e boa?", pergunta "ela e melhor que a
+    MESMA estrategia sem dimensionamento?". Dai a unidade de analise ser o par de
+    resultados, e nao o resultado isolado.
+    """
+
     estrategia: str
     par: str
     sem_dimensionamento: object = None
@@ -108,10 +139,201 @@ class ComparacaoPareada:
     status: str = "inconclusivo"
     motivo: str = ""
 
+    def _delta(self, atributo: str) -> float:
+        b, d = self.sem_dimensionamento, self.com_dimensionamento
+        if b is None or d is None:
+            return 0.0
+        return getattr(d, atributo) - getattr(b, atributo)
 
-def comparar_combinacao(*args, **kwargs) -> ComparacaoPareada:
-    raise NotImplementedError("T015")
+    @property
+    def delta_retorno(self) -> float:
+        return self._delta("total_return_pct")
+
+    @property
+    def delta_drawdown(self) -> float:
+        """Negativo significa MENOS drawdown na versao dimensionada."""
+        return self._delta("max_drawdown_pct")
+
+    @property
+    def delta_exposicao(self) -> float:
+        return self._delta("exposure_pct")
+
+    @property
+    def delta_operacoes(self) -> int:
+        return int(self._delta("total_trades"))
+
+    @property
+    def delta_timing(self) -> float:
+        """Variacao do ganho ATRIBUIVEL A ESCOLHA, descontada a exposicao.
+
+        E a grandeza que decide entre `melhora` e `sem_vantagem`. Sem ela, uma
+        versao que apenas participa menos num mercado em queda apresenta retorno
+        melhor e seria lida como habilidosa.
+        """
+        return ganho_de_timing(self.com_dimensionamento) - ganho_de_timing(self.sem_dimensionamento)
+
+    @property
+    def delta_custo(self) -> float:
+        """Quanto o custo de execucao pesou a mais (ou a menos) na versao
+        dimensionada. Ajustar tamanho implica giro, e giro paga taxa."""
+        b, d = self.sem_dimensionamento, self.com_dimensionamento
+        if (b is None or d is None
+                or self.retorno_sem_custo_base is None
+                or self.retorno_sem_custo_dim is None):
+            return 0.0
+        custo_dim = d.total_return_pct - self.retorno_sem_custo_dim
+        custo_base = b.total_return_pct - self.retorno_sem_custo_base
+        return custo_dim - custo_base
 
 
-def run_volatilidade_scan(*args, **kwargs) -> List[ComparacaoPareada]:
-    raise NotImplementedError("T016")
+def classificar_comparacao(c: ComparacaoPareada):
+    """Veredito da comparacao. A ORDEM das checagens e o conteudo da regra.
+
+    `inconclusivo` precede qualquer avaliacao de metrica, como em H10 e H11:
+    comparar 30 operacoes contra 4 mede diferenca de amostra, nao
+    dimensionamento.
+
+    E `sem_vantagem` existe como estado proprio, distinto de `melhora` e de
+    `piora`. Colapsa-lo em `melhora` faria H12 passar trivialmente -- o
+    mecanismo reduz exposicao por construcao, entao em mercado de queda o
+    retorno relativo melhora sozinho.
+    """
+    b, d = c.sem_dimensionamento, c.com_dimensionamento
+
+    if b is None or d is None:
+        return "erro", "uma das versoes nao produziu resultado"
+
+    for nome, r in (("base", b), ("dimensionada", d)):
+        if r.total_trades < EDGE_MIN_TRADES:
+            return ("inconclusivo",
+                    f"versao {nome} com {r.total_trades} operacoes, "
+                    f"abaixo do minimo de {EDGE_MIN_TRADES}")
+
+    if c.delta_drawdown >= 0:
+        return ("piora",
+                f"drawdown nao caiu ({b.max_drawdown_pct:.2f}% -> "
+                f"{d.max_drawdown_pct:.2f}%)")
+
+    if c.delta_timing <= 0:
+        return ("sem_vantagem",
+                f"drawdown caiu {abs(c.delta_drawdown):.2f}pp mas o ganho "
+                f"desaparece ao descontar exposicao "
+                f"({c.delta_exposicao:+.1f}pp de exposicao, "
+                f"{c.delta_timing:+.2f}pp de timing)")
+
+    return ("melhora",
+            f"drawdown -{abs(c.delta_drawdown):.2f}pp e timing "
+            f"{c.delta_timing:+.2f}pp mesmo descontada a exposicao")
+
+
+# --------------------------------------------------- varredura pareada (US1)
+
+CANDLES_PADRAO = 2000
+
+
+class _Sizer:
+    """Callable passado a `simulate_backtest`, que registra o que aplicou.
+
+    O fator medio observado nao e telemetria opcional: se ele vier proximo de
+    1,0 o mecanismo mal atuou, e um veredito de `sem_vantagem` estaria medindo
+    inercia em vez de dimensionamento. Sem esse numero no relatorio nao daria
+    para distinguir os dois casos.
+    """
+
+    def __init__(self, params: ParametrosVolatilidade):
+        self.params = params
+        self.fatores: List[float] = []
+
+    def __call__(self, candle) -> float:
+        f = fator_volatilidade(candle.get("atr_ratio"), self.params)
+        self.fatores.append(f)
+        return f
+
+    @property
+    def media(self) -> float:
+        return sum(self.fatores) / len(self.fatores) if self.fatores else 1.0
+
+
+def comparar_combinacao(
+    estrategia: BaseStrategy,
+    nome_estrategia: str,
+    par: str,
+    horizonte: str = TIMEFRAME,
+    params: Optional[ParametrosVolatilidade] = None,
+    df=None,
+    candles: int = CANDLES_PADRAO,
+) -> ComparacaoPareada:
+    """Roda a MESMA estrategia sobre a MESMA serie, com e sem dimensionamento.
+
+    Tudo alem do `position_sizer` e mantido identico entre as duas execucoes --
+    mesma serie, mesmos indicadores, mesmo fatiamento de walk-forward -- porque
+    qualquer outra diferenca contaminaria a atribuicao do resultado ao
+    mecanismo.
+    """
+    from backtesting.horizonte import (
+        _simular, _walk_forward_par, derivar_n_janelas, preparar,
+    )
+
+    params = params or ParametrosVolatilidade()
+    c = ComparacaoPareada(estrategia=nome_estrategia, par=par)
+
+    if df is None:
+        try:
+            df = fetch_ohlcv(par, horizonte, candles)
+        except Exception as exc:
+            c.status = "erro"
+            c.motivo = f"historico indisponivel: {type(exc).__name__}"
+            return c
+
+    preparado = preparar(df, estrategia)
+    if preparado is None:
+        c.status = "erro"
+        c.motivo = "indicadores nao puderam ser calculados"
+        return c
+
+    sizer = _Sizer(params)
+    c.sem_dimensionamento = _simular(preparado, estrategia)
+    c.com_dimensionamento = _simular(preparado, estrategia, position_sizer=sizer)
+    c.fator_medio = sizer.media
+
+    n = derivar_n_janelas(len(preparado))
+    if n > 0:
+        c.folds_base = _walk_forward_par(preparado, estrategia, n)
+        c.folds_dim = _walk_forward_par(
+            preparado, estrategia, n, position_sizer=_Sizer(params),
+        )
+
+    c.status, c.motivo = classificar_comparacao(c)
+    return c
+
+
+def run_volatilidade_scan(
+    estrategias: Optional[dict] = None,
+    pares: Optional[List[str]] = None,
+    horizonte: str = TIMEFRAME,
+    params: Optional[ParametrosVolatilidade] = None,
+    candles: int = CANDLES_PADRAO,
+) -> List[ComparacaoPareada]:
+    """Varre estrategia x par. Uma combinacao que falha vira `erro` e a
+    varredura continua -- abortar perderia as demais por um par sem historico.
+    """
+    from backtesting.horizonte import ESTRATEGIAS_H11, UNIVERSO_H11
+
+    estrategias = estrategias if estrategias is not None else ESTRATEGIAS_H11()
+    pares = pares if pares is not None else UNIVERSO_H11
+    params = params or ParametrosVolatilidade()
+
+    saida: List[ComparacaoPareada] = []
+    for nome, est in estrategias.items():
+        for par in pares:
+            try:
+                saida.append(comparar_combinacao(
+                    est, nome, par, horizonte, params, candles=candles,
+                ))
+            except Exception as exc:
+                log.warning(f"{nome} x {par}: {type(exc).__name__}: {str(exc)[:60]}")
+                saida.append(ComparacaoPareada(
+                    estrategia=nome, par=par, status="erro",
+                    motivo=f"{type(exc).__name__}: {str(exc)[:60]}",
+                ))
+    return saida

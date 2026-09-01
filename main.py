@@ -563,6 +563,126 @@ def cmd_horizonte():
     )
 
 
+def cmd_volatilidade():
+    """H12 -- dimensionamento de posicao por volatilidade.
+
+    Compara cada estrategia consigo mesma, com e sem dimensionamento, sobre a
+    mesma serie. Universo e estrategias nao sao parametrizaveis por CLI, pelo
+    mesmo motivo de `horizonte`. O alvo aceita argumento para inspecao manual e
+    reprodutibilidade, nao para varredura: varrer alvos ate um passar e o
+    problema de testes multiplos que a metodologia existe para conter.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.volatilidade import (
+        ALVO_PADRAO,
+        ParametrosVolatilidade,
+        run_volatilidade_scan,
+    )
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    alvo = ALVO_PADRAO
+    if len(sys.argv) > 2:
+        try:
+            alvo = float(sys.argv[2])
+        except ValueError:
+            print(f"alvo invalido: {sys.argv[2]}")
+            sys.exit(1)
+        if not alvo > 0:
+            print(f"alvo precisa ser positivo: {alvo}")
+            sys.exit(1)
+
+    params = ParametrosVolatilidade(alvo=alvo)
+
+    header()
+    console.print(f"[bold {C_CYAN}]dimensionamento por volatilidade (H12)[/]")
+    console.print(f"  [{C_DIM}]alvo {alvo:.4f} -- fator = min(1,0; alvo / atr_ratio), "
+                  f"so reduz posicao, nunca amplia[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]risk/manager.py nao e tocado: producao continua "
+                  f"dimensionando como hoje[/{C_DIM}]")
+    console.print()
+
+    comparacoes = run_volatilidade_scan(params=params)
+
+    ordem = {"melhora": 0, "sem_vantagem": 1, "piora": 2, "inconclusivo": 3, "erro": 4}
+    comparacoes.sort(key=lambda c: (ordem.get(c.status, 9), -c.delta_timing))
+
+    conta = {k: sum(1 for c in comparacoes if c.status == k) for k in ordem}
+    avaliadas = [c for c in comparacoes if c.status in ("melhora", "sem_vantagem", "piora")]
+    fatores = [c.fator_medio for c in comparacoes if c.sem_dimensionamento is not None]
+
+    # Contagem ANTES da tabela: quem le uma tabela de 48 linhas forma a
+    # impressao pelas primeiras que ve, e o numero agregado e o resultado.
+    console.print(f"  [{C_LABEL}]avaliadas[/] {len(avaliadas)}  "
+                  f"[{C_POS}]melhora[/] {conta['melhora']}  "
+                  f"[{C_DIM}]sem vantagem[/] {conta['sem_vantagem']}  "
+                  f"[{C_NEG}]piora[/] {conta['piora']}  "
+                  f"[{C_DIM}]inconclusivas[/] {conta['inconclusivo']}  "
+                  f"[{C_DIM}]erro[/] {conta['erro']}")
+    if fatores:
+        console.print(f"  [{C_LABEL}]fator medio aplicado[/] "
+                      f"{sum(fatores) / len(fatores):.3f}")
+    console.print()
+
+    t = Table(box=box.SIMPLE_HEAD)
+    for col in ("Estrategia", "Par"):
+        t.add_column(col)
+    for col in ("DD base", "DD dim", "dDD", "Ret base", "Ret dim", "dRet",
+                "dExpo", "dTiming", "Ops"):
+        t.add_column(col, justify="right")
+    t.add_column("Status")
+
+    cores = {"melhora": C_POS, "piora": C_NEG}
+    for c in comparacoes:
+        b, d = c.sem_dimensionamento, c.com_dimensionamento
+        cor = cores.get(c.status, C_DIM)
+        rotulo = c.status.replace("_", " ")
+        if b is None or d is None:
+            t.add_row(c.estrategia, c.par, *["-"] * 9,
+                      f"[{cor}]{rotulo}[/{cor}]")
+            continue
+        t.add_row(
+            c.estrategia, c.par,
+            f"{b.max_drawdown_pct:.2f}", f"{d.max_drawdown_pct:.2f}",
+            f"{c.delta_drawdown:+.2f}",
+            f"{b.total_return_pct:.2f}", f"{d.total_return_pct:.2f}",
+            f"{c.delta_retorno:+.2f}",
+            f"{c.delta_exposicao:+.1f}", f"{c.delta_timing:+.2f}",
+            f"{b.total_trades}/{d.total_trades}",
+            f"[{cor}]{rotulo}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    # Legenda: sem ela, "sem vantagem" e lido como melhora fraca -- que e
+    # exatamente a leitura errada que US2 existe para impedir.
+    console.print(f"  [{C_DIM}]\"sem vantagem\": o drawdown caiu mas o ganho desapareceu "
+                  f"ao descontar exposicao -- participar menos nao e habilidade[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"inconclusivo\" significa amostra insuficiente para julgar, "
+                  f"nao ausencia de vantagem[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]dTiming e a variacao do retorno JA descontada a exposicao; "
+                  f"e ele, nao dRet, que separa habilidade de menor participacao[/{C_DIM}]")
+
+    export_report(
+        "volatilidade",
+        {"alvo": alvo, "fator_minimo": params.fator_minimo,
+         "pares": len(set(c.par for c in comparacoes)),
+         "estrategias": sorted(set(c.estrategia for c in comparacoes))},
+        [{"estrategia": c.estrategia, "par": c.par, "status": c.status,
+          "motivo": c.motivo, "fator_medio": c.fator_medio,
+          "drawdown_base": c.sem_dimensionamento.max_drawdown_pct if c.sem_dimensionamento else None,
+          "drawdown_dim": c.com_dimensionamento.max_drawdown_pct if c.com_dimensionamento else None,
+          "retorno_base": c.sem_dimensionamento.total_return_pct if c.sem_dimensionamento else None,
+          "retorno_dim": c.com_dimensionamento.total_return_pct if c.com_dimensionamento else None,
+          "delta_drawdown": c.delta_drawdown, "delta_retorno": c.delta_retorno,
+          "delta_exposicao": c.delta_exposicao, "delta_timing": c.delta_timing,
+          "delta_operacoes": c.delta_operacoes}
+         for c in comparacoes],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -572,6 +692,8 @@ COMMANDS = {
     "multimarket":   cmd_multimarket,
     "horizonte":     cmd_horizonte,
     "horizontes":    cmd_horizonte,
+    "volatilidade":  cmd_volatilidade,
+    "voltarget":     cmd_volatilidade,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

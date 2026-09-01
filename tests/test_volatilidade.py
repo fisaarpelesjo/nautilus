@@ -220,3 +220,213 @@ def test_sizer_recebe_a_linha_do_candle_e_consegue_ler_atr_ratio():
 
     if vistos:
         assert all(v is not None for v in vistos)
+
+
+# ============================================ F3/US1 + F4/US2 — comparacao
+
+def _res(trades=20, ret=10.0, dd=8.0, expo=50.0, bh=0.0, pf=1.5):
+    """BacktestResult minimo, so com os campos que a comparacao consulta."""
+    from backtesting.engine import BacktestResult, _calculate_advanced_metrics
+
+    m = _calculate_advanced_metrics([])
+    m.update(profit_factor=pf, exposure_pct=expo)
+    return BacktestResult(
+        trades=[], initial_capital=1000.0, final_capital=1000.0 + ret * 10,
+        total_return_pct=ret, win_rate=50.0, total_trades=trades,
+        max_drawdown_pct=dd, buy_hold_return_pct=bh, edge_return_pct=ret - bh, **m,
+    )
+
+
+def _cmp(base, dim, **kw):
+    from backtesting.volatilidade import ComparacaoPareada
+    return ComparacaoPareada(estrategia="X", par="BTC/USDT",
+                             sem_dimensionamento=base, com_dimensionamento=dim, **kw)
+
+
+# ------------------------------------------------------------ T011 deltas
+
+def test_deltas_sao_dimensionado_menos_base():
+    c = _cmp(_res(ret=10.0, dd=12.0, expo=60.0), _res(ret=7.0, dd=8.0, expo=45.0))
+
+    assert c.delta_retorno == pytest.approx(-3.0)
+    assert c.delta_drawdown == pytest.approx(-4.0)
+    assert c.delta_exposicao == pytest.approx(-15.0)
+
+
+def test_delta_operacoes_e_custo_entre_versoes():
+    c = _cmp(_res(trades=20), _res(trades=26))
+    c.retorno_sem_custo_base = 12.0
+    c.retorno_sem_custo_dim = 11.0
+
+    assert c.delta_operacoes == 6
+    assert c.delta_custo == pytest.approx(
+        (c.com_dimensionamento.total_return_pct - 11.0)
+        - (c.sem_dimensionamento.total_return_pct - 12.0)
+    )
+
+
+# ---------------------------------- T019 T020 — o teste central da spec
+
+def test_drawdown_cai_sem_ganho_de_timing_e_sem_vantagem():
+    """FR-008 — o teste mais importante desta spec.
+
+    Dimensionar por volatilidade reduz exposição por construção (~10% medido em
+    research.md). Num mercado em queda isso sozinho melhora o retorno relativo
+    ao buy-and-hold sem qualquer capacidade de seleção — achado M7.
+
+    Aqui: buy-and-hold de -40%, exposição cai de 60% para 45%. O retorno melhora
+    exatamente na proporção da menor participação, então o ganho de timing não
+    sobe. Isso NÃO é melhoria.
+    """
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _res(trades=20, ret=-24.0, dd=12.0, expo=60.0, bh=-40.0)
+    dim = _res(trades=20, ret=-18.0, dd=9.0, expo=45.0, bh=-40.0)
+
+    status, motivo = classificar_comparacao(_cmp(base, dim))
+
+    assert status == "sem_vantagem"
+    assert "exposi" in motivo.lower()
+
+
+def test_drawdown_cai_com_ganho_de_timing_e_melhora():
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _res(trades=20, ret=-24.0, dd=12.0, expo=60.0, bh=-40.0)
+    dim = _res(trades=20, ret=-5.0, dd=9.0, expo=45.0, bh=-40.0)
+
+    status, _ = classificar_comparacao(_cmp(base, dim))
+
+    assert status == "melhora"
+
+
+def test_drawdown_nao_cai_e_piora():
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _res(trades=20, ret=10.0, dd=8.0, expo=60.0)
+    dim = _res(trades=20, ret=6.0, dd=11.0, expo=55.0)
+
+    status, _ = classificar_comparacao(_cmp(base, dim))
+
+    assert status == "piora"
+
+
+# ------------------------------------------ T012 T013 — amostra e erro
+
+def test_amostra_insuficiente_em_qualquer_versao_e_inconclusiva():
+    """FR-011 — comparar 30 operações contra 4 mede diferença de amostra,
+    não dimensionamento."""
+    from backtesting.volatilidade import classificar_comparacao
+    from config.settings import EDGE_MIN_TRADES
+
+    poucas = EDGE_MIN_TRADES - 1
+
+    s1, m1 = classificar_comparacao(_cmp(_res(trades=30), _res(trades=poucas)))
+    s2, m2 = classificar_comparacao(_cmp(_res(trades=poucas), _res(trades=30)))
+
+    assert s1 == "inconclusivo" and "opera" in m1.lower()
+    assert s2 == "inconclusivo" and "opera" in m2.lower()
+
+
+def test_amostra_insuficiente_precede_avaliacao_de_metrica():
+    """Mesmo com métricas boas, amostra insuficiente decide primeiro."""
+    from backtesting.volatilidade import classificar_comparacao
+
+    base = _res(trades=30, ret=-24.0, dd=12.0, expo=60.0, bh=-40.0)
+    dim = _res(trades=3, ret=20.0, dd=2.0, expo=45.0, bh=-40.0)
+
+    status, _ = classificar_comparacao(_cmp(base, dim))
+
+    assert status == "inconclusivo"
+
+
+def test_versao_ausente_produz_erro_nao_piora():
+    from backtesting.volatilidade import classificar_comparacao
+
+    status, _ = classificar_comparacao(_cmp(_res(trades=20), None))
+
+    assert status == "erro"
+
+
+def test_ganho_de_timing_reusa_a_metrica_de_cross_sectional():
+    """A definição de ganho de timing vive em cross_sectional.WalkForwardFold.
+    Redefini-la aqui criaria duas fórmulas do mesmo conceito no mesmo sistema."""
+    from backtesting.cross_sectional import WalkForwardFold
+    from backtesting.volatilidade import ganho_de_timing
+
+    r = _res(ret=-18.0, expo=45.0, bh=-40.0)
+    esperado = WalkForwardFold(1, -40.0, -18.0, 45.0, 0.0, 20).ganho_de_timing_pp
+
+    assert ganho_de_timing(r) == pytest.approx(esperado)
+
+
+# ------------------------------ T021 — exposicao reportada em toda comparacao
+
+def test_exposicao_reportada_em_toda_comparacao_avaliada():
+    """FR-007 — sem exposição na saída, a leitura de M7 fica indisponível ao
+    leitor do relatório mesmo com o status correto."""
+    from backtesting.volatilidade import classificar_comparacao
+
+    for base, dim in (
+        (_res(trades=20, ret=-24.0, dd=12.0, expo=60.0, bh=-40.0),
+         _res(trades=20, ret=-18.0, dd=9.0, expo=45.0, bh=-40.0)),
+        (_res(trades=20, ret=10.0, dd=8.0, expo=60.0),
+         _res(trades=20, ret=6.0, dd=11.0, expo=55.0)),
+    ):
+        c = _cmp(base, dim)
+        c.status, c.motivo = classificar_comparacao(c)
+        assert c.delta_exposicao == pytest.approx(
+            dim.exposure_pct - base.exposure_pct)
+
+
+# ------------------------------------ T015 T016 — varredura sobre serie real
+
+def _serie_longa(n=900, semente=11):
+    """Serie mais longa que `_serie`, para o walk-forward ter janelas.
+
+    Nome distinto de proposito: definir um segundo `_serie` no mesmo modulo
+    sobrescreveria o primeiro e mudaria calado a entrada dos testes de T009.
+    """
+    return _serie(n=n, semente=semente)
+
+
+def test_comparar_combinacao_roda_as_duas_versoes_sobre_a_mesma_serie():
+    from backtesting.volatilidade import comparar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    c = comparar_combinacao(EmaRsiStrategy(), "EMA/RSI", "BTC/USDT", df=_serie_longa())
+
+    assert c.sem_dimensionamento is not None
+    assert c.com_dimensionamento is not None
+    assert c.status in {"melhora", "sem_vantagem", "piora", "inconclusivo"}
+    assert 0.0 < c.fator_medio <= 1.0
+
+
+def test_dimensionamento_nunca_amplia_o_capital_final_acima_da_base():
+    """FR-003 na ponta: o fator vive em (0, 1], então a versão dimensionada
+    nunca aloca mais que a base — e nunca vira alavancagem por acidente."""
+    from backtesting.volatilidade import comparar_combinacao
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    c = comparar_combinacao(EmaRsiStrategy(), "EMA/RSI", "BTC/USDT", df=_serie_longa())
+
+    assert c.fator_medio <= 1.0
+    assert c.delta_exposicao <= 0.001
+
+
+def test_scan_nao_aborta_quando_uma_combinacao_falha():
+    from backtesting.volatilidade import run_volatilidade_scan
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    class Explode(EmaRsiStrategy):
+        def calculate_indicators(self, df):
+            raise RuntimeError("falha proposital")
+
+    saida = run_volatilidade_scan(
+        estrategias={"boa": EmaRsiStrategy(), "ruim": Explode()},
+        pares=["BTC/USDT"],
+    )
+
+    assert len(saida) == 2
+    assert {c.estrategia for c in saida} == {"boa", "ruim"}
+    assert next(c for c in saida if c.estrategia == "ruim").status == "erro"

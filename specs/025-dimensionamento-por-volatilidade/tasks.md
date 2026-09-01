@@ -62,17 +62,17 @@ drawdown e retorno de cada versão.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T011 [P] [US1] Teste em `tests/test_volatilidade.py`: `ComparacaoPareada` calcula `delta_drawdown` e `delta_retorno` como dimensionado menos base
-- [ ] T012 [P] [US1] Teste em `tests/test_volatilidade.py`: amostra abaixo do mínimo em **qualquer** das duas versões produz `inconclusivo`, nunca `piora` — FR-011; comparar 30 operações contra 4 mede diferença de amostra, não dimensionamento
-- [ ] T013 [P] [US1] Teste em `tests/test_volatilidade.py`: falha ao simular uma das versões produz `erro`, distinto de `piora`
+- [X] T011 [P] [US1] Teste em `tests/test_volatilidade.py`: `ComparacaoPareada` calcula `delta_drawdown` e `delta_retorno` como dimensionado menos base
+- [X] T012 [P] [US1] Teste em `tests/test_volatilidade.py`: amostra abaixo do mínimo em **qualquer** das duas versões produz `inconclusivo`, nunca `piora` — FR-011; comparar 30 operações contra 4 mede diferença de amostra, não dimensionamento
+- [X] T013 [P] [US1] Teste em `tests/test_volatilidade.py`: falha ao simular uma das versões produz `erro`, distinto de `piora`
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implementar `ComparacaoPareada` em `backtesting/volatilidade.py` com as seis grandezas derivadas de `data-model.md`
-- [ ] T015 [US1] Implementar `comparar_combinacao(estrategia, par, horizonte, params)` em `backtesting/volatilidade.py`, rodando a bateria nas duas versões e reusando `preparar()` de `horizonte.py` para calcular indicadores uma vez
-- [ ] T016 [US1] Implementar `run_volatilidade_scan(estrategias, pares, params)` em `backtesting/volatilidade.py`, sem abortar a varredura quando uma combinação falha
-- [ ] T017 [US1] Implementar `cmd_volatilidade()` em `main.py` e registrar os aliases `volatilidade` e `voltarget`, conforme `contracts/cli-volatilidade.md`
-- [ ] T018 [US1] Implementar a exibição em `main.py`: parâmetros, contagem por status **antes** da tabela, tabela pareada com deltas
+- [X] T014 [US1] Implementar `ComparacaoPareada` em `backtesting/volatilidade.py` com as seis grandezas derivadas de `data-model.md`
+- [X] T015 [US1] Implementar `comparar_combinacao(estrategia, par, horizonte, params)` em `backtesting/volatilidade.py`, rodando a bateria nas duas versões e reusando `preparar()` de `horizonte.py` para calcular indicadores uma vez
+- [X] T016 [US1] Implementar `run_volatilidade_scan(estrategias, pares, params)` em `backtesting/volatilidade.py`, sem abortar a varredura quando uma combinação falha
+- [X] T017 [US1] Implementar `cmd_volatilidade()` em `main.py` e registrar os aliases `volatilidade` e `voltarget`, conforme `contracts/cli-volatilidade.md`
+- [X] T018 [US1] Implementar a exibição em `main.py`: parâmetros, contagem por status **antes** da tabela, tabela pareada com deltas
 
 **Checkpoint**: US1 funcional. **Ainda não é MVP defensável — falta US2.**
 
@@ -92,16 +92,16 @@ ao buy-and-hold. É o achado M7.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T019 [P] [US2] Teste em `tests/test_volatilidade.py`: drawdown cai e `delta_timing` ≤ 0 produz `sem_vantagem`, não `melhora` — FR-008, o teste mais importante da spec
-- [ ] T020 [P] [US2] Teste em `tests/test_volatilidade.py`: drawdown cai e `delta_timing` > 0 produz `melhora`
-- [ ] T021 [P] [US2] Teste em `tests/test_volatilidade.py`: `delta_exposicao` é calculado e reportado em toda comparação avaliada — FR-007
+- [X] T019 [P] [US2] Teste em `tests/test_volatilidade.py`: drawdown cai e `delta_timing` ≤ 0 produz `sem_vantagem`, não `melhora` — FR-008, o teste mais importante da spec
+- [X] T020 [P] [US2] Teste em `tests/test_volatilidade.py`: drawdown cai e `delta_timing` > 0 produz `melhora`
+- [X] T021 [P] [US2] Teste em `tests/test_volatilidade.py`: `delta_exposicao` é calculado e reportado em toda comparação avaliada — FR-007
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Implementar `delta_exposicao` e `delta_timing` em `ComparacaoPareada`, reusando `ganho_de_timing_pp` de `cross_sectional.py` sem redefinir a métrica
-- [ ] T023 [US2] Implementar a classificação de status em `backtesting/volatilidade.py` com `sem_vantagem` como estado próprio, e `inconclusivo` precedendo qualquer avaliação de métrica
-- [ ] T024 [US2] Exibir `delta_exposicao` e `delta_timing` na tabela de `main.py`, adjacentes ao delta de drawdown, para que a comparação seja legível sem cálculo mental
-- [ ] T025 [US2] Adicionar legenda em `main.py` declarando que `sem vantagem` significa que o ganho desapareceu ao descontar exposição
+- [X] T022 [US2] Implementar `delta_exposicao` e `delta_timing` em `ComparacaoPareada`, reusando `ganho_de_timing_pp` de `cross_sectional.py` sem redefinir a métrica
+- [X] T023 [US2] Implementar a classificação de status em `backtesting/volatilidade.py` com `sem_vantagem` como estado próprio, e `inconclusivo` precedendo qualquer avaliação de métrica
+- [X] T024 [US2] Exibir `delta_exposicao` e `delta_timing` na tabela de `main.py`, adjacentes ao delta de drawdown, para que a comparação seja legível sem cálculo mental
+- [X] T025 [US2] Adicionar legenda em `main.py` declarando que `sem vantagem` significa que o ganho desapareceu ao descontar exposição
 
 **Checkpoint**: MVP defensável. As duas histórias P1 completas.
 
@@ -128,7 +128,7 @@ ao buy-and-hold. É o achado M7.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] Exportar o resultado para `reports/volatilidade_{timestamp}.{json,csv,md}` via `utils/report_export.py`
+- [X] T031 [P] Exportar o resultado para `reports/volatilidade_{timestamp}.{json,csv,md}` via `utils/report_export.py`
 - [ ] T032 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit** — a constituição exige sincronia
 - [ ] T033 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o significado de `sem vantagem`
 - [ ] T034 Executar a varredura completa e registrar o veredito de H12 em `docs/research/registro-de-hipoteses.md`, confrontando a predição de `research.md` com o observado
