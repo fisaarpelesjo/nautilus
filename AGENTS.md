@@ -62,6 +62,7 @@ python main.py scan                 # backtest on top 30 Binance pairs by volume
 python main.py compare              # compare multiple strategies/presets side by side
 python main.py multimarket [SYM..]  # sweep strategy x symbol across markets, with out-of-sample confirmation
 python main.py horizonte [TF..]     # evaluate strategies on 4h/1d/1w with the full battery (spec 024)
+python main.py volatilidade [TGT]   # compare each strategy with and without volatility-based sizing (spec 025)
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal

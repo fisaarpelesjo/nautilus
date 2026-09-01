@@ -57,6 +57,7 @@ graph LR
 | `python main.py compare` | Compara múltiplas estratégias/presets lado a lado, mesmos pares/timeframe |
 | `python main.py multimarket [SÍMBOLOS...]` | Varre estratégia × símbolo em vários mercados, **exigindo confirmação fora da janela de busca** — ver abaixo |
 | `python main.py horizonte [TF...]` | Avalia as estratégias em 4h/1d/1w com a bateria completa — ver abaixo |
+| `python main.py volatilidade [ALVO]` | Compara cada estratégia com e sem dimensionamento por volatilidade — ver abaixo |
 | `python main.py optimize` | Grid search dos melhores parâmetros |
 | `python main.py optimize --walk-forward` | Grid search com validação walk-forward |
 | `python main.py select` | Ranqueia candidatos de pares dinâmicos por liquidez, spread e volatilidade |
@@ -156,3 +157,66 @@ estatístico distinto de uma entre 3.
 `EDGE_MIN_TRADES`, sem janela de confirmação válida, ou com menos de 3 janelas de
 walk-forward é inconclusiva mesmo que as métricas pareçam ruins. Foi essa
 distinção que separou H10 de uma reprovação indevida.
+
+---
+
+## Dimensionamento por volatilidade (pesquisa — spec 025)
+
+`python main.py volatilidade [ALVO]` (alias `voltarget`) roda cada estratégia
+**duas vezes sobre a mesma série** — uma com o dimensionamento vigente, outra
+escalando a posição pela volatilidade realizada — e compara as duas.
+
+```
+fator = min(1,0; ALVO / atr_ratio)
+tamanho = tamanho_original × fator
+```
+
+**O teto de 1,0 é a fórmula, não validação defensiva.** O fator vive em
+`(fator_mínimo, 1,0]`, então o dimensionamento só pode **reduzir** a posição.
+Não existe caminho pelo qual este comando produza alavancagem — nem por alvo mal
+configurado, nem por volatilidade anormalmente baixa.
+
+**Por que existe.** H7 (momentum transversal) foi a única hipótese do registro a
+reprovar **exclusivamente** no limite de risco: drawdown de 11,76% contra o teto
+de 10,0%, com todos os demais critérios passando. Se o excesso fosse
+consequência do dimensionamento, H7 voltaria para dentro do teto.
+
+**Não altera o caminho de produção.** `risk/manager.py` continua dimensionando
+como hoje. O mecanismo vive atrás de um parâmetro opcional de
+`simulate_backtest` cujo default reproduz o comportamento atual campo a campo —
+há teste de regressão para isso.
+
+**O alvo aceita argumento, mas não é para varrer.** O padrão é `0,02`, próximo à
+mediana medida de `atr_ratio` (0,0187 em 23.412 observações de 4h). O argumento
+existe para inspeção manual e reprodutibilidade; executar com alvos diferentes
+até um passar é o problema de testes múltiplos que a metodologia contém.
+
+### `sem vantagem` — o estado que define este comando
+
+| Estado | Significado |
+|---|---|
+| `melhora` | Drawdown caiu **e** o ganho sobreviveu ao desconto de exposição |
+| `sem vantagem` | Drawdown caiu, **mas o ganho desapareceu ao descontar exposição** |
+| `piora` | Drawdown não caiu |
+| `inconclusivo` | Amostra insuficiente em alguma das versões — **não** é ausência de vantagem |
+| `erro` | Falha ao obter dados ou simular |
+
+Dimensionar por volatilidade **reduz exposição por construção** — fator médio
+0,90 na medição, ou seja ~10% menos participação. Num mercado em queda isso
+sozinho melhora o retorno relativo ao buy-and-hold sem qualquer capacidade de
+seleção. É o achado M7.
+
+Por isso a decisão entre `melhora` e `sem vantagem` usa `dTiming` (variação do
+`ganho_de_timing_pp`, que já desconta exposição) e **não** `dRet`. Sem essa
+separação, H12 "passaria" trivialmente e a aprovação não significaria nada.
+
+A ordem das checagens é a regra: amostra insuficiente em **qualquer** das duas
+versões produz `inconclusivo` antes de qualquer avaliação de métrica — comparar
+30 operações contra 4 mede diferença de amostra, não dimensionamento.
+
+### Custo de giro
+
+Ajustar o tamanho implica giro, e giro paga taxa. A coluna `dCusto` e o agregado
+ao fim separam "o mecanismo não ajuda" de "o mecanismo ajuda e o custo come o
+ganho" — conclusões diferentes. Custo não medido aparece como `-`, nunca como
+`0,00`.
