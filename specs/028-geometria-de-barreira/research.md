@@ -88,18 +88,57 @@ problema de testes múltiplos por outra porta.
 
 ## D2 — Perfis medidos
 
-*(Preenchido após a medição. Ver commit anterior para a data de declaração da
-regra.)*
+**Medição:** 12 pares × 2.000 candles de 4h, stop fixo em `1,5 × ATR`, limite de
+24 velas. Nenhum modelo treinado — apenas rotulagem.
 
-**Pendente.**
+| `tp` | Empate | Razão base | alvo% | stop% | tempo% | Desfechos | `razão × E` | `empate × F` | Elegível |
+|---|---|---|---|---|---|---|---|---|---|
+| **2,0** | 0,750 | 0,6223 | 35,9 | 57,6 | 6,5 | 21.883 | **0,8202** | 0,8175 | **sim** |
+| 2,5 | 0,600 | 0,4892 | 29,7 | 60,7 | 9,7 | 21.152 | 0,6447 | 0,6540 | não (c1) |
+| 3,0 | 0,500 | 0,3913 | 24,4 | 62,4 | 13,2 | 20.318 | 0,5157 | 0,5450 | não (c1) |
+| 4,0 | 0,375 | 0,2497 | 16,0 | 64,1 | 19,8 | 18.765 | 0,3291 | 0,4088 | não (c1) |
+| 5,0 | 0,300 | 0,1648 | 10,7 | 64,8 | 24,5 | 17.673 | 0,2173 | 0,3270 | não (c1) |
+| 6,0 | 0,250 | 0,1076 | 7,0 | 65,2 | 27,8 | 16.901 | 0,1418 | 0,2725 | não (c1, c2) |
+
+### A tese de H20 é refutada por esta tabela, antes de qualquer modelo
+
+A hipótese propunha que **afastar o alvo** baixaria o ponto de empate e caberia
+dentro do sinal já demonstrado. A medição mostra o contrário, e de forma
+monótona: a razão de chances cai **mais rápido** que o ponto de empate. A folga
+`razão × E − empate × F` vai de +0,3% em `tp = 2,0` a **−48%** em `tp = 6,0`.
+
+A única geometria elegível aponta na direção **oposta** à da tese: alvo mais
+**próximo**, não mais distante.
+
+A regra declarada em D1 seleciona a menor `tp` elegível, e não a de maior
+margem, então ela seleciona `tp = 2,0` — que passa por **+0,33%**, praticamente
+na fronteira do critério.
 
 ---
 
-## D3 — Geometria selecionada
+## D3 — Geometria selecionada e avaliada
 
-*(Preenchido após a medição.)*
+**`sl = 1,5 × ATR`, `tp = 2,0 × ATR`, limite 24 velas.** Ponto de empate:
+**0,750**.
 
-**Pendente.**
+Avaliação com o mesmo procedimento de H14 — rotulagem causal, purga e embargo
+globais, modelo de rótulos embaralhados, banda de incerteza no limiar:
+
+| | alvo | stop | razão |
+|---|---|---|---|
+| Todos os eventos | 2.438 | 3.947 | 0,6177 |
+| **Subconjunto decidido** | **955** | **1.277** | **0,7478** |
+
+| Pergunta | Estatística | Resposta |
+|---|---|---|
+| Há sinal? | esperado 852,2, observado 955 — **z = +4,48**, p < 0,0001 | **Sim** |
+| Paga a geometria? | esperado 956,6, observado 955 — **z = −0,07**, p = 0,535 | **Não** |
+
+Elevação observada: **+21,1%** (0,6177 → 0,7478). Operações: modelo 333,
+embaralhado 0, regras 56.
+
+**O modelo aterrissou 1,6 alvos abaixo do ponto de empate exato**, em 2.232
+desfechos.
 
 ---
 

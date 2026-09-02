@@ -228,8 +228,9 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **INSUFICIENTE** | Sinal real (z = +5,21) que não paga as barreiras (z = +0,50) |
+| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** | Tese refutada por medição; sinal aterrissa no empate em **duas** geometrias |
 
-**Taxa de aprovação: 0 de 14.** Três inconclusivas (H10; H11 em escala
+**Taxa de aprovação: 0 de 15.** Três inconclusivas (H10; H11 em escala
 semanal; H12 por impossibilidade estrutural de teste — ver 4.13).
 
 ---
@@ -1036,6 +1037,115 @@ acomodar um resultado incômodo.
 
 ---
 
+### 4.16 H20 — Geometria de barreira
+
+**Origem.** Única hipótese do registro derivada de um **resultado** e não da
+literatura. H14 mediu sinal robusto que não pagava as barreiras, e o ponto de
+empate é `stop / alvo` — uma razão escolhida. H20 pergunta se escolher outra
+resolve.
+
+**Disciplina.** A regra de seleção da geometria foi escrita e **commitada antes
+de qualquer medição existir** (`7cc19e0`). O histórico do git é a prova de que
+ela não foi ajustada ao resultado — a única coisa que separa H20 de uma
+varredura de parâmetro.
+
+#### A tese foi refutada antes de treinar qualquer modelo
+
+Stop fixo em `1,5 × ATR`, alvo variando, 12 pares, 2.000 candles:
+
+| `tp` | Empate | Razão base | Folga sobre o critério |
+|---|---|---|---|
+| 2,0 | 0,750 | 0,6223 | **+0,3%** |
+| 2,5 | 0,600 | 0,4892 | −1,4% |
+| 3,0 | 0,500 | 0,3913 | −5,4% |
+| 4,0 | 0,375 | 0,2497 | −19,5% |
+| 5,0 | 0,300 | 0,1648 | −33,5% |
+| 6,0 | 0,250 | 0,1076 | −48,0% |
+
+**A razão de chances cai mais rápido que o ponto de empate.** Afastar o alvo
+piora a margem monotonicamente. A tese — alvo mais distante baixa o obstáculo —
+está invertida em relação ao que os dados fazem.
+
+A única geometria elegível vai na direção **oposta**: alvo mais próximo.
+
+#### E a avaliação da geometria selecionada fecha o argumento
+
+`tp = 2,0`, ponto de empate 0,750:
+
+| | alvo | stop | razão |
+|---|---|---|---|
+| Todos os eventos | 2.438 | 3.947 | 0,6177 |
+| **Decidido pelo modelo** | **955** | **1.277** | **0,7478** |
+
+| Pergunta | Estatística | Resposta |
+|---|---|---|
+| Há sinal? | z = **+4,48**, p < 0,0001 | **Sim** |
+| Paga a geometria? | z = **−0,07**, p = 0,535 | **Não** |
+
+#### O achado: o sinal aterrissa no empate em duas geometrias independentes
+
+| Geometria | Ponto de empate | Razão obtida | Razão / empate |
+|---|---|---|---|
+| `tp = 3,0` (H14) | 0,500 | 0,5134 | **1,027** |
+| `tp = 2,0` (H20) | 0,750 | 0,7478 | **0,997** |
+
+Duas geometrias, pontos de empate **50% distantes entre si**, modelos treinados
+sobre rótulos diferentes — e nos dois casos a razão obtida fica a menos de 3%
+do empate, aproximando-se dele de lados opostos. Em `tp = 2,0` a diferença é de
+**1,6 alvos em 2.232 desfechos**.
+
+Não é margem estreita. É o mesmo resultado duas vezes, por caminhos
+independentes.
+
+**Leitura:** a componente previsível do movimento é aproximadamente igual ao
+obstáculo imposto pela geometria de saída, e **muda junto com ele**. Mover a
+geometria não move a margem, porque a previsibilidade acompanha. É o
+comportamento que se esperaria de um mercado que precifica esta informação
+eficientemente — medido aqui duas vezes, não postulado.
+
+#### Veredito: REPROVADA
+
+A hipótese afirmava que a geometria era uma alavanca sobre a margem. A medição
+mostra que não é: a margem é aproximadamente invariante à geometria, e o único
+sentido em que ela responde é o **contrário** do proposto.
+
+Diferente de H14, este veredito **não** é `insuficiente`. Lá a pergunta era se o
+sinal pagava as barreiras, e a resposta ficou irresolvida por amostra. Aqui a
+pergunta era se mudar a geometria mudava a resposta, e ela está resolvida: não
+muda.
+
+#### O que isto fecha, e o que não fecha
+
+**Fecha** a frente 2 identificada em §6.3-b — reduzir o obstáculo pela geometria
+de saída. Ela foi testada e não é alavanca.
+
+**Não fecha** a redução de obstáculo por **custo de execução**, que é a outra
+componente. Taxa e slippage entram na margem por um canal distinto da geometria,
+e nada aqui os avalia.
+
+**Não fecha** a frente 1 — aumentar o sinal. Mas H14 e H20 juntas dão duas
+medições independentes de que a capacidade do modelo não era o gargalo: seis
+parâmetros extraíram sinal robusto nas duas geometrias, e nas duas o sinal parou
+no mesmo lugar.
+
+#### Limitações declaradas
+
+- **A geometria selecionada passou por +0,33%**, praticamente na fronteira do
+  critério. Se a regra exigisse folga um pouco maior, nenhuma geometria seria
+  elegível e H20 se encerraria sem avaliação de modelo — desfecho previsto em
+  FR-006. O veredito seria o mesmo; a evidência, mais fraca.
+- **Apenas um eixo foi variado.** O stop permaneceu em `1,5 × ATR`. Variar os
+  dois multiplicaria o conjunto sem evidência de que o segundo eixo se comporte
+  diferente, e a monotonicidade observada no primeiro não sugere que se comporte.
+- **A elevação não transferiu integralmente**: +31,8% em `tp = 3,0` contra
+  +21,1% em `tp = 2,0`. Reutilizar a primeira teria sido erro, e FR-008 existia
+  para impedi-lo.
+
+**Reprodução:** `python main.py modelo` com `ParametrosBarreira(tp_mult=2.0)` ·
+spec `028-geometria-de-barreira`.
+
+---
+
 ## 5. Achados metodológicos (defeitos de instrumentação)
 
 Distintos das hipóteses, estes achados dizem respeito à **confiabilidade do
@@ -1114,7 +1224,25 @@ negativo em três de cada quatro combinações avaliadas.)*
 *(H14 avaliada em 2026-09-01 — ver seção 4.15. Status: **insuficiente**. Sinal
 real, z = +5,21, que não paga as barreiras, z = +0,50.)*
 
-**H20 — Geometria de barreira** — *próxima da fila, derivada de H14*
+*(H20 avaliada em 2026-09-01 — ver seção 4.16. Status: **reprovada**. Tese
+refutada por medição; o sinal aterrissa no ponto de empate em duas geometrias
+independentes.)*
+
+**H15 — Arbitragem entre exchanges** — *próxima da fila*
+
+- *Fundamentação:* diferencial de preço entre corretoras é observável e **não
+  requer previsão** — a família que H14 e H20 deixaram como única não testada.
+- *Obstáculo:* exige capital em múltiplas corretoras, latência competitiva e
+  gestão de risco de transferência. Provável dominância de participantes de alta
+  frequência.
+- *Por que subiu:* H14 e H20 mediram, por caminhos independentes, que a
+  componente previsível do movimento é aproximadamente igual ao obstáculo e
+  **muda junto com ele**. Isso esgota as duas frentes direcionais que §6.3-b
+  identificou, e deixa a família relativa e não-preditiva como a leitura direta
+  do registro.
+
+<details>
+<summary>H20 — entrada original da fila (mantida para procedência)</summary>
 
 - *Fundamentação:* H14 mediu que o modelo eleva a razão de chances para 0,5134
   no subconjunto decidido, contra um ponto de empate de 0,500 imposto pela
@@ -1132,15 +1260,9 @@ real, z = +5,21, que não paga as barreiras, z = +0,50.)*
 - *Custo:* baixo — a infraestrutura de H14 já existe e é parametrizada por
   `ParametrosBarreira`.
 
+</details>
+
 ### 6.2 Prioridade média
-
-**H15 — Arbitragem entre exchanges**
-
-- *Fundamentação:* diferencial de preço entre corretoras é observável e não
-  requer previsão.
-- *Obstáculo:* exige capital em múltiplas corretoras, latência competitiva e
-  gestão de risco de transferência. Provável dominância de participantes de alta
-  frequência.
 
 ### 6.3 Prioridade baixa
 
@@ -1157,7 +1279,7 @@ volatilidade sem gestão de cauda.
 **H19 — Estratégias com opções (covered calls)** — mercado de opções cripto de
 liquidez restrita; fora do escopo spot.
 
-### 6.3-b Padrão acumulado após catorze hipóteses
+### 6.3-b Padrão acumulado após quinze hipóteses
 
 Vale registrar o que treze avaliações desenham, porque isso deveria informar a
 ordem da fila mais do que a razão evidência/custo isolada de cada item.
@@ -1186,10 +1308,23 @@ segunda é nova:
    que a capacidade do modelo não era o gargalo: 6 parâmetros bastaram para
    extrair sinal robusto.
 2. **Reduzir o obstáculo** — o ponto de empate `sl/tp` é escolhido, não dado
-   pelo mercado. É a frente mais barata e a menos explorada, e origina H20.
+   pelo mercado. Originou H20.
 
-A família relativa e não-preditiva (H15) continua promissora e permanece na
-fila, mas deixou de ser a única leitura razoável do registro.
+**H20 fechou a frente 2, e o modo como fechou importa.** A margem não é apenas
+insensível à geometria: ela é aproximadamente **invariante**. Em `tp = 3,0` a
+razão obtida foi 1,027 vezes o empate; em `tp = 2,0`, 0,997 vezes — dois pontos
+de empate 50% distantes entre si, e o resultado colado na linha nos dois,
+aproximando-se de lados opostos.
+
+A leitura de §6.3-b passa a ser:
+
+> **A componente previsível existe, é robusta, e é aproximadamente igual ao
+> obstáculo imposto pela geometria de saída — mudando junto com ele.**
+
+Isso esgota as duas frentes direcionais. Resta a redução de obstáculo por
+**custo de execução**, que entra na margem por canal distinto e não foi
+avaliada; e a família **relativa e não-preditiva**, que volta a ser a leitura
+direta do registro — agora por evidência, não por eliminação.
 
 ### 6.4 Bloqueadas por pré-condição
 
