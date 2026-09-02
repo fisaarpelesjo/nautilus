@@ -227,7 +227,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
-| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **INSUFICIENTE** | Sinal real (z = +5,21) que não paga as barreiras (z = +0,50) |
+| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **INSUFICIENTE → SINAL CONFIRMADO** (2026-09-02) | Histórico estendido (spec 036): paga a barreira, z = +7,97 (era z = +0,50, não resolvível); aprovação de carteira ainda não avaliada |
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** | Tese refutada por medição; sinal aterrissa no empate em **duas** geometrias |
 
 **Taxa de aprovação: 0 de 15.** Três inconclusivas (H10; H11 em escala
@@ -1035,6 +1035,66 @@ acomodar um resultado incômodo.
 **Reprodução:** `python main.py modelo` · `reports/modelo_*.json` · spec
 `027-aprendizado-barreira-tripla`.
 
+#### Atualização — histórico estendido (2026-09-02, spec 036)
+
+`fetch_ohlcv` já suportava paginação além do teto de ~1.000 candles da API
+(spec 011) — o `2000` usado por `avaliar_par`/`coletar_eventos` era uma
+escolha do chamador nunca revisada, não um limite do sistema. Trocado por
+`6000` (~2,7 anos de 4h, D1 de `specs/036-historico-estendido/research.md`),
+medido antes de qualquer resultado novo, para as hipóteses com sinal
+promissor que dependiam de mais amostra (H10 fora do escopo — sem CLI, D3
+do mesmo `research.md`).
+
+Mesmos 12 pares, mesmas barreiras (stop 1,5×ATR, alvo 3,0×ATR, 24 velas),
+mesmo modelo — só mais histórico:
+
+| | antes (2.000 velas) | depois (6.000 velas) |
+|---|---|---|
+| n_treino / n_teste (globais) | ~16.000 / — | 49.696 / 1.786 |
+| Todos os eventos: alvo/stop | 1.650 / 4.235 | 5.270 / 13.364 |
+| Subconjunto decidido: alvo/stop | 536 / 1.044 | **971 / 1.394** |
+| Razão de chances decidido | 0,5134 | **0,6966** |
+| Há sinal? (decidido vs taxa base) | z = +5,21, p < 0,0001 | **z = +13,8**, p ≈ 0 |
+| Paga as barreiras? (decidido vs empate) | z = +0,50, p = 0,318 — **não resolvível** | **z = +7,97**, p < 0,0001 — **sim, robustamente** |
+| `supera_empate_com_confianca` (IC de Wilson) | **False** (limite inferior 0,4696 < 0,500) | **True** (limite inferior equivalente 0,6418 > 0,500) |
+
+**O teste que definia `insuficiente` deixou de bloquear.** A categoria foi
+criada especificamente para "sinal real que não paga a barreira" (Predição
+2 acima, registrada antes de qualquer execução). Com 3x mais histórico, a
+mesma pergunta agora responde **sim**, e a resposta não é marginal: o
+intervalo de confiança de Wilson, que antes cruzava o ponto de empate,
+agora fica inteiramente acima dele.
+
+**O que isso NÃO decide.** Nenhuma das limitações declaradas originalmente
+foi resolvida por ter mais histórico:
+
+- **Drawdown continua não agregável** — depende de um motor de carteira que
+  não existe, mesma razão de antes.
+- **Nenhum dos 12 pares individualmente atinge `melhora`**: cinco ficam
+  `insuficiente` (amostra por par pequena demais para uma CI robusta —
+  mesmo padrão que motivou agregar desde o início, mesmo com razão de
+  chances por par acima de 0,500 em três deles), três `piora` (drawdown por
+  par sobe apesar de razão de chances alta — XRP 0,756, LTC 0,744, SOL
+  0,978), um `sem_sinal` (TRX, `vs_embaralhado` **negativo**, −9,31pp —
+  pior que ruído nesse par especificamente) e três `inconclusivo` (linha de
+  base de regras abaixo do mínimo de operações). O sinal agregado é real;
+  ele não se traduz uniformemente em vantagem por par.
+- **H20 mediu, com 2.000 candles, que nenhuma geometria de barreira resolve
+  a margem sobre o empate** (seção 4.16) — essa medição não foi refeita
+  aqui, fora do escopo de `specs/036-historico-estendido/` (D2). Se a mesma
+  elevação de amostra que resolveu H14 também desloca H20, é uma pergunta
+  em aberto, não uma correção deste registro.
+
+**Novo veredito: sinal detectável e agora estatisticamente robusto acima do
+empate — a pergunta que a categoria `insuficiente` deixava em aberto está
+respondida.** Aprovação operacional (drawdown de carteira, desempenho por
+par, confirmação fora da amostra no agregado) segue não avaliada. Não é uma
+promoção a `aprovada`: é a remoção do bloqueio específico que `insuficiente`
+media.
+
+**Reprodução:** `python main.py modelo` (6.000 candles, `TIMEFRAME=4h`) ·
+`reports/modelo_20260902-114000.json` · `specs/036-historico-estendido/`.
+
 ---
 
 ### 4.16 H20 — Geometria de barreira
@@ -1221,8 +1281,10 @@ para 6.4**: depende de uma estratégia lucrativa existir antes.)*
 combinações, 1 melhora, abaixo do que o acaso produziria; efeito mediano
 negativo em três de cada quatro combinações avaliadas.)*
 
-*(H14 avaliada em 2026-09-01 — ver seção 4.15. Status: **insuficiente**. Sinal
-real, z = +5,21, que não paga as barreiras, z = +0,50.)*
+*(H14 avaliada em 2026-09-01 — ver seção 4.15. Status original: **insuficiente**.
+Reavaliada com histórico estendido em 2026-09-02 (`specs/036-historico-estendido/`):
+o teste que definia `insuficiente` passou a responder **sim** — z = +7,97 contra
++0,50. Aprovação de carteira ainda não avaliada.)*
 
 *(H20 avaliada em 2026-09-01 — ver seção 4.16. Status: **reprovada**. Tese
 refutada por medição; o sinal aterrissa no ponto de empate em duas geometrias

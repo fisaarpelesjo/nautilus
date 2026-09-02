@@ -34,10 +34,10 @@ da execução real e do registro comparado ao publicado (US1 → US2 → US3).
 
 ## Phase 2: User Story 2 - Reavaliar H14 (Priority: P1)
 
-- [ ] T005 [US2] Trocar os dois `fetch_ohlcv(par, TIMEFRAME, 2000)` por `..., 6000)` em `backtesting/modelo.py` (`avaliar_par`, `coletar_eventos`)
-- [ ] T006 [US2] Rodar `pytest tests/test_modelo.py -v` — confirma 0 regressão
-- [ ] T007 [US2] Rodar `python main.py modelo` contra dados reais — compara `n_treino`/`n_teste`/`razao_chances_decidido` por par contra os já publicados
-- [ ] T008 [US2] Registrar o resultado de T007 em `docs/research/registro-de-hipoteses.md` §4.15 (H14), comparado ao publicado — texto depende do resultado real
+- [X] T005 [US2] Trocar os dois `fetch_ohlcv(par, TIMEFRAME, 2000)` por `..., 6000)` em `backtesting/modelo.py` (`avaliar_par`, `coletar_eventos`)
+- [X] T006 [US2] Rodar `pytest tests/test_modelo.py -v` — confirma 0 regressão
+- [X] T007 [US2] Rodar `python main.py modelo` contra dados reais — compara `n_treino`/`n_teste`/`razao_chances_decidido` por par contra os já publicados
+- [X] T008 [US2] Registrar o resultado de T007 em `docs/research/registro-de-hipoteses.md` §4.15 (H14), comparado ao publicado — texto depende do resultado real
 
 **Checkpoint**: H14 reavaliada, resultado comparado e registrado.
 

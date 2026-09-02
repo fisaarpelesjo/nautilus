@@ -456,7 +456,7 @@ def avaliar_par(
 
     if df is None:
         try:
-            df = fetch_ohlcv(par, TIMEFRAME, 2000)
+            df = fetch_ohlcv(par, TIMEFRAME, 6000)  # D1, specs/036-historico-estendido/research.md
         except Exception as exc:
             a.status, a.motivo = "erro", f"historico indisponivel: {type(exc).__name__}"
             return a
@@ -553,7 +553,7 @@ def coletar_eventos(pares, params: Optional[ParametrosBarreira] = None):
 
     for par in pares:
         try:
-            df = fetch_ohlcv(par, TIMEFRAME, 2000)
+            df = fetch_ohlcv(par, TIMEFRAME, 6000)  # D1, specs/036-historico-estendido/research.md
         except Exception as exc:
             log.warning(f"{par}: {type(exc).__name__}: {str(exc)[:60]}")
             continue
