@@ -133,7 +133,7 @@ def aquecimento_dias(horizonte: str) -> float:
 
 
 def medir_disponibilidade(
-    pares: List[str], horizonte: str, solicitado: int = 2000,
+    pares: List[str], horizonte: str, solicitado: int = 6000,  # D1, specs/036-historico-estendido/research.md
 ) -> List[DisponibilidadeHistorico]:
     """Quanto cada par entrega neste horizonte, medido e nao presumido.
 
@@ -544,7 +544,7 @@ def run_horizonte_scan(
     estrategias: Dict[str, BaseStrategy],
     pares: List[str],
     horizontes: List[str],
-    solicitado: int = 2000,
+    solicitado: int = 6000,  # D1, specs/036-historico-estendido/research.md
 ) -> List[RelatorioHorizonte]:
     """Varre estrategia x horizonte x par.
 

@@ -224,7 +224,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
 | H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** | Aprovada em E2; reprovada em E3/E4; seletor com 20% de poder |
-| H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra |
+| H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **INSUFICIENTE → SINAL CONFIRMADO** (2026-09-02) | Histórico estendido (spec 036): paga a barreira, z = +7,97 (era z = +0,50, não resolvível); aprovação de carteira ainda não avaliada |
@@ -684,6 +684,41 @@ válidas.
 **O que permanece aberto.** A escala semanal segue sem teste possível com o
 histórico disponível na Binance. Testá-la exigiria fonte de dados com
 profundidade maior que a da exchange, o que está fora do escopo atual.
+
+#### Atualização — histórico estendido (2026-09-02, spec 036)
+
+`solicitado` (`backtesting/horizonte.py::run_horizonte_scan`/
+`medir_disponibilidade`) trocado de `2000` para `6000` (D1,
+`specs/036-historico-estendido/research.md`), mesmas 4 estratégias, mesmos
+12 pares. `1w` não foi rerodado — fora do escopo (D1: a limitação
+estrutural já é conhecida e não muda com mais histórico no timeframe
+diário/4h).
+
+| Horizonte | Candles medianos | Avaliadas | Confirmadas | Reprovadas | Inconclusivas |
+|---|---|---|---|---|---|
+| 4h (antes) | 2.000 | 48 | 0 | 34 | 13 |
+| **4h (depois)** | **6.000** | 48 | **0** | **47** | **1** |
+| 1d (antes) | ~2.000 | 48 | 0 | 35 | 13 |
+| **1d (depois)** | **2.896** | 48 | **0** | **44** | **4** |
+
+`1d` pediu 6.000 e recebeu 2.896 — teto real da Binance para o histórico
+diário de vários pares do universo (`AVAX`/`DOT`/`SOL` marcados
+`historico curto`, listagem mais recente), não sub-entrega silenciosa
+(`medir_disponibilidade` mede e registra, não presume).
+
+**O veredito não muda — a base de evidência atrás dele fica muito maior.**
+Zero confirmadas continua zero confirmadas nas duas escalas. O que desloca é
+a fração `inconclusivo`: em 4h, de 13/48 (27%) para 1/48 (2%); em 1d, de
+13/48 (27%) para 4/48 (8%). Com 3x mais histórico em 4h, quase todas as
+combinações que antes não tinham janela de confirmação suficiente agora
+têm — e a resposta, com muito mais amostra, continua sendo reprovação, não
+uma reversão como a de H14. Isso fortalece a leitura original: a fração
+`inconclusivo` alta na primeira execução era mesmo limitação de amostra
+(como previsto para `1w`), não sinal escondido que mais histórico
+revelaria.
+
+**Reprodução:** `python main.py horizonte 4h` · `python main.py horizonte
+1d` · `specs/036-historico-estendido/`.
 
 ---
 
@@ -1272,7 +1307,8 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 
 *(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.)*
 
-*(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico.)*
+*(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico. Reavaliada com histórico estendido em 2026-09-02
+(`specs/036-historico-estendido/`): veredito mantido, fração inconclusiva cai de 27% para 2-8%.)*
 
 *(H12 avaliada em 2026-09-01 — ver seção 4.13. Status: inconclusiva. **Movida
 para 6.4**: depende de uma estratégia lucrativa existir antes.)*

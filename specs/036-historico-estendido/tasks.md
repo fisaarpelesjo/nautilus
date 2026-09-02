@@ -45,10 +45,10 @@ da execução real e do registro comparado ao publicado (US1 → US2 → US3).
 
 ## Phase 3: User Story 3 - Reavaliar H11 em 4h/1d (Priority: P2)
 
-- [ ] T009 [US3] Trocar `solicitado: int = 2000` por `= 6000` em `backtesting/horizonte.py` (`run_horizonte_scan`, `medir_disponibilidade`)
-- [ ] T010 [US3] Rodar `pytest tests/test_horizonte.py -v` — confirma 0 regressão
-- [ ] T011 [US3] Rodar `python main.py horizonte 4h 1d` contra dados reais — compara candles obtidos/cobertura contra o já publicado; `1w` não é rodado (fora do escopo, D1)
-- [ ] T012 [US3] Registrar o resultado de T011 em `docs/research/registro-de-hipoteses.md` §4.12 (H11), comparado ao publicado
+- [X] T009 [US3] Trocar `solicitado: int = 2000` por `= 6000` em `backtesting/horizonte.py` (`run_horizonte_scan`, `medir_disponibilidade`)
+- [X] T010 [US3] Rodar `pytest tests/test_horizonte.py -v` — confirma 0 regressão
+- [X] T011 [US3] Rodar `python main.py horizonte 4h 1d` contra dados reais — compara candles obtidos/cobertura contra o já publicado; `1w` não é rodado (fora do escopo, D1)
+- [X] T012 [US3] Registrar o resultado de T011 em `docs/research/registro-de-hipoteses.md` §4.12 (H11), comparado ao publicado
 
 **Checkpoint**: as três hipóteses reavaliadas.
 
@@ -56,7 +56,7 @@ da execução real e do registro comparado ao publicado (US1 → US2 → US3).
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T013 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/comandos de uso geral (intocados, D2)
+- [X] T013 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/comandos de uso geral (intocados, D2)
 
 ---
 
