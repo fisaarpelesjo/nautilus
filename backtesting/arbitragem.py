@@ -11,6 +11,7 @@ consulta fetch_order_book publico, nas seis corretoras declaradas em D1.
 
 import time
 from dataclasses import dataclass, field
+from itertools import combinations
 from typing import Optional
 
 import ccxt
@@ -123,3 +124,132 @@ def ler_livro(corretora: str, par: str) -> LeituraLivro:
         bids=normalizar_niveis(book.get("bids")),
         asks=normalizar_niveis(book.get("asks")),
     )
+
+
+def preco_medio_execucao(niveis: list[tuple[float, float]], volume_usdt: float) -> tuple[float, float]:
+    """Preco medio de execucao para `volume_usdt`, caminhando os niveis a
+    partir do melhor preco -- nunca so o topo do livro (FR-001).
+
+    Retorna (preco_medio, volume_preenchido_usdt). Quando o livro nao
+    comporta o volume inteiro, `volume_preenchido_usdt < volume_usdt` e o
+    preco medio reflete so o que foi possivel preencher (FR-007) -- nunca
+    extrapola alem da profundidade real.
+    """
+    restante = volume_usdt
+    custo_total = 0.0
+    qtd_total = 0.0
+    for preco, qtd in niveis:
+        if preco <= 0 or qtd <= 0:
+            continue
+        valor_nivel = preco * qtd
+        consumido = min(restante, valor_nivel)
+        custo_total += consumido
+        qtd_total += consumido / preco
+        restante -= consumido
+        if restante <= 0:
+            break
+
+    if qtd_total <= 0:
+        return 0.0, 0.0
+
+    preco_medio = custo_total / qtd_total
+    volume_preenchido = volume_usdt - restante
+    return preco_medio, volume_preenchido
+
+
+@dataclass
+class Comparacao:
+    corretora_compra: str
+    corretora_venda: str
+    preco_medio_compra: float
+    preco_medio_venda: float
+    volume_preenchido_usdt: float
+    diferencial_bruto_pct: float
+    custo_pct: Optional[float]
+    diferencial_liquido_pct: Optional[float]
+    estado: str
+    intervalo_ms: float = 0.0
+    instante_registro: float = field(default_factory=time.time)
+
+
+def _direcao(compra: LeituraLivro, venda: LeituraLivro, volume_usdt: float) -> dict:
+    preco_medio_compra, vol_compra = preco_medio_execucao(compra.asks, volume_usdt)
+    preco_medio_venda, vol_venda = preco_medio_execucao(venda.bids, volume_usdt)
+    if preco_medio_compra > 0:
+        diferencial_bruto_pct = (preco_medio_venda - preco_medio_compra) / preco_medio_compra
+    else:
+        diferencial_bruto_pct = 0.0
+    return {
+        "preco_medio_compra": preco_medio_compra,
+        "preco_medio_venda": preco_medio_venda,
+        "volume_preenchido_usdt": min(vol_compra, vol_venda),
+        "diferencial_bruto_pct": diferencial_bruto_pct,
+    }
+
+
+def comparar(leitura_a: LeituraLivro, leitura_b: LeituraLivro, volume_usdt: float = VOLUME_USDT_PADRAO) -> Comparacao:
+    """Compara duas leituras de livro, escolhendo a direcao (compra/venda)
+    com maior diferencial bruto entre as duas possiveis, e classifica o
+    resultado (data-model.md -- a ordem das checagens e a regra):
+
+    1. `custo_desconhecido` -- taxa de alguma corretora fora de TAXA_TOMADOR
+       (FR-006, precede tudo: custo desconhecido nunca vira zero)
+    2. `profundidade_insuficiente` -- preco medio sobre volume parcial (FR-007)
+    3. `oportunidade` / `sem_oportunidade` -- classificacao final
+
+    `latencia_alta` (US3) ainda nao existe aqui -- entra depois, entre 2 e 3.
+    """
+    dir_ab = _direcao(leitura_a, leitura_b, volume_usdt)
+    dir_ba = _direcao(leitura_b, leitura_a, volume_usdt)
+
+    if dir_ab["diferencial_bruto_pct"] >= dir_ba["diferencial_bruto_pct"]:
+        corretora_compra, corretora_venda, d = leitura_a.corretora, leitura_b.corretora, dir_ab
+    else:
+        corretora_compra, corretora_venda, d = leitura_b.corretora, leitura_a.corretora, dir_ba
+
+    taxa_compra = TAXA_TOMADOR.get(corretora_compra)
+    taxa_venda = TAXA_TOMADOR.get(corretora_venda)
+
+    if taxa_compra is None or taxa_venda is None:
+        custo_pct = None
+        diferencial_liquido_pct = None
+        estado = "custo_desconhecido"
+    else:
+        custo_pct = taxa_compra + taxa_venda
+        diferencial_liquido_pct = d["diferencial_bruto_pct"] - custo_pct
+        if d["volume_preenchido_usdt"] < volume_usdt:
+            estado = "profundidade_insuficiente"
+        elif diferencial_liquido_pct > 0:
+            estado = "oportunidade"
+        else:
+            estado = "sem_oportunidade"
+
+    return Comparacao(
+        corretora_compra=corretora_compra,
+        corretora_venda=corretora_venda,
+        preco_medio_compra=d["preco_medio_compra"],
+        preco_medio_venda=d["preco_medio_venda"],
+        volume_preenchido_usdt=d["volume_preenchido_usdt"],
+        diferencial_bruto_pct=d["diferencial_bruto_pct"],
+        custo_pct=custo_pct,
+        diferencial_liquido_pct=diferencial_liquido_pct,
+        estado=estado,
+    )
+
+
+def medir_ciclo(par: str, volume_usdt: float = VOLUME_USDT_PADRAO) -> tuple[list[Comparacao], list[str]]:
+    """Um ciclo de medicao: le o livro de `par` nas seis corretoras (D1) e
+    compara cada combinacao entre as que responderam.
+
+    Falha isolada de uma corretora nunca aborta o ciclo (FR-011) -- ela so
+    fica de fora das combinacoes e aparece na lista de indisponiveis.
+    """
+    leituras = {corretora: ler_livro(corretora, par) for corretora in CORRETORAS}
+    indisponiveis = [corretora for corretora, leitura in leituras.items() if not leitura.sucesso]
+    disponiveis = [leitura for leitura in leituras.values() if leitura.sucesso]
+
+    comparacoes = [
+        comparar(leitura_a, leitura_b, volume_usdt)
+        for leitura_a, leitura_b in combinations(disponiveis, 2)
+    ]
+    return comparacoes, indisponiveis

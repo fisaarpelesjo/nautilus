@@ -1080,6 +1080,77 @@ def cmd_modelo():
     )
 
 
+def cmd_arbitragem():
+    """H15 -- arbitragem entre corretoras (spec 029).
+
+    Instrumento de amostragem, nao veredito: mede o diferencial liquido
+    entre seis corretoras publicas para um par, sem enviar ordem alguma e
+    sem exigir chave de API. O veredito exige amostra acumulada ao longo do
+    tempo (Assumptions da spec) -- esta execucao mede um ciclo e persiste.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.arbitragem import CORRETORAS, VOLUME_USDT_PADRAO, medir_ciclo
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    par = sys.argv[2] if len(sys.argv) > 2 else "BTC/USDT"
+
+    header()
+    console.print(f"[bold {C_CYAN}]arbitragem entre corretoras (H15)[/]")
+    console.print(f"  [{C_DIM}]{par} em {len(CORRETORAS)} corretoras publicas, "
+                  f"volume de US$ {VOLUME_USDT_PADRAO:,.0f} por perna -- "
+                  f"nenhuma ordem enviada, producao intocada[/{C_DIM}]")
+    console.print()
+
+    comparacoes, indisponiveis = medir_ciclo(par)
+
+    if indisponiveis:
+        console.print(f"  [{C_NEG}]corretoras indisponiveis neste ciclo[/]: {', '.join(indisponiveis)}")
+        console.print()
+
+    cores = {"oportunidade": C_POS, "sem_oportunidade": C_DIM,
+             "custo_desconhecido": C_CYAN, "profundidade_insuficiente": C_CYAN}
+
+    t = Table(box=box.SIMPLE_HEAD)
+    for col in ("Compra", "Venda"):
+        t.add_column(col)
+    for col in ("Bruto %", "Custo %", "Liquido %", "Volume US$"):
+        t.add_column(col, justify="right")
+    t.add_column("Estado")
+
+    for c in comparacoes:
+        cor = cores.get(c.estado, C_DIM)
+        custo_fmt = f"{c.custo_pct * 100:.3f}" if c.custo_pct is not None else "-"
+        liquido_fmt = f"{c.diferencial_liquido_pct * 100:+.3f}" if c.diferencial_liquido_pct is not None else "-"
+        t.add_row(
+            c.corretora_compra, c.corretora_venda,
+            f"{c.diferencial_bruto_pct * 100:+.4f}", custo_fmt, liquido_fmt,
+            f"{c.volume_preenchido_usdt:,.0f}",
+            f"[{cor}]{c.estado.replace('_', ' ')}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    console.print(f"  [{C_LABEL}]executabilidade (D6)[/]: [{C_NEG}]inexecutavel hoje[/] -- exige "
+                  f"capital pre-posicionado nas duas corretoras, chaves de API em multiplas "
+                  f"corretoras e execucao simultanea das duas pernas. Nenhum dos tres esta "
+                  f"implementado; a medicao continua valida independente disso.")
+
+    export_report(
+        "arbitragem",
+        {"par": par, "corretoras": list(CORRETORAS), "volume_usdt": VOLUME_USDT_PADRAO,
+         "indisponiveis": indisponiveis},
+        [{"corretora_compra": c.corretora_compra, "corretora_venda": c.corretora_venda,
+          "diferencial_bruto_pct": c.diferencial_bruto_pct, "custo_pct": c.custo_pct,
+          "diferencial_liquido_pct": c.diferencial_liquido_pct,
+          "volume_preenchido_usdt": c.volume_preenchido_usdt,
+          "intervalo_ms": c.intervalo_ms, "estado": c.estado}
+         for c in comparacoes],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1095,6 +1166,7 @@ COMMANDS = {
     "bars":          cmd_barras,
     "modelo":        cmd_modelo,
     "ml":            cmd_modelo,
+    "arbitragem":    cmd_arbitragem,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
