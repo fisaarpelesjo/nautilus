@@ -1408,6 +1408,88 @@ def cmd_carteira():
     )
 
 
+def cmd_leadlag():
+    """H21 -- lead-lag BTC para altcoins (spec 038).
+
+    O retorno do BTC no mesmo candle de 4h lidera o retorno da altcoin no
+    candle seguinte -- medido em correlacao real antes desta spec (0,0445
+    de correlacao media, positiva em 100% dos 11 pares). Sinal binario
+    (BTC subiu no candle ou nao), saida via take-profit ATR/stop trailing
+    ja usado em toda avaliacao do projeto.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.lead_lag import resumo_consistencia, run_lead_lag_scan
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]lead-lag BTC para altcoins (H21)[/]")
+    console.print(f"  [{C_DIM}]sinal binario: BTC fechou em alta no mesmo candle de 4h -- "
+                  f"saida por take-profit ATR + stop trailing, mesmo mecanismo generico "
+                  f"ja usado em toda avaliacao do projeto[/{C_DIM}]")
+    console.print()
+
+    saida = run_lead_lag_scan()
+
+    cores = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Par")
+    for col in ("Trades", "Retorno", "Buy&Hold", "Drawdown", "Profit Factor"):
+        t.add_column(col, justify="right")
+    t.add_column("Veredito")
+
+    aprovados = reprovados = inconclusivos = 0
+    for par, resultado, veredito in saida:
+        if resultado is None:
+            t.add_row(par, "-", "-", "-", "-", "-", f"[{C_NEG}]erro[/{C_NEG}]")
+            inconclusivos += 1
+            continue
+        cor = cores.get(veredito.status, C_DIM)
+        if veredito.status == "aprovado":
+            aprovados += 1
+        elif veredito.status == "reprovado":
+            reprovados += 1
+        else:
+            inconclusivos += 1
+        pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+        t.add_row(
+            par, str(resultado.total_trades),
+            f"{resultado.total_return_pct:+.2f}%", f"{resultado.buy_hold_return_pct:+.2f}%",
+            f"{resultado.max_drawdown_pct:.2f}%", pf,
+            f"[{cor}]{veredito.status}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+    console.print(f"  [{C_LABEL}]resumo[/]: [{C_POS}]{aprovados} aprovados[/{C_POS}]  "
+                  f"[{C_NEG}]{reprovados} reprovados[/{C_NEG}]  "
+                  f"[{C_DIM}]{inconclusivos} inconclusivos[/{C_DIM}]")
+
+    resumo = resumo_consistencia([(par, r) for par, r, _ in saida])
+    console.print(f"  [{C_LABEL}]consistencia[/] (US2): "
+                  f"{resumo['supera_buy_hold']}/{resumo['n_pares']} superam o buy-hold, "
+                  f"{resumo['profit_factor_acima_de_1']}/{resumo['n_pares']} com profit factor > 1,0")
+
+    export_report(
+        "leadlag",
+        {"universo": [par for par, _, _ in saida]},
+        {
+            "por_par": [{"par": par,
+                        "total_trades": r.total_trades if r else None,
+                        "total_return_pct": r.total_return_pct if r else None,
+                        "buy_hold_return_pct": r.buy_hold_return_pct if r else None,
+                        "max_drawdown_pct": r.max_drawdown_pct if r else None,
+                        "profit_factor": r.profit_factor if r else None,
+                        "status": v.status if v else "erro",
+                        "motivos": v.reasons if v else []}
+                        for par, r, v in saida],
+            "consistencia": resumo,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1427,6 +1509,7 @@ COMMANDS = {
     "onchain":       cmd_onchain,
     "grid":          cmd_grid,
     "carteira":      cmd_carteira,
+    "leadlag":       cmd_leadlag,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
