@@ -90,7 +90,14 @@ def check_liquidity(symbol: str, order_size_usdt: float) -> LiquidityCheck:
     best_bid = bids[0][0]
     best_ask = asks[0][0]
     spread_pct = (best_ask - best_bid) / best_bid
-    depth_usdt = sum(price * qty for price, qty in asks)
+    # Profundidade util e so a alcancavel dentro do desvio de preco ja aceito
+    # para esta entrada (MAX_SPREAD_PCT_ENTRY) -- niveis mais distantes do
+    # melhor preco nunca seriam preenchidos a um preco que a propria checagem
+    # de spread, logo abaixo, aceitaria. Antes desta checagem, a soma bruta
+    # de todos os niveis do book podia aprovar profundidade "fantasma"
+    # distante do preco. Ver specs/030-liquidez-proxima-preco/research.md D1.
+    preco_limite = best_ask * (1 + MAX_SPREAD_PCT_ENTRY)
+    depth_usdt = sum(price * qty for price, qty in asks if price <= preco_limite)
 
     if spread_pct > MAX_SPREAD_PCT_ENTRY:
         reason = f"spread {spread_pct * 100:.2f}% acima do limite {MAX_SPREAD_PCT_ENTRY * 100:.2f}%"
@@ -101,7 +108,7 @@ def check_liquidity(symbol: str, order_size_usdt: float) -> LiquidityCheck:
     # de 3x MAX_ORDER_SIZE_USDT (o default ja usa esse mesmo fator).
     required_depth = max(MIN_ORDERBOOK_DEPTH_USDT, 3 * order_size_usdt)
     if depth_usdt < required_depth:
-        reason = f"profundidade ${depth_usdt:.2f} abaixo do minimo ${required_depth:.2f}"
+        reason = f"profundidade ${depth_usdt:.2f} perto do preco abaixo do minimo ${required_depth:.2f}"
         return LiquidityCheck(approved=False, reason=reason, spread_pct=spread_pct, depth_usdt=depth_usdt, best_ask=best_ask)
 
     return LiquidityCheck(approved=True, reason=None, spread_pct=spread_pct, depth_usdt=depth_usdt, best_ask=best_ask)

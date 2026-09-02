@@ -47,13 +47,13 @@ majoritariamente distante do melhor preço passa a recusar.
 > `test_check_liquidity_blocks_on_phantom_depth_far_from_price` FALHA contra
 > o código atual antes de implementar.
 
-- [ ] T001 [P] [US2] Teste de não-regressão em `tests/test_liquidity.py`: book com profundidade concentrada nos primeiros níveis (padrão do `test_check_liquidity_approves_within_limits` já existente, replicado com níveis adicionais próximos ao topo) continua aprovando, com `depth_usdt` igual à soma dos níveis próximos
-- [ ] T002 [P] [US1] Teste `test_check_liquidity_blocks_on_phantom_depth_far_from_price` em `tests/test_liquidity.py`: book com profundidade total acima do requisito, mas com a maior parte dos níveis a mais de `MAX_SPREAD_PCT_ENTRY` do melhor ask (replicando a proporção medida para ORCA/USDT em `research.md`: ~90% da soma bruta fora da banda) — `approved is False`, motivo distinto do motivo de spread (ex.: contém "perto do preço", não confundível com `"spread"`)
+- [X] T001 [P] [US2] Teste de não-regressão em `tests/test_liquidity.py`: book com profundidade concentrada nos primeiros níveis (padrão do `test_check_liquidity_approves_within_limits` já existente, replicado com níveis adicionais próximos ao topo) continua aprovando, com `depth_usdt` igual à soma dos níveis próximos
+- [X] T002 [P] [US1] Teste `test_check_liquidity_blocks_on_phantom_depth_far_from_price` em `tests/test_liquidity.py`: book com profundidade total acima do requisito, mas com a maior parte dos níveis a mais de `MAX_SPREAD_PCT_ENTRY` do melhor ask (replicando a proporção medida para ORCA/USDT em `research.md`: ~90% da soma bruta fora da banda) — `approved is False`, motivo distinto do motivo de spread (ex.: contém "perto do preço", não confundível com `"spread"`)
 
 ### Implementation for User Story 1 + 2
 
-- [ ] T003 [US1][US2] Alterar `depth_usdt = sum(price * qty for price, qty in asks)` em `execution/liquidity.py::check_liquidity` para somar só os níveis com `price <= best_ask * (1 + MAX_SPREAD_PCT_ENTRY)` (D1, research.md) (depende de T001, T002)
-- [ ] T004 [US1] Atualizar a mensagem de motivo de bloqueio por profundidade em `execution/liquidity.py::check_liquidity` para citar "perto do preço" explicitamente (FR-003), mantendo o valor de `depth_usdt` e `required_depth` já formatados na mensagem
+- [X] T003 [US1][US2] Alterar `depth_usdt = sum(price * qty for price, qty in asks)` em `execution/liquidity.py::check_liquidity` para somar só os níveis com `price <= best_ask * (1 + MAX_SPREAD_PCT_ENTRY)` (D1, research.md) (depende de T001, T002)
+- [X] T004 [US1] Atualizar a mensagem de motivo de bloqueio por profundidade em `execution/liquidity.py::check_liquidity` para citar "perto do preço" explicitamente (FR-003), mantendo o valor de `depth_usdt` e `required_depth` já formatados na mensagem
 
 **Checkpoint**: `pytest tests/test_liquidity.py -v` — todos os testes
 (pré-existentes + T001 + T002) passam. MVP completo.
@@ -75,7 +75,7 @@ alcançável a preço aceitável.
 
 ### Tests for User Story 3
 
-- [ ] T005 [US3] Teste `test_check_liquidity_and_slippage_agree_on_reachable_depth` em `tests/test_liquidity.py`: mesmo book sintético de T002 passado a `check_liquidity` (rejeita/`depth_usdt` reflete só a parte perto) e a `estimate_slippage_pct` (para um volume que só cabe usando os níveis distantes, retorna slippage acima de `MAX_SPREAD_PCT_ENTRY` ou preenchimento parcial) — nenhum dos dois trata a profundidade distante como imediatamente utilizável
+- [X] T005 [US3] Teste `test_check_liquidity_and_slippage_agree_on_reachable_depth` em `tests/test_liquidity.py`: mesmo book sintético de T002 passado a `check_liquidity` (rejeita/`depth_usdt` reflete só a parte perto) e a `estimate_slippage_pct` (para um volume que só cabe usando os níveis distantes, retorna slippage acima de `MAX_SPREAD_PCT_ENTRY` ou preenchimento parcial) — nenhum dos dois trata a profundidade distante como imediatamente utilizável
 
 ### Implementation for User Story 3
 
@@ -88,9 +88,9 @@ existente (spec 018, não alterado nesta spec). T005 é só a prova.
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T006 Rodar `pytest tests/test_liquidity.py tests/test_slippage_real.py -v` — confirma 0 regressão nos dois arquivos que tocam o mesmo módulo
-- [ ] T007 Validar manualmente o passo 3 do `quickstart.md` contra dados reais (ORCA/USDT, COW/USDT, HEMI/USDT, ROBO/USDT — os quatro pares que `research.md` mediu com divergência a partir de US$ 5.000–10.000), comparando `order_size_usdt=100.0` (sem mudança esperada) contra `order_size_usdt=10000.0` (mudança esperada em pelo menos um dos quatro)
-- [ ] T008 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `trading/position_lifecycle.py` e `execution/order_manager.py`, que consomem `check_liquidity` sem alteração de assinatura
+- [X] T006 Rodar `pytest tests/test_liquidity.py tests/test_slippage_real.py -v` — confirma 0 regressão nos dois arquivos que tocam o mesmo módulo
+- [X] T007 Validar manualmente o passo 3 do `quickstart.md` contra dados reais (ORCA/USDT, COW/USDT, HEMI/USDT, ROBO/USDT — os quatro pares que `research.md` mediu com divergência a partir de US$ 5.000–10.000), comparando `order_size_usdt=100.0` (sem mudança esperada) contra `order_size_usdt=10000.0` (mudança esperada em pelo menos um dos quatro)
+- [X] T008 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `trading/position_lifecycle.py` e `execution/order_manager.py`, que consomem `check_liquidity` sem alteração de assinatura
 
 ---
 
