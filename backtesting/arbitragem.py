@@ -195,17 +195,24 @@ def comparar(leitura_a: LeituraLivro, leitura_b: LeituraLivro, volume_usdt: floa
     1. `custo_desconhecido` -- taxa de alguma corretora fora de TAXA_TOMADOR
        (FR-006, precede tudo: custo desconhecido nunca vira zero)
     2. `profundidade_insuficiente` -- preco medio sobre volume parcial (FR-007)
-    3. `oportunidade` / `sem_oportunidade` -- classificacao final
-
-    `latencia_alta` (US3) ainda nao existe aqui -- entra depois, entre 2 e 3.
+    3. `latencia_alta` -- intervalo entre as duas leituras acima do teto
+       (FR-005): um diferencial calculado entre leituras separadas por mais
+       de TETO_LATENCIA_MS nao descreve um instante que existiu em lugar
+       nenhum, mesmo que o liquido desse positivo
+    4. `oportunidade` / `sem_oportunidade` -- classificacao final, so quando
+       as tres checagens anteriores passam
     """
     dir_ab = _direcao(leitura_a, leitura_b, volume_usdt)
     dir_ba = _direcao(leitura_b, leitura_a, volume_usdt)
 
     if dir_ab["diferencial_bruto_pct"] >= dir_ba["diferencial_bruto_pct"]:
         corretora_compra, corretora_venda, d = leitura_a.corretora, leitura_b.corretora, dir_ab
+        leitura_compra, leitura_venda = leitura_a, leitura_b
     else:
         corretora_compra, corretora_venda, d = leitura_b.corretora, leitura_a.corretora, dir_ba
+        leitura_compra, leitura_venda = leitura_b, leitura_a
+
+    intervalo_ms = abs(leitura_venda.instante - leitura_compra.instante) * 1000
 
     taxa_compra = TAXA_TOMADOR.get(corretora_compra)
     taxa_venda = TAXA_TOMADOR.get(corretora_venda)
@@ -219,6 +226,8 @@ def comparar(leitura_a: LeituraLivro, leitura_b: LeituraLivro, volume_usdt: floa
         diferencial_liquido_pct = d["diferencial_bruto_pct"] - custo_pct
         if d["volume_preenchido_usdt"] < volume_usdt:
             estado = "profundidade_insuficiente"
+        elif intervalo_ms > TETO_LATENCIA_MS:
+            estado = "latencia_alta"
         elif diferencial_liquido_pct > 0:
             estado = "oportunidade"
         else:
@@ -234,6 +243,7 @@ def comparar(leitura_a: LeituraLivro, leitura_b: LeituraLivro, volume_usdt: floa
         custo_pct=custo_pct,
         diferencial_liquido_pct=diferencial_liquido_pct,
         estado=estado,
+        intervalo_ms=intervalo_ms,
     )
 
 

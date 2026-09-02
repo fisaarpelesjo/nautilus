@@ -231,3 +231,37 @@ def test_medir_ciclo_recusa_cotacao_diferente(monkeypatch):
     corretoras_nas_comparacoes = {c.corretora_compra for c in comparacoes} | {c.corretora_venda for c in comparacoes}
     assert "kraken" not in corretoras_nas_comparacoes
     assert any("kraken" in (a, b) for a, b, _motivo in pares_recusados)
+
+
+# ---------------------------------------------------------------------------
+# US3: latencia (T021, T022)
+# ---------------------------------------------------------------------------
+
+def test_comparar_calcula_intervalo_ms():
+    leitura_a = _leitura("binance", ask_preco=100.0, bid_preco=99.9, instante=10.000)
+    leitura_b = _leitura("bybit", ask_preco=100.5, bid_preco=100.4, instante=10.342)
+
+    c = arbitragem.comparar(leitura_a, leitura_b, volume_usdt=1000.0)
+
+    assert c.intervalo_ms == pytest.approx(342.0, abs=0.01)
+
+
+def test_comparar_latencia_alta_precede_oportunidade():
+    # diferencial liquido seria positivo, mas o intervalo estoura o teto
+    leitura_a = _leitura("binance", ask_preco=100.0, bid_preco=99.9, instante=0.0)
+    intervalo_s = (arbitragem.TETO_LATENCIA_MS + 1) / 1000
+    leitura_b = _leitura("bybit", ask_preco=100.5, bid_preco=100.4, instante=intervalo_s)
+
+    c = arbitragem.comparar(leitura_a, leitura_b, volume_usdt=1000.0)
+
+    assert c.diferencial_liquido_pct is not None and c.diferencial_liquido_pct > 0
+    assert c.estado == "latencia_alta"
+
+
+def test_comparar_latencia_dentro_do_teto_nao_bloqueia():
+    leitura_a = _leitura("binance", ask_preco=100.0, bid_preco=99.9, instante=0.0)
+    leitura_b = _leitura("bybit", ask_preco=100.5, bid_preco=100.4, instante=0.5)
+
+    c = arbitragem.comparar(leitura_a, leitura_b, volume_usdt=1000.0)
+
+    assert c.estado == "oportunidade"

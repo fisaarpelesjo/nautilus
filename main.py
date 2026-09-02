@@ -1119,12 +1119,13 @@ def cmd_arbitragem():
         console.print()
 
     cores = {"oportunidade": C_POS, "sem_oportunidade": C_DIM,
-             "custo_desconhecido": C_CYAN, "profundidade_insuficiente": C_CYAN}
+             "custo_desconhecido": C_CYAN, "profundidade_insuficiente": C_CYAN,
+             "latencia_alta": C_CYAN}
 
     t = Table(box=box.SIMPLE_HEAD)
     for col in ("Compra", "Venda"):
         t.add_column(col)
-    for col in ("Bruto %", "Custo %", "Liquido %", "Volume US$"):
+    for col in ("Bruto %", "Custo %", "Liquido %", "Volume US$", "Intervalo ms"):
         t.add_column(col, justify="right")
     t.add_column("Estado")
 
@@ -1135,7 +1136,7 @@ def cmd_arbitragem():
         t.add_row(
             c.corretora_compra, c.corretora_venda,
             f"{c.diferencial_bruto_pct * 100:+.4f}", custo_fmt, liquido_fmt,
-            f"{c.volume_preenchido_usdt:,.0f}",
+            f"{c.volume_preenchido_usdt:,.0f}", f"{c.intervalo_ms:.0f}",
             f"[{cor}]{c.estado.replace('_', ' ')}[/{cor}]",
         )
     console.print(t)
