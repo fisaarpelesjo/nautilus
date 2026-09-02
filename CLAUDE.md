@@ -64,6 +64,7 @@ python main.py volatilidade [ALVO]  # compara cada estrategia com e sem dimensio
 python main.py barras [TIPO]        # compara amostragem por tempo vs por informacao (dollar/cusum, spec 026)
 python main.py modelo               # classificador sobre rotulos de barreira tripla (spec 027)
 python main.py arbitragem [PAR]     # diferencial liquido entre corretoras, instrumento de amostragem (spec 029)
+python main.py onchain               # H17 -- comparacao isolada BTC-only com/sem atributo on-chain (spec 034)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal
