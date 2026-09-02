@@ -65,6 +65,7 @@ python main.py barras [TIPO]        # compara amostragem por tempo vs por inform
 python main.py modelo               # classificador sobre rotulos de barreira tripla (spec 027)
 python main.py arbitragem [PAR]     # diferencial liquido entre corretoras, instrumento de amostragem (spec 029)
 python main.py onchain               # H17 -- comparacao isolada BTC-only com/sem atributo on-chain (spec 034)
+python main.py grid                  # H18 -- grid trading com gestao de cauda (regime ADX), UNIVERSO_H11 (spec 035)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal
