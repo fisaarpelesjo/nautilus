@@ -101,11 +101,16 @@ motivo explícito.
 O relatório apresenta o tempo entre a primeira e a última leitura de cada
 comparação, e o diferencial é qualificado por esse tempo.
 
-**Why this priority**: medição preliminar registrou **2,0 a 6,1 segundos** por
-consulta de livro a partir deste ambiente. Uma arbitragem exige ler dois livros,
-comparar e enviar duas ordens — dezenas de segundos. Um diferencial que persiste
-tanto tempo não é oportunidade; é sinal de que algo mais está errado, como
-retirada suspensa ou liquidez fantasma.
+**Why this priority**: medição registrou latência **quente** de 272 a 1.082 ms
+por consulta de livro, mediana **342 ms**. Uma arbitragem exige duas leituras e
+duas ordens — cerca de **1,4 s** no melhor caso. Um diferencial de topo de livro
+que persiste tanto tempo não é oportunidade; é sinal de que algo mais está
+errado, como retirada suspensa ou liquidez fantasma.
+
+> **Correção declarada.** A primeira redação desta spec citava 2,0 a 6,1
+> segundos. Aquele número incluía `load_markets()` e conexão fria, e um processo
+> de arbitragem mantém as conexões abertas. A correção enfraquece este argumento
+> em uma ordem de grandeza; ele sobrevive, mas por menos. Ver `research.md`.
 
 Reportar diferencial sem reportar o tempo em que ele foi observado descreveria
 uma oportunidade que ninguém poderia executar.
@@ -236,9 +241,11 @@ maior que qualquer uma isolada.
 - **Custos assumidos são os de taxa pública de tomador de liquidez**, sem
   descontos por volume. É o custo que este projeto de fato pagaria.
 - **A observação preliminar é desfavorável e está registrada:** entre pares de
-  mesma cotação, o diferencial observado foi de **0,037%** contra um custo
-  mínimo de **~0,2%** em taxas dos dois lados. Um único instantâneo não é
-  evidência, mas registrá-lo antes impede que o resultado seja apresentado como
-  surpresa depois.
+  mesma cotação e sobre seis corretoras, o maior diferencial **bruto** observado
+  foi de **+0,0203%**, contra um custo mínimo possível de **0,200%** — uma ordem
+  de grandeza de diferença. Um único instantâneo não é evidência, mas registrá-lo
+  antes impede que o resultado seja apresentado como surpresa depois, e reformula
+  o que a campanha precisa encontrar: não um diferencial ligeiramente acima do
+  custo, mas um **dez vezes maior** que o observado.
 - **O conjunto de corretoras é declarado e pequeno**, escolhido por acessibilidade
   pública e liquidez, não por diferencial observado.
