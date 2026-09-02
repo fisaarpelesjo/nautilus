@@ -1088,10 +1088,13 @@ def cmd_arbitragem():
     sem exigir chave de API. O veredito exige amostra acumulada ao longo do
     tempo (Assumptions da spec) -- esta execucao mede um ciclo e persiste.
     """
+    from datetime import datetime
+
     from rich import box
     from rich.table import Table
 
-    from backtesting.arbitragem import CORRETORAS, VOLUME_USDT_PADRAO, medir_ciclo
+    from backtesting.arbitragem import CORRETORAS, MIN_OBSERVACOES_AGREGACAO, VOLUME_USDT_PADRAO, agregar, medir_ciclo
+    from data.arbitragem_store import carregar_observacoes
     from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
     from utils.report_export import export_report
 
@@ -1142,15 +1145,35 @@ def cmd_arbitragem():
     console.print(t)
     console.print()
 
-    console.print(f"  [{C_LABEL}]executabilidade (D6)[/]: [{C_NEG}]inexecutavel hoje[/] -- exige "
-                  f"capital pre-posicionado nas duas corretoras, chaves de API em multiplas "
-                  f"corretoras e execucao simultanea das duas pernas. Nenhum dos tres esta "
-                  f"implementado; a medicao continua valida independente disso.")
+    historico = carregar_observacoes()
+    relatorio = agregar(comparacoes, indisponiveis, pares_recusados, historico)
+
+    console.print(f"  [bold {C_CYAN}]agregado historico[/]")
+    if relatorio.periodo_coberto:
+        inicio = datetime.fromtimestamp(relatorio.periodo_coberto[0]).strftime("%Y-%m-%d %H:%M:%S")
+        fim = datetime.fromtimestamp(relatorio.periodo_coberto[1]).strftime("%Y-%m-%d %H:%M:%S")
+        console.print(f"    [{C_LABEL}]periodo[/]: {inicio} -- {fim}")
+    console.print(f"    [{C_LABEL}]N total[/]: {relatorio.n_observacoes_total}")
+    for (corretora_a, corretora_b), n in sorted(relatorio.n_observacoes_por_combinacao.items()):
+        console.print(f"      [{C_DIM}]{corretora_a} x {corretora_b}: {n}[/{C_DIM}]")
+    if relatorio.estado_agregado == "inconclusivo":
+        maior = max(relatorio.n_observacoes_por_combinacao.values(), default=0)
+        console.print(f"    [{C_CYAN}]inconclusivo[/] -- faltam "
+                       f"{max(0, MIN_OBSERVACOES_AGREGACAO - maior)} observacoes na combinacao "
+                       f"mais medida para atingir o minimo declarado ({MIN_OBSERVACOES_AGREGACAO})")
+    else:
+        console.print(f"    [{C_POS}]amostra suficiente[/] -- so descritivo, "
+                       f"NAO e veredito de aprovacao/reprovacao (Assumptions da spec)")
+    console.print()
+
+    console.print(f"  [{C_LABEL}]executabilidade (D6)[/]: [{C_NEG}]inexecutavel hoje[/] -- "
+                  f"{relatorio.motivo_executabilidade}")
 
     export_report(
         "arbitragem",
         {"par": par, "corretoras": list(CORRETORAS), "volume_usdt": VOLUME_USDT_PADRAO,
-         "indisponiveis": indisponiveis},
+         "indisponiveis": indisponiveis, "n_observacoes_total": relatorio.n_observacoes_total,
+         "estado_agregado": relatorio.estado_agregado, "periodo_coberto": relatorio.periodo_coberto},
         [{"corretora_compra": c.corretora_compra, "corretora_venda": c.corretora_venda,
           "diferencial_bruto_pct": c.diferencial_bruto_pct, "custo_pct": c.custo_pct,
           "diferencial_liquido_pct": c.diferencial_liquido_pct,

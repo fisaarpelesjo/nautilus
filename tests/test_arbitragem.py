@@ -7,6 +7,15 @@ Ver specs/029-arbitragem-entre-corretoras/{spec,data-model,tasks}.md.
 import pytest
 
 from backtesting import arbitragem
+from data import arbitragem_store
+
+
+@pytest.fixture(autouse=True)
+def _arbitragem_file_tmp(tmp_path, monkeypatch):
+    """Redireciona ARBITRAGEM_FILE para um caminho temporario em todo teste
+    deste modulo -- nenhum teste escreve em data/arbitragem.jsonl real."""
+    from data import paths as data_paths
+    monkeypatch.setattr(data_paths, "ARBITRAGEM_FILE", str(tmp_path / "arbitragem.jsonl"))
 
 
 # ---------------------------------------------------------------------------
@@ -265,3 +274,114 @@ def test_comparar_latencia_dentro_do_teto_nao_bloqueia():
     c = arbitragem.comparar(leitura_a, leitura_b, volume_usdt=1000.0)
 
     assert c.estado == "oportunidade"
+
+
+# ---------------------------------------------------------------------------
+# US4: data/arbitragem_store.py (T025, T026)
+# ---------------------------------------------------------------------------
+
+def test_registrar_observacoes_acrescenta_sem_sobrescrever():
+    c1 = arbitragem.comparar(_leitura("binance", 100.0, 99.9), _leitura("bybit", 100.5, 100.4))
+    c2 = arbitragem.comparar(_leitura("okx", 100.0, 99.9), _leitura("gate", 100.5, 100.4))
+
+    arbitragem_store.registrar_observacoes([c1])
+    arbitragem_store.registrar_observacoes([c2])
+
+    observacoes = arbitragem_store.carregar_observacoes()
+    assert len(observacoes) == 2
+
+
+def test_carregar_observacoes_descarta_linha_parcial():
+    from data import paths as data_paths
+
+    c1 = arbitragem.comparar(_leitura("binance", 100.0, 99.9), _leitura("bybit", 100.5, 100.4))
+    arbitragem_store.registrar_observacoes([c1])
+    with open(data_paths.ARBITRAGEM_FILE, "a", encoding="utf-8") as f:
+        f.write('{"corretora_compra": "gate", "estado": "oportuni')  # linha parcial, sem \n
+
+    observacoes = arbitragem_store.carregar_observacoes()
+    assert len(observacoes) == 1
+
+
+def test_carregar_observacoes_arquivo_inexistente():
+    assert arbitragem_store.carregar_observacoes() == []
+
+
+# ---------------------------------------------------------------------------
+# US4: agregar() (T027)
+# ---------------------------------------------------------------------------
+
+def _observacao(corretora_compra, corretora_venda, instante_registro):
+    return {"corretora_compra": corretora_compra, "corretora_venda": corretora_venda,
+            "instante_registro": instante_registro, "estado": "sem_oportunidade"}
+
+
+def test_agregar_periodo_e_contagem():
+    historico = [
+        _observacao("binance", "bybit", 100.0),
+        _observacao("binance", "bybit", 200.0),
+        _observacao("okx", "gate", 150.0),
+    ]
+
+    r = arbitragem.agregar([], [], [], historico)
+
+    assert r.periodo_coberto == (100.0, 200.0)
+    assert r.n_observacoes_total == 3
+    assert r.n_observacoes_por_combinacao[tuple(sorted(("binance", "bybit")))] == 2
+    assert r.n_observacoes_por_combinacao[tuple(sorted(("okx", "gate")))] == 1
+
+
+def test_agregar_inconclusivo_abaixo_do_minimo():
+    historico = [_observacao("binance", "bybit", float(i)) for i in range(arbitragem.MIN_OBSERVACOES_AGREGACAO - 1)]
+    r = arbitragem.agregar([], [], [], historico)
+    assert r.estado_agregado == "inconclusivo"
+
+
+def test_agregar_amostra_suficiente_no_minimo():
+    historico = [_observacao("binance", "bybit", float(i)) for i in range(arbitragem.MIN_OBSERVACOES_AGREGACAO)]
+    r = arbitragem.agregar([], [], [], historico)
+    assert r.estado_agregado == "amostra_suficiente"
+
+
+def test_agregar_nunca_tem_campo_de_veredito():
+    # RelatorioH15 nao pode ter aprovada/reprovada -- Assumptions da spec
+    r = arbitragem.agregar([], [], [], [])
+    assert not hasattr(r, "aprovada")
+    assert not hasattr(r, "reprovada")
+    assert r.estado_agregado in ("inconclusivo", "amostra_suficiente")
+
+
+def test_agregar_historico_vazio():
+    r = arbitragem.agregar([], [], [], [])
+    assert r.periodo_coberto is None
+    assert r.n_observacoes_total == 0
+    assert r.estado_agregado == "inconclusivo"
+
+
+def test_agregar_executabilidade_sempre_falsa():
+    r = arbitragem.agregar([], [], [], [])
+    assert r.executavel_em_producao is False
+    assert r.motivo_executabilidade  # nunca vazio
+
+
+# ---------------------------------------------------------------------------
+# US4: integracao medir_ciclo -> persistencia (T030)
+# ---------------------------------------------------------------------------
+
+def test_medir_ciclo_persiste_comparacoes(monkeypatch):
+    monkeypatch.setattr(arbitragem, "ler_livro", lambda corretora, par: _leitura(corretora, 100.0, 99.9))
+
+    comparacoes, _indisponiveis, _recusados = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+
+    observacoes = arbitragem_store.carregar_observacoes()
+    assert len(observacoes) == len(comparacoes)
+
+
+def test_medir_ciclo_duas_execucoes_acumulam(monkeypatch):
+    monkeypatch.setattr(arbitragem, "ler_livro", lambda corretora, par: _leitura(corretora, 100.0, 99.9))
+
+    comparacoes_1, _, _ = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+    comparacoes_2, _, _ = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+
+    observacoes = arbitragem_store.carregar_observacoes()
+    assert len(observacoes) == len(comparacoes_1) + len(comparacoes_2)

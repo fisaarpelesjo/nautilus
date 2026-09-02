@@ -16,6 +16,7 @@ from typing import Optional
 
 import ccxt
 
+from data.arbitragem_store import registrar_observacoes
 from utils.logger import get_logger
 
 log = get_logger("arbitragem")
@@ -288,4 +289,69 @@ def medir_ciclo(
             continue
         comparacoes.append(comparar(leitura_a, leitura_b, volume_usdt))
 
+    registrar_observacoes(comparacoes)
     return comparacoes, indisponiveis, pares_recusados
+
+
+_MOTIVO_INEXECUTAVEL = (
+    "capital pre-posicionado nas duas corretoras, chaves de API em multiplas "
+    "corretoras e execucao simultanea das duas pernas -- nenhum dos tres esta "
+    "implementado (D6)"
+)
+
+
+@dataclass
+class RelatorioH15:
+    comparacoes_ciclo: list[Comparacao]
+    corretoras_indisponiveis: list[str]
+    pares_recusados: list[tuple[str, str, str]]
+    periodo_coberto: Optional[tuple[float, float]]
+    n_observacoes_total: int
+    n_observacoes_por_combinacao: dict[tuple[str, str], int]
+    estado_agregado: str
+    executavel_em_producao: bool = False
+    motivo_executabilidade: str = _MOTIVO_INEXECUTAVEL
+
+
+def agregar(
+    comparacoes_ciclo: list[Comparacao],
+    corretoras_indisponiveis: list[str],
+    pares_recusados: list[tuple[str, str, str]],
+    observacoes_historico: list[dict],
+) -> RelatorioH15:
+    """Agrega **todo** o historico persistido (FR-009), nao so o ciclo atual.
+
+    `estado_agregado` e so descritivo ("inconclusivo"/"amostra_suficiente")
+    -- nunca aprovado/reprovado. O veredito de H15 exige tempo decorrido
+    (spec.md, Assumptions); calcular um aqui repetiria o erro que a
+    Iteracao 1 do checklist ja corrigiu (spec original prometia veredito).
+    """
+    if observacoes_historico:
+        instantes = [o["instante_registro"] for o in observacoes_historico if "instante_registro" in o]
+        periodo_coberto = (min(instantes), max(instantes)) if instantes else None
+    else:
+        periodo_coberto = None
+
+    # Agrupado por par NAO ORDENADO de corretoras -- comparar() escolhe a
+    # direcao (quem compra/quem vende) mais favoravel a cada ciclo, entao a
+    # mesma combinacao de corretoras pode trocar de direcao entre execucoes.
+    # Contar por direcao fragmentaria a mesma combinacao em duas contagens.
+    n_por_combinacao: dict[tuple[str, str], int] = {}
+    for o in observacoes_historico:
+        chave = tuple(sorted((o.get("corretora_compra", ""), o.get("corretora_venda", ""))))
+        n_por_combinacao[chave] = n_por_combinacao.get(chave, 0) + 1
+
+    maior_combinacao = max(n_por_combinacao.values(), default=0)
+    estado_agregado = (
+        "amostra_suficiente" if maior_combinacao >= MIN_OBSERVACOES_AGREGACAO else "inconclusivo"
+    )
+
+    return RelatorioH15(
+        comparacoes_ciclo=comparacoes_ciclo,
+        corretoras_indisponiveis=corretoras_indisponiveis,
+        pares_recusados=pares_recusados,
+        periodo_coberto=periodo_coberto,
+        n_observacoes_total=len(observacoes_historico),
+        n_observacoes_por_combinacao=n_por_combinacao,
+        estado_agregado=estado_agregado,
+    )
