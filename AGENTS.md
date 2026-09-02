@@ -65,6 +65,7 @@ python main.py horizonte [TF..]     # evaluate strategies on 4h/1d/1w with the f
 python main.py volatilidade [TGT]   # compare each strategy with and without volatility-based sizing (spec 025)
 python main.py barras [TYPE]        # compare time-based vs information-driven sampling (dollar/cusum, spec 026)
 python main.py modelo               # supervised classifier on triple-barrier labels (spec 027)
+python main.py arbitragem [PAIR]    # net differential between exchanges, sampling instrument (spec 029)
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal

@@ -4,6 +4,8 @@ Ver specs/029-arbitragem-entre-corretoras/{spec,data-model,tasks}.md.
 """
 
 
+from pathlib import Path
+
 import pytest
 
 from backtesting import arbitragem
@@ -385,3 +387,38 @@ def test_medir_ciclo_duas_execucoes_acumulam(monkeypatch):
 
     observacoes = arbitragem_store.carregar_observacoes()
     assert len(observacoes) == len(comparacoes_1) + len(comparacoes_2)
+
+
+# ---------------------------------------------------------------------------
+# Polish: guardas estruturais (T033, T034)
+# ---------------------------------------------------------------------------
+
+def test_nunca_envia_ordem():
+    """FR-012 -- H15 e medicao, nunca execucao. Guarda textual, mesmo
+    espirito da guarda AST de tests/test_geometria.py contra `import modelo`."""
+    for caminho in ("backtesting/arbitragem.py", "data/arbitragem_store.py"):
+        texto = Path(caminho).read_text(encoding="utf-8")
+        assert "create_order" not in texto
+        assert "createOrder" not in texto
+
+
+def test_ler_livro_nunca_passa_credenciais(monkeypatch):
+    """FR-013 -- nenhuma das seis corretoras exige chave de API."""
+    capturado = {}
+
+    class _ExchangeClasseFalsa:
+        def __init__(self, config):
+            capturado["config"] = config
+            self.apiKey = None
+            self.secret = None
+
+        def fetch_order_book(self, par):
+            return {"bids": [], "asks": []}
+
+    arbitragem.reset_exchange_cache()
+    monkeypatch.setattr(arbitragem.ccxt, "binance", _ExchangeClasseFalsa)
+
+    arbitragem.ler_livro("binance", "BTC/USDT")
+
+    assert "apiKey" not in capturado["config"]
+    assert "secret" not in capturado["config"]
