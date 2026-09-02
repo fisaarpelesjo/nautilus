@@ -123,8 +123,8 @@ do modelo.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T037 [P] [US2] Teste em `tests/test_purga.py`: sobre as séries reais do universo, nenhuma amostra de treino tem horizonte alcançando teste ou embargo
-- [ ] T038 [P] [US2] Teste em `tests/test_purga.py`: a contagem de purgadas e embargadas é reportada e diferente de zero quando há sobreposição
+- [X] T037 [P] [US2] Teste em `tests/test_purga.py`: sobre as séries reais do universo, nenhuma amostra de treino tem horizonte alcançando teste ou embargo
+- [X] T038 [P] [US2] Teste em `tests/test_purga.py`: a contagem de purgadas e embargadas é reportada e diferente de zero quando há sobreposição
 
 ### Implementation for User Story 2
 
@@ -149,13 +149,13 @@ do modelo.
 ## Phase 7: Polish & Cross-Cutting Concerns
 
 - [X] T044 [P] Exportar para `reports/modelo_{timestamp}.{json,csv,md}` via `utils/report_export.py`
-- [ ] T045 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit**
-- [ ] T046 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o limiar de 0,500 e por que acurácia não é a métrica
-- [ ] T047 Executar a avaliação completa **sem truncar a saída** e registrar o veredito de H14 em `docs/research/registro-de-hipoteses.md`, confrontando as predições de `research.md` com o observado
-- [ ] T048 Registrar a declaração de executabilidade (FR-017), incluindo a ausência de retreino e de detecção de degradação
-- [ ] T049 Reordenar a fila conforme o resultado, e atualizar a nota §6.3-b sobre a família direcional
-- [ ] T050 Executar os doze cenários de `quickstart.md`
-- [ ] T051 Confirmar `git diff --stat` vazio em `risk/`, `execution/`, `trading/`, `strategy/` (exceto o arquivo novo) e nos arquivos de dependência, e rodar a suíte completa sem redução na contagem
+- [X] T045 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit**
+- [X] T046 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o limiar de 0,500 e por que acurácia não é a métrica
+- [X] T047 Executar a avaliação completa **sem truncar a saída** e registrar o veredito de H14 em `docs/research/registro-de-hipoteses.md`, confrontando as predições de `research.md` com o observado
+- [X] T048 Registrar a declaração de executabilidade (FR-017), incluindo a ausência de retreino e de detecção de degradação
+- [X] T049 Reordenar a fila conforme o resultado, e atualizar a nota §6.3-b sobre a família direcional
+- [X] T050 Executar os doze cenários de `quickstart.md`
+- [X] T051 Confirmar `git diff --stat` vazio em `risk/`, `execution/`, `trading/`, `strategy/` (exceto o arquivo novo) e nos arquivos de dependência, e rodar a suíte completa sem redução na contagem
 
 ---
 

@@ -59,6 +59,7 @@ graph LR
 | `python main.py horizonte [TF...]` | Avalia as estratégias em 4h/1d/1w com a bateria completa — ver abaixo |
 | `python main.py volatilidade [ALVO]` | Compara cada estratégia com e sem dimensionamento por volatilidade — ver abaixo |
 | `python main.py barras [TIPO]` | Compara amostragem por tempo contra amostragem por informação — ver abaixo |
+| `python main.py modelo` | Classificador sobre rótulos de barreira tripla — ver abaixo |
 | `python main.py optimize` | Grid search dos melhores parâmetros |
 | `python main.py optimize --walk-forward` | Grid search com validação walk-forward |
 | `python main.py select` | Ranqueia candidatos de pares dinâmicos por liquidez, spread e volatilidade |
@@ -320,3 +321,82 @@ já busca. **Ressalva:** o limiar é calibrado sobre histórico e regimes de vol
 mudam, então operar isto exigiria recalibração periódica — mecanismo que não
 existe e que a spec 026 não implementa. Aprovar algo inexecutável é pior que
 reprovar, por isso a ressalva aparece na própria saída do comando.
+
+---
+
+## Classificador sobre barreira tripla (pesquisa — spec 027)
+
+`python main.py modelo` (alias `ml`) rotula cada evento pela barreira que o
+preço toca primeiro — alvo, stop ou limite de tempo — treina um classificador
+sobre atributos declarados, e compara contra **três** linhas de base: as regras,
+o buy-and-hold, e o mesmo modelo com **rótulos embaralhados**.
+
+**Nenhum argumento.** Diferente de `volatilidade [ALVO]` e `barras [TIPO]`, aqui
+nada é parametrizável: barreiras, atributos, embargo e universo são declarados
+em `research.md` e fixos. Um modelo tem eixos demais para expor qualquer um com
+segurança.
+
+### Os dois limiares caem das barreiras
+
+| Limiar | Fórmula | Valor |
+|---|---|---|
+| **Decisão** (probabilidade) | `sl / (sl + tp)` | 0,3333 |
+| **Empate** (razão de chances) | `sl / tp` | 0,500 |
+
+Nenhum dos dois é ajustável. O de decisão é a probabilidade de alvo acima da
+qual `p·tp − (1−p)·sl` fica positivo. O de empate é a razão alvo/stop que zera a
+expectativa.
+
+Ao acaso, apenas **23,4%** dos eventos atingem o alvo — abaixo do limiar de
+decisão. O modelo só opera onde consegue elevar a probabilidade acima disso.
+
+### Por que acurácia não aparece
+
+Prever sempre "stop" acerta **62,8%** e nunca opera. A métrica é a razão de
+chances no subconjunto em que o modelo **decide entrar**.
+
+### O teste decisivo é o rótulo embaralhado
+
+Um classificador sempre encontra alguma estrutura. A pergunta é se ela está nos
+dados ou na capacidade do modelo. O mesmo modelo é treinado com os rótulos
+permutados — preservando a distribuição das classes — e avaliado igual.
+
+Na execução real ele **decide zero vezes**, e isso é correto: sem relação entre
+atributo e rótulo, a melhor previsão é a taxa base, que fica abaixo do limiar de
+decisão. O modelo de ruído nunca cruza o limiar.
+
+### Purga e embargo são globais entre pares
+
+O rótulo em `t` só é conhecido no fim do horizonte. Treinar com amostras cujo
+desfecho só se conhece dentro da janela de teste entrega futuro ao modelo.
+
+A purga é **temporal e global**: remove qualquer amostra, de **qualquer par**,
+cujo horizonte alcance o teste. Purgar par a par deixaria o desfecho de BTC no
+treino enquanto ETH está no teste — e, com correlação de 0,71 medida em H9, o
+modelo veria por um o que deve prever para o outro.
+
+### Estados
+
+| Estado | Significado |
+|---|---|
+| `melhora` | Supera regras, embaralhado **e** o empate, com confirmação fora da amostra |
+| `só na busca` | Melhorou onde foi medido, não se sustentou |
+| `insuficiente` | **Há sinal, e ele não paga as barreiras** |
+| `confundido` | As regras perdem dinheiro: operar menos aproxima de zero |
+| `sem sinal` | Não se distingue do modelo de rótulos embaralhados |
+| `sem vantagem` | O ganho desaparece ao descontar exposição |
+| `piora` | Drawdown subiu |
+| `inconclusivo` | Amostra insuficiente, ou sem janela de validação |
+| `classe única` / `não convergiu` | Nada a classificar, ou estimação inválida |
+
+**O limiar usa o limite inferior do intervalo de confiança**, não a estimativa
+pontual. Medido em H14: razão de 0,5134 contra empate de 0,500 — a estimativa
+pontual passava, mas a diferença era de meio erro padrão (p = 0,318) e o limite
+inferior dava 0,4696. Comparar o ponto converte ruído em aprovação.
+
+### Executabilidade
+
+Avaliar o modelo por ciclo é barato. **Ressalva maior que a de `barras`:** não
+existe mecanismo de retreino nem de detecção de degradação, e aqui a degradação
+é **silenciosa** — o modelo continua emitindo probabilidades de aparência normal
+enquanto a relação aprendida deixa de valer.

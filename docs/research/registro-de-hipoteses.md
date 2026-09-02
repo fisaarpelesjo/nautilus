@@ -227,8 +227,9 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
+| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **INSUFICIENTE** | Sinal real (z = +5,21) que não paga as barreiras (z = +0,50) |
 
-**Taxa de aprovação: 0 de 13.** Três inconclusivas (H10; H11 em escala
+**Taxa de aprovação: 0 de 14.** Três inconclusivas (H10; H11 em escala
 semanal; H12 por impossibilidade estrutural de teste — ver 4.13).
 
 ---
@@ -916,6 +917,125 @@ timing.
 
 ---
 
+### 4.15 H14 — Aprendizado supervisionado com barreira tripla
+
+**Tese.** Rotular cada evento pela barreira que o preço toca primeiro — alvo,
+stop ou limite de tempo — transforma a previsão de direção num problema de
+classificação com rótulos economicamente significativos. Um classificador sobre
+os indicadores já calculados poderia extrair estrutura que regras fixas de
+cruzamento não capturam.
+
+**Método.** Regressão logística binária, 5 atributos declarados e intercepto —
+6 parâmetros sobre ~16.000 amostras de treino, 2.700 por parâmetro. Barreiras
+do próprio bot (stop 1,5×ATR, alvo 3,0×ATR, limite 24 velas). Purga e embargo
+**globais entre pares**. Três linhas de base: as regras, o buy-and-hold, e o
+mesmo modelo com **rótulos embaralhados**.
+
+#### O limiar foi declarado antes de qualquer código
+
+`research.md` registrou, na Fase 0 e antes da implementação, que uma entrada
+aleatória com essas barreiras tem expectativa de **−0,241 ATR**, razão de
+chances alvo/stop de 0,372, e que **empatar exige 0,500 — uma elevação de
++34,3% relativo**.
+
+#### Resultado: dois testes, respostas opostas
+
+Agregado sobre os 12 pares, na janela de teste (1.580 decisões com desfecho):
+
+| | alvo | stop | razão |
+|---|---|---|---|
+| Todos os eventos | 1.650 | 4.235 | 0,3896 |
+| **Subconjunto decidido pelo modelo** | **536** | **1.044** | **0,5134** |
+
+| Pergunta | Estatística | Resposta |
+|---|---|---|
+| **Há sinal?** (decidido vs taxa base) | esperado 443,0 alvos, observado 536 — **z = +5,21**, p < 0,0001 | **Sim, robustamente** |
+| **Paga as barreiras?** (decidido vs empate) | esperado 526,7, observado 536 — **z = +0,50**, p = 0,318 | **Não resolvível** |
+
+Elevação observada: **0,3896 → 0,5134, +31,8% relativo**. A elevação
+pré-registrada como necessária era **+34,3%**. O modelo chegou praticamente ao
+limiar declarado e parou nele.
+
+Intervalo de confiança de 95% para a fração de alvos: [0,3196; 1,0], contra
+0,3333 no ponto de empate. A razão no limite inferior é **0,4696 — abaixo do
+empate**.
+
+#### Veredito: INSUFICIENTE
+
+Categoria nova neste registro, criada em `data-model.md` **antes** de ver o
+resultado, precisamente para não colapsar este caso.
+
+> **Há sinal detectável, estatisticamente robusto, e ele não paga as
+> barreiras.**
+
+Não é REPROVADA: o sinal existe com p < 0,0001, e reprovar afirmaria ausência
+de efeito onde há efeito medido. Não é INCONCLUSIVA no sentido usual: a amostra
+é adequada para **estabelecer** o sinal; é inadequada apenas para resolver se a
+margem acima do empate é positiva. E não é aprovação: 0,5134 não se distingue
+de empatar, e uma estratégia que empata perde para o custo de execução.
+
+#### Por que este é o resultado mais informativo do registro até aqui
+
+As treze hipóteses anteriores responderam "não há vantagem". Esta responde algo
+diferente: **a direção é previsível a um grau mensurável, e o grau previsível é
+menor que o obstáculo econômico.** Isso desloca a pergunta de "existe sinal?"
+para "o obstáculo pode ser reduzido?".
+
+#### O modelo embaralhado decide zero vezes — e está correto
+
+Sem relação entre atributo e rótulo, a melhor previsão possível é a taxa base
+(23,4%), que fica **abaixo do limiar de decisão de 33,3%**. O modelo de ruído
+nunca cruza o limiar e nunca opera. Não é degeneração do teste: é o
+comportamento esperado, e confirma que o limiar de decisão está no lugar certo.
+
+Consequência metodológica: a comparação contra o embaralhado não pôde ser feita
+no espaço de retornos (uma versão não opera), e foi feita no espaço de
+**chances**, que é onde ela tem conteúdo.
+
+#### Limitações declaradas
+
+- **Por par, todas as 12 avaliações são `inconclusivo`**: a linha de base de
+  regras faz de 1 a 9 operações na janela de teste, nunca as 10 do mínimo. A
+  resposta veio do agregado, que é a unidade natural de um modelo único
+  treinado sobre pares agrupados.
+- **Drawdown não é agregado**: depende da trajetória conjunta de capital e
+  exigiria um motor de carteira. Somar drawdowns de séries distintas produziria
+  um número sem significado.
+- **A margem acima do empate não é resolvível com 1.580 decisões.** Resolvê-la
+  exigiria da ordem de dez vezes mais amostra, o que significa mais pares ou
+  mais histórico — não mais modelo.
+
+#### Executabilidade operacional (FR-017)
+
+**Parcialmente executável, com ressalva maior que a de H13.** Avaliar o modelo a
+cada ciclo é barato — cinco atributos e um produto interno sobre indicadores já
+calculados.
+
+Mas **não existe mecanismo de retreino nem de detecção de degradação**, e aqui a
+degradação é **silenciosa**: o modelo continua emitindo probabilidades de
+aparência normal enquanto a relação que aprendeu deixa de valer. Diferente do
+limiar de H13, cuja degradação apareceria na contagem de barras.
+
+Como o veredito é `insuficiente`, a questão é acadêmica — mas fica registrada,
+porque se a margem for resolvida no futuro a ressalva volta a valer.
+
+#### Predições registradas antes da execução
+
+| Predição (`research.md`) | Observado |
+|---|---|
+| "O resultado mais provável é que o modelo não se distinga do embaralhado" | **Errada.** O modelo se distingue com z = +5,21 |
+| "Se distinguir mas não atingir 0,500, o resultado é `insuficiente` — categoria nova e o achado desta spec" | **Confirmada.** Foi exatamente isso |
+
+A primeira predição estar errada é o dado mais valioso desta spec: eu esperava
+ausência de sinal e encontrei sinal. A segunda existir por escrito é o que
+permite afirmar que `insuficiente` não foi uma categoria inventada depois para
+acomodar um resultado incômodo.
+
+**Reprodução:** `python main.py modelo` · `reports/modelo_*.json` · spec
+`027-aprendizado-barreira-tripla`.
+
+---
+
 ## 5. Achados metodológicos (defeitos de instrumentação)
 
 Distintos das hipóteses, estes achados dizem respeito à **confiabilidade do
@@ -939,6 +1059,8 @@ com base em medições anteriores.
 
 | M12 | Duas convenções de índice convivendo ao comparar amostragens | `pandas.resample` rotula a barra pela borda **esquerda** (abertura) enquanto a construção de barras dirigidas rotulava pelo último candle do grupo. O mesmo instante passava a ter preços de fechamento diferentes em cada versão — medido: 111.169,92 contra 110.422,10 — e o buy-and-hold de cada amostragem media um trecho ligeiramente distinto, desancorando a comparação. A guarda de ancoragem reprovava **todas** as combinações, corretamente. Correção: rotular pelo instante em que a barra **termina**, nas duas versões, o que faz `close` ser função apenas do rótulo e torna a âncora exata (divergência 0,00000000pp) | Corrigido (`data/bars.py`, `backtesting/barras.py`, 2026-09-01) |
 
+| M13 | Estimativa pontual comparada a um limiar, sem banda de incerteza | A verificação de "a razão de chances supera o empate?" comparava o ponto contra 0,500. Medido em H14: razão de **0,5134** com 536 alvos e 1.044 stops — a checagem devolvia **sim**. Mas sob empate exato esperar-se-iam 526,7 alvos, erro padrão 18,7: a diferença é de **meio erro padrão**, p = 0,318, e o limite inferior do intervalo de confiança dá razão de 0,4696, **abaixo** do empate. A estimativa pontual passava e a evidência não existia | Corrigido (`supera_empate_com_confianca`, limite inferior de Wilson, 2026-09-01) |
+
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
 falso positivo, não instâncias.
@@ -955,6 +1077,12 @@ apareceu em revisão de código: todos apareceram ao confrontar o resultado
 observado com a predição registrada antes da execução. O primeiro fio foi o
 fator médio de **0,983 medido contra 0,901 previsto** — discrepância pequena o
 bastante para passar despercebida se a previsão não estivesse escrita.
+
+**M13 é a quarta forma da família de M9 e M11**: um número que parece bom
+porque a régua não tem tolerância. M9 lia amostra insuficiente como reprovação;
+M11 lia encolher como vantagem; M13 lia ruído como aprovação. As três se
+corrigem do mesmo jeito — exigindo que a evidência sobreviva à incerteza antes
+de virar veredito.
 
 **M12 tem procedência diferente das demais.** Não veio de confrontar resultado
 com predição, e sim de um **teste de fumaça em dado real** rodado antes da
@@ -983,15 +1111,26 @@ para 6.4**: depende de uma estratégia lucrativa existir antes.)*
 combinações, 1 melhora, abaixo do que o acaso produziria; efeito mediano
 negativo em três de cada quatro combinações avaliadas.)*
 
-**H14 — Aprendizado de máquina supervisionado com rotulagem de barreira tripla** — *próxima da fila*
+*(H14 avaliada em 2026-09-01 — ver seção 4.15. Status: **insuficiente**. Sinal
+real, z = +5,21, que não paga as barreiras, z = +0,50.)*
 
-- *Fundamentação:* literatura reporta ganho de acurácia preditiva; método de
-  rotulagem consolidado.
-- *Risco dominante:* sobreajuste. Exigiria walk-forward mais rigoroso que o
-  atual, e H13 mostra por quê: 96 combinações produziram **uma** aprovação
-  confirmada fora da amostra, e ainda assim isso está abaixo da expectativa do
-  acaso. Um modelo com muitos graus de liberdade multiplicaria o problema.
-- *Custo:* alto — a hipótese mais cara da fila.
+**H20 — Geometria de barreira** — *próxima da fila, derivada de H14*
+
+- *Fundamentação:* H14 mediu que o modelo eleva a razão de chances para 0,5134
+  no subconjunto decidido, contra um ponto de empate de 0,500 imposto pela
+  geometria `stop 1,5×ATR / alvo 3,0×ATR`. O ponto de empate é
+  `sl/tp` — é **escolhido**, não dado pelo mercado. Uma geometria com alvo mais
+  distante em relação ao stop baixa o ponto de empate e pode caber dentro do
+  sinal que já foi demonstrado existir.
+- *Risco dominante, e ele é grave:* varrer geometrias até uma passar é
+  exatamente o problema de testes múltiplos que a metodologia contém. A
+  geometria precisa ser **declarada e justificada antes** da avaliação, como o
+  alvo de H12 e o limiar de H13 foram, e confirmada fora da amostra.
+- *Advertência:* mudar a geometria muda os **rótulos**, então o modelo é
+  retreinado e as chances mudam junto. Não é substituir 0,500 por 0,333 no
+  denominador de um resultado já obtido — é uma avaliação nova, e pode piorar.
+- *Custo:* baixo — a infraestrutura de H14 já existe e é parametrizada por
+  `ParametrosBarreira`.
 
 ### 6.2 Prioridade média
 
@@ -1018,31 +1157,39 @@ volatilidade sem gestão de cauda.
 **H19 — Estratégias com opções (covered calls)** — mercado de opções cripto de
 liquidez restrita; fora do escopo spot.
 
-### 6.3-b Padrão acumulado após treze hipóteses
+### 6.3-b Padrão acumulado após catorze hipóteses
 
 Vale registrar o que treze avaliações desenham, porque isso deveria informar a
 ordem da fila mais do que a razão evidência/custo isolada de cada item.
 
-**Toda hipótese que exige prever direção falhou** — H1 a H7, H11, H13. As duas
-que chegaram mais perto de significar algo não eram direcionais: H10
+**Até H13, o padrão era: toda hipótese que exige prever direção falhou** — H1 a
+H7, H11, H13. As duas que chegaram mais perto não eram direcionais: H10
 (cointegração) foi a única a passar em E2, com profit factor de 1,58, e falhou
-por poder estatístico do seletor, não por ausência de efeito; H8 (funding rate)
-mediu um efeito **real**, apenas pequeno demais — +3,21% ao ano contra os 10–30%
-alegados na literatura popular.
+por poder estatístico do seletor; H8 (funding rate) mediu um efeito **real**,
+apenas pequeno demais — +3,21% ao ano contra os 10–30% alegados na literatura
+popular.
 
-Isso sugere que a família promissora é a **relativa e não-preditiva**: explorar
-relações observáveis entre instrumentos, em vez de prever o movimento de um.
-H15 (arbitragem entre corretoras) pertence a ela; H14 (aprendizado
-supervisionado) é direcional e carrega o risco dominante de sobreajuste.
+**H14 corrigiu esse padrão, e a correção importa mais que o veredito dela.**
 
-**A fila mantém H14 antes de H15** por dois motivos declarados: H14 gera sinal
-próprio, e o registro precisa de sinal antes de qualquer refinamento de gestão
-(§4.13); e o obstáculo de H15 é **operacional**, não de evidência — exige
-capital em múltiplas corretoras, latência competitiva e risco de transferência,
-decisões que pertencem ao usuário e não à avaliação.
+A direção **é** previsível a um grau mensurável: z = +5,21, p < 0,0001. O que
+falhou não foi a previsão — foi ela não cobrir o obstáculo econômico. A leitura
+anterior ("prever direção não funciona") estava errada; a leitura correta é:
 
-Se H14 reprovar, reordenar para a família relativa deixa de ser sugestão e passa
-a ser a leitura direta do registro.
+> **A componente previsível existe e é menor que o obstáculo imposto pela
+> geometria de saída e pelo custo de execução.**
+
+Isso reordena a fila de forma substantiva. Antes de H14, a conclusão apontava
+para abandonar a família direcional. Depois de H14, há duas frentes, e a
+segunda é nova:
+
+1. **Aumentar o sinal** — mais atributos, outros modelos. Caro, e H14 já mostra
+   que a capacidade do modelo não era o gargalo: 6 parâmetros bastaram para
+   extrair sinal robusto.
+2. **Reduzir o obstáculo** — o ponto de empate `sl/tp` é escolhido, não dado
+   pelo mercado. É a frente mais barata e a menos explorada, e origina H20.
+
+A família relativa e não-preditiva (H15) continua promissora e permanece na
+fila, mas deixou de ser a única leitura razoável do registro.
 
 ### 6.4 Bloqueadas por pré-condição
 
