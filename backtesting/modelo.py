@@ -34,7 +34,7 @@ da expectativa do acaso -- e um modelo flexivel multiplicaria esse problema.
 """
 import warnings
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -426,12 +426,21 @@ def avaliar_par(
     params: Optional[ParametrosBarreira] = None,
     df=None,
     eventos_globais=None,
+    atributos: Optional[list] = None,
+    extrair_atributos_fn: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
 ) -> AvaliacaoH14:
     """Avalia um par contra as tres linhas de base.
 
     `eventos_globais` carrega os eventos de TODOS os pares, e e o que permite a
     purga ser global (D4). Passar apenas os deste par reintroduziria o vazamento
     entre pares correlacionados a 0,71.
+
+    `atributos`/`extrair_atributos_fn` (spec 034, H17): permitem avaliar um
+    conjunto de atributos diferente do declarado de H14, sem alterar o
+    resultado publicado -- o default de cada um e exatamente `ATRIBUTOS`/
+    `extrair_atributos`, os mesmos usados por `run_modelo_scan()` quando
+    chamado sem esses parametros. Testado explicitamente em
+    tests/test_modelo.py (zero mudanca no caminho default).
     """
     from backtesting.horizonte import _simular, preparar
     from backtesting.purga import dividir_com_purga
@@ -440,6 +449,8 @@ def avaliar_par(
     from strategy.ema_rsi import EmaRsiStrategy
 
     p = params or ParametrosBarreira()
+    atributos = atributos if atributos is not None else ATRIBUTOS
+    extrair_atributos_fn = extrair_atributos_fn or extrair_atributos
     a = AvaliacaoH14(par=par)
     estrategia = EmaRsiStrategy()
 
@@ -456,7 +467,7 @@ def avaliar_par(
         return a
 
     rotulos = rotular(prep, p)
-    X = extrair_atributos(prep)
+    X = extrair_atributos_fn(prep)
     validos = rotulos["rotulo"].notna() & X.notna().all(axis=1)
     if not validos.any():
         a.status, a.motivo = "erro", "nenhum evento rotulavel"
@@ -464,7 +475,7 @@ def avaliar_par(
 
     eventos = rotulos[validos].copy()
     eventos["par"] = par
-    for col in ATRIBUTOS:
+    for col in atributos:
         eventos[col] = X.loc[validos, col]
 
     # A purga enxerga TODOS os pares quando `eventos_globais` e fornecido.
@@ -496,17 +507,17 @@ def avaliar_par(
 
     for nome, y in (("modelo", treino["rotulo"]),
                     ("embaralhado", embaralhar_rotulos(treino["rotulo"], semente=42))):
-        ajuste = estimar(treino[ATRIBUTOS], y)
+        ajuste = estimar(treino[atributos], y)
         if ajuste is None:
             setattr(a, nome, ResultadoModelo(convergiu=False,
                                              n_treino=int(len(treino))))
             continue
-        prob = prever(ajuste, teste_deste_par[ATRIBUTOS])
+        prob = prever(ajuste, teste_deste_par[atributos])
         if prob is None:
             setattr(a, nome, ResultadoModelo(convergiu=False,
                                              n_treino=int(len(treino))))
             continue
-        coef = dict(zip(["const"] + ATRIBUTOS,
+        coef = dict(zip(["const"] + atributos,
                         [float(v) for v in ajuste.params], strict=False))
         setattr(a, nome, _resultado_modelo(
             prob, teste_deste_par, prep_teste, estrategia, limiar, div,
@@ -514,8 +525,8 @@ def avaliar_par(
 
     # E6 -- custo de giro.
     if a.modelo is not None and a.modelo.convergiu:
-        ajuste = estimar(treino[ATRIBUTOS], treino["rotulo"])
-        prob = prever(ajuste, teste_deste_par[ATRIBUTOS]) if ajuste else None
+        ajuste = estimar(treino[atributos], treino["rotulo"])
+        prob = prever(ajuste, teste_deste_par[atributos]) if ajuste else None
         if prob is not None:
             sc = _simular_com_sinais(
                 prep_teste, estrategia,

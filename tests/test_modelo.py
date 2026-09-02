@@ -410,3 +410,55 @@ def test_sem_decisoes_nao_supera():
     from backtesting.modelo import supera_empate_com_confianca
 
     assert supera_empate_com_confianca(alvo=0, stop=0) is False
+
+
+# ==================================================== spec 034 (H17) — T001
+# Regressao: avaliar_par() SEM os parametros novos (atributos/
+# extrair_atributos_fn) MUST continuar produzindo exatamente o resultado
+# de hoje -- e a garantia que torna aceitavel tocar codigo que ja produziu
+# o resultado publicado de H14. Valores capturados rodando o codigo ANTES
+# da parametrizacao (D4, specs/034-sinais-onchain/research.md).
+
+def _serie_onchain_regressao(n=1200, semente=7):
+    rng = np.random.default_rng(semente)
+    preco = 100 * np.exp(np.cumsum(rng.normal(0.0003, 0.03, n)))
+    idx = pd.date_range("2024-01-01", periods=n, freq="4h")
+    return pd.DataFrame({
+        "open": preco, "close": preco, "high": preco * 1.03,
+        "low": preco * 0.97, "volume": np.full(n, 1000.0),
+    }, index=idx)
+
+
+def test_avaliar_par_sem_parametros_novos_reproduz_resultado_atual():
+    from backtesting.modelo import avaliar_par
+
+    df = _serie_onchain_regressao()
+    a = avaliar_par("BTC/USDT", df=df)
+
+    assert a.status == "inconclusivo"
+    assert a.motivo == "versao modelo com 0 operacoes, abaixo do minimo de 10"
+    assert a.n_purgadas == 10
+    assert a.n_embargadas == 13
+    assert a.modelo.n_treino == 782
+    assert a.modelo.n_teste == 346
+    assert a.modelo.convergiu is True
+    assert a.modelo.razao_chances_geral == pytest.approx(0.6411764705882353)
+    assert sorted(a.modelo.coeficientes.keys()) == sorted(
+        ["const", "volume_ratio", "atr_ratio", "adx", "dist_ema_slow", "macd"]
+    )
+    assert a.modelo.coeficientes["atr_ratio"] == pytest.approx(-226.6898, abs=0.01)
+
+
+def test_avaliar_par_aceita_atributos_customizados_sem_quebrar_default():
+    """Confirma que os parametros novos existem e mudam o comportamento
+    apenas quando passados explicitamente -- nunca por efeito colateral."""
+    from backtesting.modelo import ATRIBUTOS, avaliar_par, extrair_atributos
+
+    df = _serie_onchain_regressao()
+
+    a_default = avaliar_par("BTC/USDT", df=df)
+    a_explicito = avaliar_par("BTC/USDT", df=df, atributos=ATRIBUTOS,
+                              extrair_atributos_fn=extrair_atributos)
+
+    assert a_default.status == a_explicito.status
+    assert a_default.modelo.coeficientes == a_explicito.modelo.coeficientes
