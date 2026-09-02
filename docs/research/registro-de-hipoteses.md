@@ -227,7 +227,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
-| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **INSUFICIENTE → SINAL CONFIRMADO** (2026-09-02) | Histórico estendido (spec 036): paga a barreira, z = +7,97 (era z = +0,50, não resolvível); aprovação de carteira ainda não avaliada |
+| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66% (5x o maior por par isolado), profit factor 0,72 (spec 037) |
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** | Tese refutada por medição; sinal aterrissa no empate em **duas** geometrias |
 
 **Taxa de aprovação: 0 de 15.** Três inconclusivas (H10; H11 em escala
@@ -1130,6 +1130,73 @@ media.
 **Reprodução:** `python main.py modelo` (6.000 candles, `TIMEFRAME=4h`) ·
 `reports/modelo_20260902-114000.json` · `specs/036-historico-estendido/`.
 
+#### Atualização — motor de carteira, aprovação operacional (2026-09-02, spec 037)
+
+A atualização anterior (histórico estendido) deixou explícito o que
+faltava: "aprovação operacional (drawdown de carteira, desempenho por
+par, confirmação fora da amostra no agregado) segue não avaliada". Esta
+spec constrói exatamente essa medição — `backtesting/portfolio_h14.py`
+simula os 12 pares **simultaneamente**, com **um caixa compartilhado**
+(não 12 capitais independentes), `MAX_POSITIONS` como teto de posições
+concorrentes, e o mecanismo de saída **realmente usado pelo backtest já
+publicado de H14** (take-profit por ATR + stop trailing, mesma fórmula de
+produção) — não as barreiras de rotulagem do treino, que rotulam o alvo do
+classificador, nunca geriram a posição no backtest real (correção
+registrada em `specs/037-motor-carteira-h14/research.md`, D7, antes de
+qualquer código).
+
+**Resultado (`python main.py carteira`, 2026-09-02):**
+
+| | Valor |
+|---|---|
+| Pares simulados | 12 |
+| Trades | 931 |
+| Capital | $1.000,00 → $798,79 |
+| Retorno total | −20,12% |
+| Buy-and-hold de carteira (igualmente ponderada, D5) | −41,57% |
+| **Drawdown agregado de carteira** | **28,66%** |
+| Profit factor | 0,72 |
+| **Veredito (`evaluate_approval`, sem critério novo)** | **REPROVADO** — profit factor abaixo de 1,20; drawdown acima de 10% |
+
+**O achado central: drawdown de carteira é 5x o maior drawdown isolado por
+par.** O maior `max_drawdown_pct` entre as 12 avaliações isoladas de H14
+(§4.15, medição anterior) é 5,54%. Sob capital compartilhado e
+concorrência real, o drawdown agregado sobe para 28,66% — nenhuma
+avaliação por par, isoladamente, deixava isso visível, porque nenhuma
+simula mais de uma posição aberta ao mesmo tempo.
+
+**Mecanismo provável, não coberto por esta spec.** Esta spec exclui
+deliberadamente (`spec.md` FR-007) a checagem de correlação entre
+posições que a produção já tem
+(`risk/correlation.py::check_correlated_exposure`) — para isolar se o
+problema é do sinal de H14 ou da pilha de risco inteira. Pares de cripto
+correlacionados a ~0,71 (medido em H7, §4.7) abrindo posição ao mesmo
+tempo se comportam como uma única posição grande concentrada numa queda
+geral de mercado — exatamente o mecanismo que `check_correlated_exposure`
+existe para impedir em produção, e que este motor de carteira, de
+propósito, não usa. **O resultado aqui é reprovação sob uma pilha de
+risco deliberadamente mais estreita que a de produção** — um piso, não
+necessariamente o veredito final se a mesma simulação rodasse com o gate
+de correlação ligado. Isso seria uma spec nova (hipótese de mecanismo
+diferente, mesmo princípio já aplicado a H18, §6.3), não um ajuste de
+parâmetro sobre esta.
+
+**Novo veredito de H14: REPROVADA.** O sinal estatístico da classificação
+(razão de chances no subconjunto decidido, `supera_empate_com_confianca`)
+continua real e robusto — isso não muda. Mas "sinal estatístico que paga a
+barreira" e "estratégia operável com risco aceitável" são perguntas
+diferentes, e a segunda agora tem resposta: sob o mecanismo de saída
+real de H14 e concorrência de capital real entre os 12 pares, a
+carteira perde dinheiro (profit factor 0,72) com drawdown quase 3x acima
+do teto aceitável. A trajetória completa de H14 neste registro —
+INSUFICIENTE (2026-09-01) → sinal confirmado (2026-09-02, spec 036) →
+REPROVADA (2026-09-02, spec 037) — fica preservada como histórico, não
+substituída: cada etapa mediu uma pergunta genuinamente diferente, e
+nenhuma invalida a anterior.
+
+**Reprodução:** `python main.py carteira` · `reports/carteira_20260902-195909.json`
+· `specs/037-motor-carteira-h14/`.
+
 ---
 
 ### 4.16 H20 — Geometria de barreira
@@ -1320,7 +1387,11 @@ negativo em três de cada quatro combinações avaliadas.)*
 *(H14 avaliada em 2026-09-01 — ver seção 4.15. Status original: **insuficiente**.
 Reavaliada com histórico estendido em 2026-09-02 (`specs/036-historico-estendido/`):
 o teste que definia `insuficiente` passou a responder **sim** — z = +7,97 contra
-+0,50. Aprovação de carteira ainda não avaliada.)*
++0,50. Aprovação de carteira testada em 2026-09-02
+(`specs/037-motor-carteira-h14/`): **reprovada** — drawdown de carteira 28,66%
+(5x o maior drawdown isolado por par, 5,54%), profit factor 0,72. Sinal
+estatístico continua real; não sobrevive a capital compartilhado entre os
+12 pares.)*
 
 *(H20 avaliada em 2026-09-01 — ver seção 4.16. Status: **reprovada**. Tese
 refutada por medição; o sinal aterrissa no ponto de empate em duas geometrias

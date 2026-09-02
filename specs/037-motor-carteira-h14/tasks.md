@@ -127,10 +127,10 @@ os dois números retornam separados, nunca um substituindo o outro.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T017 Criar `cmd_carteira()` em `main.py`: chama `simular_carteira()`, imprime a curva de capital agregada (patrimônio final, retorno, drawdown, buy-hold, profit factor), o veredito de `evaluate_approval()`, e a comparação de T016; registrar `"carteira": cmd_carteira` em `COMMANDS`; exportar via `export_report("carteira", ...)`
-- [ ] T018 Rodar `python main.py carteira` contra dados reais (`UNIVERSO_H11`) — validação manual do passo 2 do `quickstart.md`, resultado real
-- [ ] T019 Registrar o resultado real de T018 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — a última barra de aprovação que faltava desde spec 036; texto depende do resultado medido, não escrito antes de T018
-- [ ] T020 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/`backtesting/approval.py` (intocados, D6)
+- [X] T017 Criar `cmd_carteira()` em `main.py`: chama `simular_carteira()`, imprime a curva de capital agregada (patrimônio final, retorno, drawdown, buy-hold, profit factor), o veredito de `evaluate_approval()`, e a comparação de T016; registrar `"carteira": cmd_carteira` em `COMMANDS`; exportar via `export_report("carteira", ...)`
+- [X] T018 Rodar `python main.py carteira` contra dados reais (`UNIVERSO_H11`) — validação manual do passo 2 do `quickstart.md`, resultado real
+- [X] T019 Registrar o resultado real de T018 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — a última barra de aprovação que faltava desde spec 036; texto depende do resultado medido, não escrito antes de T018
+- [X] T020 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/`backtesting/approval.py` (intocados, D6)
 
 ---
 

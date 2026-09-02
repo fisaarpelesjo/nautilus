@@ -1331,6 +1331,83 @@ def cmd_grid():
     )
 
 
+def cmd_carteira():
+    """Motor de carteira para aprovacao de H14 (spec 037).
+
+    Simula o modelo ja treinado de H14 sobre os 12 pares de UNIVERSO_H11
+    com CAPITAL COMPARTILHADO e concorrencia real de posicoes -- diferente
+    de `modelo`, que avalia cada par isolado com capital independente.
+    Responde a ultima pergunta em aberto de H14 (docs/research/
+    registro-de-hipoteses.md, secao 4.15): drawdown agregado de carteira.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11, preparar
+    from backtesting.modelo import limiar_de_decisao, run_modelo_scan
+    from backtesting.portfolio_h14 import _dados_da_carteira, _simular_carteira_core, comparar_drawdown
+    from data.fetcher import fetch_ohlcv
+    from strategy.ema_rsi import EmaRsiStrategy
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]motor de carteira para aprovacao de H14[/]")
+    console.print(f"  [{C_DIM}]capital unico compartilhado entre os 12 pares, MAX_POSITIONS "
+                  f"como teto, saida por take-profit ATR + stop trailing -- mesmo mecanismo "
+                  f"do backtest ja publicado de H14, nao as barreiras de rotulagem do "
+                  f"treino[/{C_DIM}]")
+    console.print()
+
+    avaliacoes = run_modelo_scan(list(UNIVERSO_H11), retornar_previsao=True)
+    previsoes, preparados = _dados_da_carteira(avaliacoes, fetch_ohlcv, preparar, EmaRsiStrategy())
+    resultado = _simular_carteira_core(previsoes, preparados, limiar_de_decisao())
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+    comparacao = comparar_drawdown(resultado, avaliacoes)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]pares simulados[/] {len(previsoes)}   "
+                  f"[{C_LABEL}]trades[/] {resultado.total_trades}")
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%")
+    console.print(f"  [{C_LABEL}]drawdown agregado de carteira[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+    console.print()
+
+    maior = comparacao["maior_drawdown_por_par"]
+    console.print(f"  [{C_LABEL}]drawdown de carteira vs maior drawdown por par isolado[/]")
+    console.print(f"    carteira:        {comparacao['drawdown_carteira']:.2f}%")
+    console.print(f"    maior por par:   "
+                  f"{maior:.2f}%" if maior is not None else "    maior por par:   -")
+
+    export_report(
+        "carteira",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital},
+        {
+            "pares_simulados": len(previsoes),
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+            "drawdowns_por_par": comparacao["drawdowns_por_par"],
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1349,6 +1426,7 @@ COMMANDS = {
     "arbitragem":    cmd_arbitragem,
     "onchain":       cmd_onchain,
     "grid":          cmd_grid,
+    "carteira":      cmd_carteira,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

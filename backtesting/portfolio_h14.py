@@ -298,6 +298,8 @@ def comparar_drawdown(resultado_carteira: BacktestResult, avaliacoes: list) -> d
 __all__ = [
     "CarteiraH14",
     "PosicaoCarteira",
+    "_dados_da_carteira",
+    "_simular_carteira_core",
     "comparar_drawdown",
     "simular_carteira",
 ]
