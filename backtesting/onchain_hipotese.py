@@ -73,7 +73,7 @@ def avaliar_h17(par: str = "BTC/USDT") -> RelatorioH17:
     on-chain. Busca a serie e o historico uma unica vez, para as duas
     avaliacoes usarem exatamente o mesmo `df` (FR-005 -- nunca compara
     contra o resultado pooled de 12 pares ja publicado por H14)."""
-    df = fetch_ohlcv(par, TIMEFRAME, 2000)
+    df = fetch_ohlcv(par, TIMEFRAME, 6000)  # D1, specs/036-historico-estendido/research.md
     onchain = fetch_onchain_series("n-unique-addresses", timespan="3years")
     serie_growth = onchain_addr_growth_7d(onchain["value"])
 

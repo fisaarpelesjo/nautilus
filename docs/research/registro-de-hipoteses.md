@@ -1285,32 +1285,46 @@ latência e gestão de risco de inventário; competitividade dominada por
 participantes profissionais.
 
 **H17 — Sinais on-chain** — *avaliada em 2026-09-02, status
-**inconclusiva*** (`specs/033-fonte-dados-onchain/`,
-`specs/034-sinais-onchain/`). Única das quatro hipóteses de prioridade
-baixa em que infraestrutura era obstáculo removível — construída
-(`data/onchain.py`, fonte pública `api.blockchain.info`, sem chave, só
-Bitcoin). Atributo declarado antes de medir (D1, research.md da spec 034):
-variação de 7 dias da MA7 de endereços únicos ativos
+**insuficiente*** (`specs/033-fonte-dados-onchain/`,
+`specs/034-sinais-onchain/`, reavaliada com histórico estendido em
+`specs/036-historico-estendido/`). Única das quatro hipóteses de
+prioridade baixa em que infraestrutura era obstáculo removível —
+construída (`data/onchain.py`, fonte pública `api.blockchain.info`, sem
+chave, só Bitcoin). Atributo declarado antes de medir (D1, research.md da
+spec 034): variação de 7 dias da MA7 de endereços únicos ativos
 (`onchain_addr_growth_7d`). Colinearidade contra os 5 atributos de H14
 medida e abaixo do limiar (máxima 0,304, `atr_ratio` — limiar 0,80): o
 atributo sobrevive à checagem.
 
+**Primeira execução (2000 candles, 333 dias): inconclusiva** — a linha de
+base de regras teve só 7 operações na janela de teste, abaixo do mínimo de
+10. Não era problema do atributo nem da amostra rotulada (1.951 eventos,
+ordens de grandeza acima do mínimo de treino) — era a estratégia de regras
+operando pouco nesse período específico de BTC-only.
+
+**Reavaliada com histórico estendido** (6.000 candles de 4h, ~2,7 anos,
+spec 036): linha de base de regras passou a ter amostra suficiente
+(`n_treino`=4.142, `n_teste`=1.786 — 3x o anterior). Resultado
+**conclusivo**: razão de chances no subconjunto decidido **0,372 sem
+on-chain, 0,370 com on-chain** — diferença de 0,002, dentro do ruído.
+Nenhuma das duas versões supera a razão de empate de 0,500 (mesmo critério
+de H14) — estado `insuficiente` para as duas: sinal detectável (distinto
+do embaralhado), mas que não paga a barreira. **O atributo on-chain não
+mudou o resultado em nenhuma direção** — nem ajudou, nem atrapalhou.
+
 **Comparação isolada BTC/USDT** (mesmo par, mesmo período, 5 atributos de
 H14 vs 5 + on-chain; nunca comparado contra o resultado pooled de 12 pares
-que H14 publicou): as duas avaliações vieram **inconclusivas** pelo mesmo
-motivo — a linha de base de regras teve só 7 operações na janela de teste
-(2.000 candles de 4h ≈ 333 dias, mesmo teto que `avaliar_par()` já usa para
-H14), abaixo do mínimo de 10. Não é um problema do atributo on-chain nem da
-amostra rotulada (1.951 eventos, `n_treino`=1.342, `n_teste`=586 — ordens de
-grandeza acima dos mínimos): é a estratégia de regras operando pouco nesse
-período específico de BTC-only, algo que o pool de 12 pares de H14 nunca
-expôs porque agrega operações de vários pares.
+que H14 publicou) confirma, de forma limpa, que a variação de endereços
+ativos não carrega informação adicional além do que os 5 atributos
+técnicos já capturam — consistente com a leitura da literatura já
+registrada (§6.3): sinal on-chain nascente, aqui medido como
+indistinguível de ruído para este atributo específico.
 
-**O que isso não decide.** Não aprova nem reprova H17 — inconclusivo por
-amostra da linha de base, não por ausência de sinal. Reavaliar exigiria mais
-histórico de candles que o teto atual (2.000) permite, ou um período com
-mais atividade de regras — nenhuma das duas é uma correção de código, então
-fica registrado aqui, não reaberto como spec nova.
+**O que isso não decide.** Não é veredito sobre "sinais on-chain" em
+geral — é sobre `onchain_addr_growth_7d` especificamente, o único atributo
+declarado (FR-001, spec 034: um só, para não abrir busca de atributos).
+Outro atributo on-chain (ex.: hash rate) seria uma hipótese nova, não uma
+reinterpretação desta.
 
 **H18 — Grid trading com gestão de cauda** — *avaliada em 2026-09-02, status
 **reprovada*** (`specs/035-grid-trading/`). Primeira das quatro hipóteses de

@@ -23,10 +23,10 @@ da execução real e do registro comparado ao publicado (US1 → US2 → US3).
 
 ## Phase 1: User Story 1 - Reavaliar H17 (Priority: P1) 🎯 primeiro
 
-- [ ] T001 [US1] Trocar `fetch_ohlcv(par, TIMEFRAME, 2000)` por `fetch_ohlcv(par, TIMEFRAME, 6000)` em `backtesting/onchain_hipotese.py::avaliar_h17` (D1, research.md)
-- [ ] T002 [US1] Rodar `pytest tests/test_onchain_hipotese.py -v` — confirma 0 regressão (testes usam `df` sintético, não o default)
-- [ ] T003 [US1] Rodar `python main.py onchain` contra dados reais — confirma que a linha de base de regras atinge `EDGE_MIN_TRADES` (era 7, mínimo 10)
-- [ ] T004 [US1] Registrar o resultado de T003 em `docs/research/registro-de-hipoteses.md` §6.3 (H17), comparado explicitamente contra o valor publicado (7 operações, inconclusivo) — texto depende do resultado real, não escrito antes de T003
+- [X] T001 [US1] Trocar `fetch_ohlcv(par, TIMEFRAME, 2000)` por `fetch_ohlcv(par, TIMEFRAME, 6000)` em `backtesting/onchain_hipotese.py::avaliar_h17` (D1, research.md)
+- [X] T002 [US1] Rodar `pytest tests/test_onchain_hipotese.py -v` — confirma 0 regressão (testes usam `df` sintético, não o default)
+- [X] T003 [US1] Rodar `python main.py onchain` contra dados reais — confirma que a linha de base de regras atinge `EDGE_MIN_TRADES` (era 7, mínimo 10)
+- [X] T004 [US1] Registrar o resultado de T003 em `docs/research/registro-de-hipoteses.md` §6.3 (H17), comparado explicitamente contra o valor publicado (7 operações, inconclusivo) — texto depende do resultado real, não escrito antes de T003
 
 **Checkpoint**: H17 reavaliada, resultado comparado e registrado.
 
