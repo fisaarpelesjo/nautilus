@@ -42,17 +42,17 @@ sinal dispara exatamente nos candles com retorno de BTC positivo.
 > **NOTE**: escrever os testes primeiro — `backtesting/lead_lag.py` ainda
 > não existe.
 
-- [ ] T001 [P] [US1] Teste em `tests/test_lead_lag.py`: `_sinais_lead_lag` devolve `Signal.BUY` exatamente onde `retorno_btc > 0`, `Signal.HOLD` onde `<= 0` (D2)
-- [ ] T002 [P] [US1] Teste: candle da altcoin sem retorno de BTC correspondente (`NaN` após `reindex`) devolve `Signal.HOLD`, nunca `BUY` (FR-008)
-- [ ] T003 [P] [US1] Teste **crítico** (ausência de *lookahead*): alterar `close_btc` em qualquer candle POSTERIOR a `t` não muda o sinal calculado em `t` — só candles `<= t` podem influenciá-lo (D1)
-- [ ] T004 [P] [US1] Teste: o sinal na linha `t` usa `close_btc[t]/close_btc[t-1]-1` (retorno do MESMO candle `t`), não `close_btc[t-1]/close_btc[t-2]-1` — regressão contra o erro de defasagem capturado em `research.md` D1
-- [ ] T005 [P] [US1] Teste: `avaliar_lead_lag` aceita `df_alt`/`retorno_btc` explícitos (sem rede) e devolve um `BacktestResult` cujos trades vêm de `_simular_com_sinais` (D4) — sem duplicar lógica de simulação
-- [ ] T006 [P] [US1] Teste: o `BacktestResult` retornado é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido
+- [X] T001 [P] [US1] Teste em `tests/test_lead_lag.py`: `_sinais_lead_lag` devolve `Signal.BUY` exatamente onde `retorno_btc > 0`, `Signal.HOLD` onde `<= 0` (D2)
+- [X] T002 [P] [US1] Teste: candle da altcoin sem retorno de BTC correspondente (`NaN` após `reindex`) devolve `Signal.HOLD`, nunca `BUY` (FR-008)
+- [X] T003 [P] [US1] Teste **crítico** (ausência de *lookahead*): alterar `close_btc` em qualquer candle POSTERIOR a `t` não muda o sinal calculado em `t` — só candles `<= t` podem influenciá-lo (D1)
+- [X] T004 [P] [US1] Teste: o sinal na linha `t` usa `close_btc[t]/close_btc[t-1]-1` (retorno do MESMO candle `t`), não `close_btc[t-1]/close_btc[t-2]-1` — regressão contra o erro de defasagem capturado em `research.md` D1
+- [X] T005 [P] [US1] Teste: `avaliar_lead_lag` aceita `df_alt`/`retorno_btc` explícitos (sem rede) e devolve um `BacktestResult` cujos trades vêm de `_simular_com_sinais` (D4) — sem duplicar lógica de simulação
+- [X] T006 [P] [US1] Teste: o `BacktestResult` retornado é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implementar `btc_retorno_no_candle(btc_close)` e `_sinais_lead_lag(retorno_btc, indice_par)` em `backtesting/lead_lag.py` (D1/D2, `data-model.md`)
-- [ ] T008 [US1] Implementar `avaliar_lead_lag(par, df_alt=None, retorno_btc=None) -> Optional[BacktestResult]` em `backtesting/lead_lag.py`: busca dados se não fornecidos (FR-005, 6000 candles), `preparar()` para indicadores/ATR, monta o sinal (T007), chama `_simular_com_sinais` de `backtesting.modelo` (D4) (depende de T001-T006)
+- [X] T007 [US1] Implementar `btc_retorno_no_candle(btc_close)` e `_sinais_lead_lag(retorno_btc, indice_par)` em `backtesting/lead_lag.py` (D1/D2, `data-model.md`)
+- [X] T008 [US1] Implementar `avaliar_lead_lag(par, df_alt=None, retorno_btc=None) -> Optional[BacktestResult]` em `backtesting/lead_lag.py`: busca dados se não fornecidos (FR-005, 6000 candles), `preparar()` para indicadores/ATR, monta o sinal (T007), chama `_simular_com_sinais` de `backtesting.modelo` (D4) (depende de T001-T006)
 
 **Checkpoint**: `pytest tests/test_lead_lag.py -v` — T001-T006 passam. MVP
 completo: o lead-lag mede com o motor existente, sem *lookahead*.
@@ -70,13 +70,13 @@ retornos/PF conhecidos, confirmar que a contagem bate exatamente.
 
 ### Tests for User Story 2
 
-- [ ] T009 [P] [US2] Teste em `tests/test_lead_lag.py`: função de resumo conta corretamente quantos resultados têm `total_return_pct > buy_hold_return_pct` e quantos têm `profit_factor > 1.0`, sobre uma lista de `BacktestResult` conhecida (SC-002)
-- [ ] T010 [P] [US2] Teste: `run_lead_lag_scan()` busca `BTC/USDT` **uma única vez** e reusa entre os 11 pares — não 11 fetches redundantes do par-sinal (verificável via contagem de chamadas de `fetch_ohlcv` com um mock/spy)
+- [X] T009 [P] [US2] Teste em `tests/test_lead_lag.py`: função de resumo conta corretamente quantos resultados têm `total_return_pct > buy_hold_return_pct` e quantos têm `profit_factor > 1.0`, sobre uma lista de `BacktestResult` conhecida (SC-002)
+- [X] T010 [P] [US2] Teste: `run_lead_lag_scan()` busca `BTC/USDT` **uma única vez** e reusa entre os 11 pares — não 11 fetches redundantes do par-sinal (verificável via contagem de chamadas de `fetch_ohlcv` com um mock/spy)
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Implementar `run_lead_lag_scan(pares=None) -> list[tuple[str, Optional[BacktestResult], ApprovalVerdict]]` em `backtesting/lead_lag.py`: busca BTC uma vez, itera `UNIVERSO_H11` menos `"BTC/USDT"` (D3) ou `pares` explícito, chama `avaliar_lead_lag`, aplica `evaluate_approval` (depende de T009-T010)
-- [ ] T012 [US2] Implementar a função de resumo de consistência (contagem de T009) — pode viver em `backtesting/lead_lag.py` ou em `cmd_leadlag()` diretamente, se simples o bastante para não precisar de função separada
+- [X] T011 [US2] Implementar `run_lead_lag_scan(pares=None) -> list[tuple[str, Optional[BacktestResult], ApprovalVerdict]]` em `backtesting/lead_lag.py`: busca BTC uma vez, itera `UNIVERSO_H11` menos `"BTC/USDT"` (D3) ou `pares` explícito, chama `avaliar_lead_lag`, aplica `evaluate_approval` (depende de T009-T010)
+- [X] T012 [US2] Implementar a função de resumo de consistência (contagem de T009) — pode viver em `backtesting/lead_lag.py` ou em `cmd_leadlag()` diretamente, se simples o bastante para não precisar de função separada
 
 **Checkpoint**: as duas user stories passam juntas.
 
