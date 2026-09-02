@@ -1312,8 +1312,46 @@ histórico de candles que o teto atual (2.000) permite, ou um período com
 mais atividade de regras — nenhuma das duas é uma correção de código, então
 fica registrado aqui, não reaberto como spec nova.
 
-**H18 — Grid trading** — carece de fundamentação preditiva; equivale a venda de
-volatilidade sem gestão de cauda.
+**H18 — Grid trading com gestão de cauda** — *avaliada em 2026-09-02, status
+**reprovada*** (`specs/035-grid-trading/`). Primeira das quatro hipóteses de
+prioridade baixa medida de verdade em vez de julgada só por raciocínio — a
+objeção original ("sem gestão de cauda") foi incorporada como requisito
+central, não descartada: a grade só abre em regime `"sideways"` (ADX já
+calculado) e liquida tudo a mercado quando o regime vira `"trending"`.
+Motor de métricas e critério de aprovação **reusados sem alteração**
+(`Trade`/`BacktestResult`/`evaluate_approval`/`edge_score`, mesmos de
+qualquer outra avaliação deste registro).
+
+**Resultado sobre `UNIVERSO_H11`** (12 pares, 2000 candles de 4h): **0
+aprovados, 12 reprovados**. Profit factor entre 0,08 e 0,35 em todos os
+pares, drawdown convergindo para ~90% em todos — inclusive TRX/USDT, cujo
+buy-and-hold no período foi de +0,32% (praticamente parado), a grade ainda
+perdeu 13,40% com 89,75% de drawdown. A convergência do drawdown para a
+mesma faixa independente do desempenho do par embaixo é o que aponta para
+um mecanismo estrutural, não para "o mercado caiu".
+
+**O mecanismo, isolado por par** (BTC/ETH/TRX): trades de round-trip normal
+(`exit_reason="grid"`) têm PnL médio pequeno e ora positivo ora levemente
+negativo (BTC +0,12, ETH +0,26, TRX −0,05, por trade de ~US$100) — a
+captura de oscilação funciona, marginalmente. Mas as liquidações forçadas
+por mudança de regime (`exit_reason="regime mudou para trending"`) têm PnL
+médio **6 a 30 vezes pior** (BTC −3,85, ETH −3,32, TRX −1,60) e respondem
+por ~25-30% de todos os trades. **A gestão de cauda existe e dispara — só
+que tarde demais**: ADX é um indicador de confirmação de tendência já
+formada (calculado sobre uma janela móvel), não de antecipação — no
+momento em que cruza o limiar, o preço já se moveu o suficiente para que a
+liquidação forçada aconteça com prejuízo maior que várias rodadas de lucro
+normal já acumularam.
+
+**O que isso não decide.** Não é evidência de que nenhuma gestão de cauda
+funciona para grid — é evidência de que **esta gestão de cauda específica
+(ADX, reativa)** chega tarde. Um filtro antecipatório (ex.: volatilidade
+implícita, ou um stop de preço absoluto por nível em vez de por regime)
+poderia mudar o resultado — mas isso seria uma hipótese nova, não um ajuste
+de parâmetro sobre esta (o número de níveis e a fonte das bandas já estavam
+declarados antes de medir, `research.md` da spec 035). Fica registrado
+aqui, não reaberto como spec nova sem uma hipótese de mecanismo diferente
+declarada primeiro.
 
 **H19 — Estratégias com opções (covered calls)** — mercado de opções cripto de
 liquidez restrita; fora do escopo spot.

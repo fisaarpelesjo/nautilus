@@ -44,18 +44,18 @@ preenchimentos, liquidação forçada e o `BacktestResult` resultante.
 > **NOTE**: escrever os testes primeiro — `backtesting/grid.py` ainda não
 > existe.
 
-- [ ] T001 [P] [US1] Teste em `tests/test_grid.py`: nível vazio preenche compra quando `low` do candle `<= preco_compra` do nível — `preco_entrada_ajustado` reflete o slippage (D3)
-- [ ] T002 [P] [US1] Teste: nível ocupado preenche venda quando `high` do candle `>= preco_venda` (nível seguinte acima) — gera `Trade` com `exit_reason="grid"`, `pnl` positivo antes de custo igual ao espaçamento entre níveis
-- [ ] T003 [P] [US1] Teste: num candle em que uma venda **e** uma compra ocorreriam, a venda é processada primeiro — o capital liberado por ela está disponível para a compra no mesmo candle (D3, ordem declarada)
-- [ ] T004 [P] [US2] Teste: com regime `"trending"` ou `"indefinido"` em todos os candles, a grade nunca abre — zero `Trade`s (FR-002/FR-008)
-- [ ] T005 [P] [US2] Teste **crítico**: grade ativa com 2+ níveis ocupados; regime do candle seguinte é `"trending"` — todos os níveis liquidam nesse mesmo candle, ao `close`, com `exit_reason="regime mudou para trending"` (FR-003/D4)
-- [ ] T006 [P] [US2] Teste: após a liquidação forçada de T005, quando o regime volta a `"sideways"` num candle posterior, uma grade nova abre com `bb_lower`/`bb_upper` **desse** candle, não os antigos (D5)
-- [ ] T007 [P] [US1] Teste: o `BacktestResult` retornado por `simular_grade` é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido (`status` em `{"aprovado","reprovado","inconclusivo"}`)
+- [X] T001 [P] [US1] Teste em `tests/test_grid.py`: nível vazio preenche compra quando `low` do candle `<= preco_compra` do nível — `preco_entrada_ajustado` reflete o slippage (D3)
+- [X] T002 [P] [US1] Teste: nível ocupado preenche venda quando `high` do candle `>= preco_venda` (nível seguinte acima) — gera `Trade` com `exit_reason="grid"`, `pnl` positivo antes de custo igual ao espaçamento entre níveis
+- [X] T003 [P] [US1] Teste: num candle em que uma venda **e** uma compra ocorreriam, a venda é processada primeiro — o capital liberado por ela está disponível para a compra no mesmo candle (D3, ordem declarada)
+- [X] T004 [P] [US2] Teste: com regime `"trending"` ou `"indefinido"` em todos os candles, a grade nunca abre — zero `Trade`s (FR-002/FR-008)
+- [X] T005 [P] [US2] Teste **crítico**: grade ativa com 2+ níveis ocupados; regime do candle seguinte é `"trending"` — todos os níveis liquidam nesse mesmo candle, ao `close`, com `exit_reason="regime mudou para trending"` (FR-003/D4)
+- [X] T006 [P] [US2] Teste: após a liquidação forçada de T005, quando o regime volta a `"sideways"` num candle posterior, uma grade nova abre com `bb_lower`/`bb_upper` **desse** candle, não os antigos (D5)
+- [X] T007 [P] [US1] Teste: o `BacktestResult` retornado por `simular_grade` é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido (`status` em `{"aprovado","reprovado","inconclusivo"}`)
 
 ### Implementation for User Story 1 + 2
 
-- [ ] T008 [US1][US2] Implementar `ParametrosGrade` (`n_niveis=10`, `capital_inicial=1000.0`) e `NivelGrade` (dataclasses, `data-model.md`) em `backtesting/grid.py`
-- [ ] T009 [US1][US2] Implementar `simular_grade(df: pd.DataFrame, params: Optional[ParametrosGrade] = None, fee_rate=BACKTEST_FEE_RATE, slippage_pct=BACKTEST_SLIPPAGE_PCT) -> BacktestResult` em `backtesting/grid.py`: percorre candles, abre grade em `"sideways"` (bandas do candle de abertura), processa vendas antes de compras por candle (D3), liquida tudo ao `close` em `"trending"` (D4), reabre com bandas novas (D5); monta `Trade`s e chama `_calculate_advanced_metrics` para o `BacktestResult` (D6) (depende de T001-T007)
+- [X] T008 [US1][US2] Implementar `ParametrosGrade` (`n_niveis=10`, `capital_inicial=1000.0`) e `NivelGrade` (dataclasses, `data-model.md`) em `backtesting/grid.py`
+- [X] T009 [US1][US2] Implementar `simular_grade(df: pd.DataFrame, params: Optional[ParametrosGrade] = None, fee_rate=BACKTEST_FEE_RATE, slippage_pct=BACKTEST_SLIPPAGE_PCT) -> BacktestResult` em `backtesting/grid.py`: percorre candles, abre grade em `"sideways"` (bandas do candle de abertura), processa vendas antes de compras por candle (D3), liquida tudo ao `close` em `"trending"` (D4), reabre com bandas novas (D5); monta `Trade`s e chama `_calculate_advanced_metrics` para o `BacktestResult` (D6) (depende de T001-T007)
 
 **Checkpoint**: `pytest tests/test_grid.py -v` — T001-T007 passam. MVP
 completo: a grade mede com gestão de cauda, usando o motor existente.
@@ -74,7 +74,7 @@ de retorno escala com o número de trades.
 
 ### Tests for User Story 3
 
-- [ ] T010 [P] [US3] Teste em `tests/test_grid.py`: `simular_grade` com custo zerado produz `total_return_pct` maior que com custo padrão, sobre o mesmo `df` sintético com múltiplos round-trips — a diferença é proporcional ao número de trades, não fixa (varia o `df` para produzir números diferentes de trades e confirma que a diferença de retorno também varia)
+- [X] T010 [P] [US3] Teste em `tests/test_grid.py`: `simular_grade` com custo zerado produz `total_return_pct` maior que com custo padrão, sobre o mesmo `df` sintético com múltiplos round-trips — a diferença é proporcional ao número de trades, não fixa (varia o `df` para produzir números diferentes de trades e confirma que a diferença de retorno também varia)
 
 ### Implementation for User Story 3
 
@@ -87,11 +87,11 @@ Nenhuma — `fee_rate`/`slippage_pct` já são parâmetros de `simular_grade`
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T011 [P] Implementar `run_grid_scan(pares=UNIVERSO_H11) -> list[tuple[str, BacktestResult, ApprovalVerdict]]` em `backtesting/grid.py`: busca candles+indicadores por par (mesmo padrão de `avaliar_par`/`run_horizonte_scan`), chama `simular_grade`, aplica `evaluate_approval`
-- [ ] T012 Criar `cmd_grid()` em `main.py`: chama `run_grid_scan()`, imprime tabela por par (episódios, trades, retorno, buy-hold, drawdown, profit factor, veredito); registrar `"grid": cmd_grid` em `COMMANDS`; exportar via `export_report("grid", ...)`
-- [ ] T013 Rodar `python main.py grid` contra dados reais (`UNIVERSO_H11`) — validação manual do passo 2 do `quickstart.md`, resultado real
-- [ ] T014 Registrar o veredito real (resultado de T013) em `docs/research/registro-de-hipoteses.md` — H18 sai de "julgada por raciocínio" (§6.3) para avaliada (seção 4.x, com data e números, mesmo padrão de H1-H14/H17/H20); o texto exato depende do resultado medido, não pode ser escrito antes de T013
-- [ ] T015 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`, `backtesting/approval.py` e `strategy/ema_rsi.py` (intocados)
+- [X] T011 [P] Implementar `run_grid_scan(pares=UNIVERSO_H11) -> list[tuple[str, BacktestResult, ApprovalVerdict]]` em `backtesting/grid.py`: busca candles+indicadores por par (mesmo padrão de `avaliar_par`/`run_horizonte_scan`), chama `simular_grade`, aplica `evaluate_approval`
+- [X] T012 Criar `cmd_grid()` em `main.py`: chama `run_grid_scan()`, imprime tabela por par (episódios, trades, retorno, buy-hold, drawdown, profit factor, veredito); registrar `"grid": cmd_grid` em `COMMANDS`; exportar via `export_report("grid", ...)`
+- [X] T013 Rodar `python main.py grid` contra dados reais (`UNIVERSO_H11`) — validação manual do passo 2 do `quickstart.md`, resultado real
+- [X] T014 Registrar o veredito real (resultado de T013) em `docs/research/registro-de-hipoteses.md` — H18 sai de "julgada por raciocínio" (§6.3) para avaliada (seção 4.x, com data e números, mesmo padrão de H1-H14/H17/H20); o texto exato depende do resultado medido, não pode ser escrito antes de T013
+- [X] T015 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`, `backtesting/approval.py` e `strategy/ema_rsi.py` (intocados)
 
 ---
 

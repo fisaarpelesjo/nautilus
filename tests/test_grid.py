@@ -18,38 +18,43 @@ def _df(linhas):
 
 # ---------------------------------------------------------------- US1: preenchimento (T001-T003)
 
-def test_nivel_vazio_preenche_compra_quando_low_cruza(monkeypatch):
+def test_nivel_vazio_preenche_compra_quando_low_cruza():
+    """Grade de 1 nivel so, para isolar o preenchimento sem outros niveis
+    sendo varridos pelo mesmo movimento de preco. Sem API publica pra
+    inspecionar o nivel diretamente, confirma pelo preco de entrada do
+    Trade gerado quando o historico acaba (fecha ao fim do periodo)."""
     from backtesting import grid
 
     linhas = [
-        _candle(100, 100, 100, "sideways", bb_lower=90, bb_upper=110),  # abre a grade, sem fill
-        _candle(93, 93, 93, "sideways"),  # low=93 <= 95 (nivel1.compra) -> compra
+        _candle(97, 97, 97, "sideways", bb_lower=90, bb_upper=100),  # abre grade, 1 nivel (90,100)
+        _candle(85, 85, 85, "sideways"),  # low=85 <= 90 -> compra a 90
     ]
     df = _df(linhas)
-    params = grid.ParametrosGrade(n_niveis=4, capital_inicial=400.0)
+    params = grid.ParametrosGrade(n_niveis=1, capital_inicial=400.0)
 
     resultado = grid.simular_grade(df, params, fee_rate=0.0, slippage_pct=0.0)
 
-    assert resultado.trades == []  # ainda nao vendeu, so o teste de estado interno importa
-    # sem API publica pra inspecionar niveis, confirma indiretamente via venda no proximo teste
+    assert len(resultado.trades) == 1
+    assert resultado.trades[0].entry_price == pytest.approx(90.0)
+    assert resultado.trades[0].exit_reason == "Fim do periodo"
 
 
-def test_nivel_ocupado_preenche_venda_e_gera_trade(monkeypatch):
+def test_nivel_ocupado_preenche_venda_e_gera_trade():
     from backtesting import grid
 
     linhas = [
-        _candle(100, 100, 100, "sideways", bb_lower=90, bb_upper=110),  # abre grade [90,95,100,105,110]
-        _candle(93, 93, 93, "sideways"),   # compra no nivel (95,100) a 95
-        _candle(101, 101, 99, "sideways"),  # high=101 >= 100 (venda do nivel) -> vende a 100
+        _candle(97, 97, 97, "sideways", bb_lower=90, bb_upper=100),  # abre grade, 1 nivel (90,100)
+        _candle(85, 85, 85, "sideways"),    # compra a 90
+        _candle(101, 101, 99, "sideways"),  # high=101 >= 100 (venda) -> vende a 100
     ]
     df = _df(linhas)
-    params = grid.ParametrosGrade(n_niveis=4, capital_inicial=400.0)
+    params = grid.ParametrosGrade(n_niveis=1, capital_inicial=400.0)
 
     resultado = grid.simular_grade(df, params, fee_rate=0.0, slippage_pct=0.0)
 
     assert len(resultado.trades) == 1
     t = resultado.trades[0]
-    assert t.entry_price == pytest.approx(95.0)
+    assert t.entry_price == pytest.approx(90.0)
     assert t.exit_price == pytest.approx(100.0)
     assert t.exit_reason == "grid"
     assert t.pnl > 0
@@ -138,6 +143,31 @@ def test_grade_reabre_com_bandas_recalculadas_apos_liquidacao():
     forcados = [t for t in resultado.trades if t.exit_reason == "regime mudou para trending"]
     assert len(forcados) >= 1
     assert all(t.entry_price < 110 for t in forcados)
+
+
+# ---------------------------------------------------------------- Achado de auditoria: capital nunca reposto
+
+def test_capital_nunca_vai_alem_do_perdido_de_verdade():
+    """Uma sequencia de compras seguidas de liquidacao forcada com prejuizo,
+    repetida, NUNCA pode fazer o drawdown superar 100% -- capital real e
+    limitado. Sem a reserva de caixa (achado de auditoria durante T013),
+    cada reentrada usava a fatia INICIAL de capital de novo, produzindo
+    drawdown acima de 100% (matematicamente impossivel)."""
+    from backtesting import grid
+
+    linhas = [_candle(97, 97, 97, "sideways", bb_lower=90, bb_upper=100)]
+    for _ in range(20):
+        linhas.append(_candle(85, 85, 85, "sideways"))    # compra a 90
+        linhas.append(_candle(80, 80, 80, "trending"))    # liquida com prejuizo (venda a 80)
+        linhas.append(_candle(85, 85, 85, "sideways", bb_lower=90, bb_upper=100))  # reabre
+
+    df = _df(linhas)
+    params = grid.ParametrosGrade(n_niveis=1, capital_inicial=400.0)
+
+    resultado = grid.simular_grade(df, params, fee_rate=0.0, slippage_pct=0.0)
+
+    assert resultado.max_drawdown_pct <= 100.0
+    assert resultado.final_capital >= 0.0
 
 
 # ---------------------------------------------------------------- US1: compatibilidade com evaluate_approval (T007)

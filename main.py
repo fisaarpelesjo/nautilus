@@ -1258,6 +1258,79 @@ def cmd_onchain():
     )
 
 
+def cmd_grid():
+    """H18 -- grid trading com gestao de cauda (spec 035).
+
+    Primeira medicao real desta hipotese -- a entrada anterior do registro
+    era julgada por raciocinio, nunca executada. A gestao de cauda (regime
+    ADX ja existente) e a resposta direta a objecao original ("venda de
+    volatilidade sem gestao de cauda").
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.grid import run_grid_scan
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]grid trading com gestao de cauda (H18)[/]")
+    console.print(f"  [{C_DIM}]grade so abre em regime sideways (ADX), fecha tudo a mercado "
+                  f"quando o regime vira trending -- gestao de cauda, nao opcional. "
+                  f"Motor de metricas e criterio de aprovacao reusados sem alteracao[/{C_DIM}]")
+    console.print()
+
+    saida = run_grid_scan()
+
+    cores = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Par")
+    for col in ("Trades", "Retorno", "Buy&Hold", "Drawdown", "Profit Factor"):
+        t.add_column(col, justify="right")
+    t.add_column("Veredito")
+
+    aprovados = reprovados = inconclusivos = 0
+    for par, resultado, veredito in saida:
+        if resultado is None:
+            t.add_row(par, "-", "-", "-", "-", "-", f"[{C_NEG}]erro[/{C_NEG}]")
+            inconclusivos += 1
+            continue
+        cor = cores.get(veredito.status, C_DIM)
+        if veredito.status == "aprovado":
+            aprovados += 1
+        elif veredito.status == "reprovado":
+            reprovados += 1
+        else:
+            inconclusivos += 1
+        pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+        t.add_row(
+            par, str(resultado.total_trades),
+            f"{resultado.total_return_pct:+.2f}%", f"{resultado.buy_hold_return_pct:+.2f}%",
+            f"{resultado.max_drawdown_pct:.2f}%", pf,
+            f"[{cor}]{veredito.status}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+    console.print(f"  [{C_LABEL}]resumo[/]: [{C_POS}]{aprovados} aprovados[/{C_POS}]  "
+                  f"[{C_NEG}]{reprovados} reprovados[/{C_NEG}]  "
+                  f"[{C_DIM}]{inconclusivos} inconclusivos[/{C_DIM}]")
+
+    export_report(
+        "grid",
+        {"universo": [par for par, _, _ in saida], "n_niveis": 10},
+        [{"par": par,
+          "total_trades": r.total_trades if r else None,
+          "total_return_pct": r.total_return_pct if r else None,
+          "buy_hold_return_pct": r.buy_hold_return_pct if r else None,
+          "max_drawdown_pct": r.max_drawdown_pct if r else None,
+          "profit_factor": r.profit_factor if r else None,
+          "status": v.status if v else "erro",
+          "motivos": v.reasons if v else []}
+         for par, r, v in saida],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1275,6 +1348,7 @@ COMMANDS = {
     "ml":            cmd_modelo,
     "arbitragem":    cmd_arbitragem,
     "onchain":       cmd_onchain,
+    "grid":          cmd_grid,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

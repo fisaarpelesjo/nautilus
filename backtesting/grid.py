@@ -68,28 +68,40 @@ def simular_grade(
     niveis: List[NivelGrade] = []
     grade_ativa = False
     trades: List[Trade] = []
-    capital = p.capital_inicial
-    equity_curve = [capital]
-    peak_equity = capital
+    # `caixa` e capital REAL disponivel -- nunca inclui o que esta reservado
+    # em posicoes abertas. Sem essa distincao, um nivel que perdeu dinheiro
+    # reentraria sempre com a fatia INICIAL de capital, "imprimindo" dinheiro
+    # ja perdido (achado de auditoria: sem a reserva, drawdown media acima de
+    # 100% em varios pares do universo -- matematicamente impossivel com
+    # capital real limitado. Corrigido antes de qualquer veredito, D2
+    # emendado: capital_por_nivel e o TAMANHO da posicao, nao uma fatia
+    # sempre reabastecida).
+    caixa = p.capital_inicial
+    peak_equity = caixa
     max_drawdown_pct = 0.0
 
     def _registrar_equity():
         nonlocal peak_equity, max_drawdown_pct
-        equity_curve.append(capital)
-        peak_equity = max(peak_equity, capital)
+        peak_equity = max(peak_equity, caixa)
         if peak_equity > 0:
-            max_drawdown_pct = max(max_drawdown_pct, (peak_equity - capital) / peak_equity * 100)
+            max_drawdown_pct = max(max_drawdown_pct, (peak_equity - caixa) / peak_equity * 100)
+
+    def _abrir(lvl: NivelGrade, preco_bruto: float, instante):
+        nonlocal caixa
+        lvl.ocupado = True
+        lvl.preco_entrada_ajustado = preco_bruto * (1 + slippage_pct)
+        lvl.instante_entrada = instante
+        caixa -= capital_por_nivel
 
     def _fechar(lvl: NivelGrade, preco_saida_bruto: float, instante, motivo: str, lado_slippage: int):
-        nonlocal capital
+        nonlocal caixa
         preco_saida = preco_saida_bruto * (1 - lado_slippage * slippage_pct)
         quantidade = capital_por_nivel / lvl.preco_entrada_ajustado
-        valor_entrada = quantidade * lvl.preco_entrada_ajustado
         valor_saida = quantidade * preco_saida
-        fees = (valor_entrada + valor_saida) * fee_rate
-        pnl = valor_saida - valor_entrada - fees
-        pnl_pct = pnl / valor_entrada * 100 if valor_entrada else 0.0
-        capital += pnl
+        fees = (capital_por_nivel + valor_saida) * fee_rate
+        pnl = valor_saida - capital_por_nivel - fees
+        pnl_pct = pnl / capital_por_nivel * 100 if capital_por_nivel else 0.0
+        caixa += capital_por_nivel + pnl
         trades.append(Trade(
             entry_price=lvl.preco_entrada_ajustado, exit_price=preco_saida, quantity=quantidade,
             pnl=pnl, pnl_pct=pnl_pct, fees=fees,
@@ -114,17 +126,24 @@ def simular_grade(
                 if lvl.ocupado:
                     if row["high"] >= lvl.preco_venda:
                         _fechar(lvl, lvl.preco_venda, idx, EXIT_REASON_GRID, lado_slippage=1)
-                elif row["low"] <= lvl.preco_compra:
-                    preco_entrada = lvl.preco_compra * (1 + slippage_pct)
-                    lvl.ocupado = True
-                    lvl.preco_entrada_ajustado = preco_entrada
-                    lvl.instante_entrada = idx
+                elif caixa >= capital_por_nivel and row["low"] <= lvl.preco_compra:
+                    _abrir(lvl, lvl.preco_compra, idx)
         elif regime == "sideways":
             niveis = _criar_niveis(row["bb_lower"], row["bb_upper"], p.n_niveis)
             grade_ativa = True
 
+    # Fim do historico com a grade ainda ativa: fecha os niveis ocupados ao
+    # ultimo close, mesmo criterio ja usado por simulate_backtest() (motivo
+    # "Fim do periodo") -- sem isso, o valor das posicoes abertas ficaria de
+    # fora de `caixa`, subestimando o resultado.
+    if grade_ativa and len(df):
+        ultimo = df.iloc[-1]
+        for lvl in niveis:
+            if lvl.ocupado:
+                _fechar(lvl, ultimo["close"], df.index[-1], "Fim do periodo", lado_slippage=1)
+
     wins = [t for t in trades if t.pnl > 0]
-    total_return_pct = (capital - p.capital_inicial) / p.capital_inicial * 100 if p.capital_inicial else 0.0
+    total_return_pct = (caixa - p.capital_inicial) / p.capital_inicial * 100 if p.capital_inicial else 0.0
     win_rate = len(wins) / len(trades) * 100 if trades else 0.0
     buy_hold_return_pct = _buy_hold_return_pct(df, p.capital_inicial, 0, fee_rate, slippage_pct)
     edge_return_pct = total_return_pct - buy_hold_return_pct
@@ -141,7 +160,7 @@ def simular_grade(
     return BacktestResult(
         trades=trades,
         initial_capital=p.capital_inicial,
-        final_capital=capital,
+        final_capital=caixa,
         total_return_pct=total_return_pct,
         win_rate=win_rate,
         total_trades=len(trades),
