@@ -1228,7 +1228,21 @@ real, z = +5,21, que não paga as barreiras, z = +0,50.)*
 refutada por medição; o sinal aterrissa no ponto de empate em duas geometrias
 independentes.)*
 
-**H15 — Arbitragem entre exchanges** — *próxima da fila*
+**H15 — Arbitragem entre exchanges** — *instrumento construído, amostra em
+acumulação (`specs/029-arbitragem-entre-corretoras/`, 2026-09-02)*
+
+*Diferente de H1–H14/H20: não é retrotestável.* Corretoras não publicam
+histórico de livro de ofertas — o veredito exige uma campanha de amostragem
+ao vivo, não uma única execução. `python main.py arbitragem [PAR]` mede um
+ciclo (seis corretoras, `BTC/USDT`, US$ 10.000/perna) e persiste em
+`data/arbitragem.jsonl`; o veredito aguarda `N ≥ 30` observações por
+combinação de corretoras — tempo passando, não código.
+
+**Medição preliminar registrada antes da campanha** (research.md da spec):
+maior diferencial **bruto** medido +0,0203%, contra custo mínimo de execução
+de 0,200% — uma ordem de grandeza abaixo. Não é o veredito, mas reformula o
+que a campanha precisa encontrar: não um diferencial ligeiramente acima do
+custo, e sim um **dez vezes maior** que o observado.
 
 - *Fundamentação:* diferencial de preço entre corretoras é observável e **não
   requer previsão** — a família que H14 e H20 deixaram como única não testada.
