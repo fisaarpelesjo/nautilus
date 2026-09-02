@@ -84,9 +84,9 @@ série e o mesmo período.
 - [X] T022 [US1] Implementar `ResultadoModelo` e `estimar(treino, atributos)` em `backtesting/modelo.py`, com falha de convergência como estado explícito
 - [X] T023 [US1] Implementar `razao_chances_decidido` em `ResultadoModelo` — a métrica central, medida apenas onde o modelo decide entrar
 - [X] T024 [US1] Implementar `AvaliacaoH14` com as grandezas derivadas de `data-model.md`
-- [ ] T025 [US1] Implementar `avaliar_par(par, params)` em `backtesting/modelo.py`, reusando `preparar()` e `_simular()` de `horizonte.py`
-- [ ] T026 [US1] Implementar `run_modelo_scan(pares, params)`, sem abortar quando um par falha — FR-014
-- [ ] T027 [US1] Implementar `cmd_modelo()` em `main.py` e os aliases `modelo` e `ml`
+- [X] T025 [US1] Implementar `avaliar_par(par, params)` em `backtesting/modelo.py`, reusando `preparar()` e `_simular()` de `horizonte.py`
+- [X] T026 [US1] Implementar `run_modelo_scan(pares, params)`, sem abortar quando um par falha — FR-014
+- [X] T027 [US1] Implementar `cmd_modelo()` em `main.py` e os aliases `modelo` e `ml`
 
 **Checkpoint**: US1 funcional. **Ainda não é MVP defensável — falta US3.**
 
@@ -108,10 +108,10 @@ do modelo.
 ### Implementation for User Story 3
 
 - [X] T032 [US3] Implementar `embaralhar_rotulos(rotulos, semente)` em `backtesting/modelo.py`, preservando a distribuição
-- [ ] T033 [US3] Executar o modelo embaralhado em `avaliar_par` e armazenar em `AvaliacaoH14.embaralhado`
+- [X] T033 [US3] Executar o modelo embaralhado em `avaliar_par` e armazenar em `AvaliacaoH14.embaralhado`
 - [X] T034 [US3] Implementar `classificar_avaliacao` em `backtesting/modelo.py` com os 13 estados de `data-model.md`, **na ordem declarada**
-- [ ] T035 [US3] Exibir `delta_vs_embaralhado` e `razao_chances_decidido` na tabela, adjacentes aos deltas contra as regras
-- [ ] T036 [US3] Adicionar legenda em `main.py` para `sem sinal`, `insuficiente`, `confundido`, `só na busca`, e declarar por que acurácia não aparece
+- [X] T035 [US3] Exibir `delta_vs_embaralhado` e `razao_chances_decidido` na tabela, adjacentes aos deltas contra as regras
+- [X] T036 [US3] Adicionar legenda em `main.py` para `sem sinal`, `insuficiente`, `confundido`, `só na busca`, e declarar por que acurácia não aparece
 
 **Checkpoint**: MVP defensável.
 
@@ -128,7 +128,7 @@ do modelo.
 
 ### Implementation for User Story 2
 
-- [ ] T039 [US2] Implementar o diagnóstico de purga na saída de `main.py`: amostras removidas por sobreposição e por embargo, e o treino restante
+- [X] T039 [US2] Implementar o diagnóstico de purga na saída de `main.py`: amostras removidas por sobreposição e por embargo, e o treino restante
 
 ---
 
@@ -136,19 +136,19 @@ do modelo.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T040 [P] [US4] Teste em `tests/test_modelo.py`: `delta_operacoes` e `delta_custo` são calculados entre modelo e regras
-- [ ] T041 [P] [US4] Teste em `tests/test_modelo.py`: reexecução sem custo produz retorno maior ou igual em ambas as versões
+- [X] T040 [P] [US4] Teste em `tests/test_modelo.py`: `delta_operacoes` e `delta_custo` são calculados entre modelo e regras
+- [X] T041 [P] [US4] Teste em `tests/test_modelo.py`: reexecução sem custo produz retorno maior ou igual em ambas as versões
 
 ### Implementation for User Story 4
 
-- [ ] T042 [US4] Implementar `retorno_sem_custo_modelo` e `retorno_sem_custo_regras` em `avaliar_par`
-- [ ] T043 [US4] Exibir operações e custo de cada versão, e o agregado de custo de giro no resumo
+- [X] T042 [US4] Implementar `retorno_sem_custo_modelo` e `retorno_sem_custo_regras` em `avaliar_par`
+- [X] T043 [US4] Exibir operações e custo de cada versão, e o agregado de custo de giro no resumo
 
 ---
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T044 [P] Exportar para `reports/modelo_{timestamp}.{json,csv,md}` via `utils/report_export.py`
+- [X] T044 [P] Exportar para `reports/modelo_{timestamp}.{json,csv,md}` via `utils/report_export.py`
 - [ ] T045 [P] Documentar o comando em `CLAUDE.md` e `AGENTS.md` **no mesmo commit**
 - [ ] T046 [P] Documentar em `docs/08-comandos-cli.md`, incluindo o limiar de 0,500 e por que acurácia não é a métrica
 - [ ] T047 Executar a avaliação completa **sem truncar a saída** e registrar o veredito de H14 em `docs/research/registro-de-hipoteses.md`, confrontando as predições de `research.md` com o observado

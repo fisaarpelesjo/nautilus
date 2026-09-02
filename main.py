@@ -898,6 +898,188 @@ def cmd_barras():
     )
 
 
+def cmd_modelo():
+    """H14 -- classificador sobre rotulos de barreira tripla (spec 027).
+
+    Nenhum argumento, diferente de `volatilidade [ALVO]` e `barras [TIPO]`:
+    barreiras, atributos, limiar de correlacao, embargo e universo sao todos
+    declarados em research.md e fixos. Um modelo tem eixos demais para expor
+    qualquer um com seguranca -- H13 obteve 1 aprovacao em 96 testes.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.modelo import (
+        MARGEM_VS_EMBARALHADO_PP,
+        limiar_de_decisao,
+        limiar_de_empate,
+        resumo_agregado,
+        run_modelo_scan,
+    )
+    from strategy.barreira_tripla import ATRIBUTOS, ParametrosBarreira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    p = ParametrosBarreira()
+    header()
+    console.print(f"[bold {C_CYAN}]classificador sobre barreira tripla (H14)[/]")
+    console.print(f"  [{C_DIM}]barreiras: stop {p.sl_mult}xATR, alvo {p.tp_mult}xATR, "
+                  f"limite {p.limite_velas} velas | embargo {p.limite_velas} velas[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]atributos declarados ({len(ATRIBUTOS)}): "
+                  f"{', '.join(ATRIBUTOS)}[/{C_DIM}]")
+    console.print(f"  [{C_LABEL}]limiar de decisao[/] {limiar_de_decisao():.4f} "
+                  f"(probabilidade de alvo) — [{C_LABEL}]razao de empate[/] "
+                  f"{limiar_de_empate():.3f} (alvo/stop)")
+    console.print(f"  [{C_DIM}]os dois caem das barreiras, nao sao ajustaveis; producao "
+                  f"nao e tocada[/{C_DIM}]")
+    console.print()
+
+    avaliacoes = run_modelo_scan()
+
+    ordem = {"melhora": 0, "so_na_busca": 1, "insuficiente": 2, "confundido": 3,
+             "sem_vantagem": 4, "piora": 5, "sem_sinal": 6, "inconclusivo": 7,
+             "classe_unica": 8, "nao_convergiu": 9, "erro": 10}
+    avaliacoes.sort(key=lambda a: (ordem.get(a.status, 99), -a.delta_vs_embaralhado))
+    conta = {k: sum(1 for a in avaliacoes if a.status == k) for k in ordem}
+
+    console.print(f"  [{C_POS}]melhora[/] {conta['melhora']}  "
+                  f"[{C_CYAN}]so na busca[/] {conta['so_na_busca']}  "
+                  f"[{C_CYAN}]insuficientes[/] {conta['insuficiente']}  "
+                  f"[{C_CYAN}]confundidas[/] {conta['confundido']}  "
+                  f"[{C_DIM}]sem vantagem[/] {conta['sem_vantagem']}  "
+                  f"[{C_NEG}]piora[/] {conta['piora']}  "
+                  f"[{C_DIM}]sem sinal[/] {conta['sem_sinal']}  "
+                  f"[{C_DIM}]inconclusivas[/] {conta['inconclusivo']}  "
+                  f"[{C_DIM}]nao convergiu[/] {conta['nao_convergiu']}  "
+                  f"[{C_DIM}]erro[/] {conta['erro']}")
+    console.print()
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Par")
+    for col in ("Treino", "Teste", "Decid.", "Razao ger", "Razao dec",
+                "Ops mod", "Ops reg", "dRet", "dTiming", "vs emb"):
+        t.add_column(col, justify="right")
+    t.add_column("Status")
+
+    cores = {"melhora": C_POS, "piora": C_NEG, "so_na_busca": C_CYAN,
+             "insuficiente": C_CYAN, "confundido": C_CYAN}
+    for a in avaliacoes:
+        m = a.modelo
+        cor = cores.get(a.status, C_DIM)
+        rotulo = a.status.replace("_", " ")
+        if m is None:
+            t.add_row(a.par, *["-"] * 10, f"[{cor}]{rotulo}[/{cor}]")
+            continue
+        rg = m.razao_chances_geral
+        rd = m.razao_chances_decidido
+        ops_m = m.backtest.total_trades if m.backtest else 0
+        ops_r = a.regras.total_trades if a.regras else 0
+        t.add_row(
+            a.par, str(m.n_treino), str(m.n_teste), str(m.n_decidido),
+            f"{rg:.3f}" if rg is not None else "-",
+            f"{rd:.3f}" if rd is not None else "-",
+            str(ops_m), str(ops_r),
+            f"{a.delta_retorno:+.2f}", f"{a.delta_timing:+.2f}",
+            f"{a.delta_vs_embaralhado:+.2f}",
+            f"[{cor}]{rotulo}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    # RESPOSTA AGREGADA -- a unidade natural de avaliacao de um modelo global.
+    # Por par, a linha de base de regras faz 1 a 9 operacoes na janela de teste
+    # e tudo cai em `inconclusivo` por amostra; o conjunto responde.
+    r = resumo_agregado(avaliacoes, p)
+    mod, emb = r["modelo"], r["embaralhado"]
+    console.print(f"  [bold {C_CYAN}]resposta agregada[/] "
+                  f"[{C_DIM}]({r['n_pares']} pares; o modelo e unico e treinado "
+                  f"sobre os pares agrupados, entao o conjunto e a unidade de "
+                  f"avaliacao)[/{C_DIM}]")
+    console.print(f"    [{C_LABEL}]operacoes[/] modelo {r['trades']['modelo']} | "
+                  f"embaralhado {r['trades']['embaralhado']} | "
+                  f"regras {r['trades']['regras']}")
+    console.print(f"    [{C_LABEL}]modelo[/]       alvo {mod['alvo']} / stop "
+                  f"{mod['stop']} -> razao "
+                  f"{mod['razao']:.4f}" if mod['razao'] is not None else
+                  f"    [{C_LABEL}]modelo[/] sem decisoes")
+    if emb["razao"] is not None:
+        console.print(f"    [{C_LABEL}]embaralhado[/]  alvo {emb['alvo']} / stop "
+                      f"{emb['stop']} -> razao {emb['razao']:.4f}")
+    else:
+        console.print(f"    [{C_LABEL}]embaralhado[/]  decide ZERO vezes "
+                      f"[{C_DIM}]— correto: sem relacao atributo-rotulo a melhor "
+                      f"previsao e a taxa base, abaixo do limiar de decisao[/{C_DIM}]")
+    ponto = r.get("supera_empate_pontual")
+    console.print(f"    [{C_LABEL}]supera o empate?[/] "
+                  f"{'SIM' if r['supera_empate'] else 'NAO'} "
+                  f"[{C_DIM}](pela estimativa pontual: "
+                  f"{'sim' if ponto else 'nao'})[/{C_DIM}]")
+    console.print()
+
+    # Diagnostico de purga (US2 no relatorio).
+    purg = [a for a in avaliacoes if a.n_purgadas or a.n_embargadas]
+    if purg:
+        console.print(f"  [bold {C_CYAN}]purga[/] "
+                      f"{purg[0].n_purgadas} amostras removidas por sobreposicao de "
+                      f"horizonte, {purg[0].n_embargadas} pelo embargo "
+                      f"[{C_DIM}](temporal e GLOBAL entre pares: purgar par a par "
+                      f"deixaria o desfecho de um par no treino enquanto outro, "
+                      f"correlacionado a 0,71, esta no teste)[/{C_DIM}]")
+        console.print()
+
+    console.print(f"  [{C_DIM}]\"sem sinal\": nao se distingue do modelo de rotulos "
+                  f"EMBARALHADOS (margem {MARGEM_VS_EMBARALHADO_PP:.1f}pp) -- o que se "
+                  f"mediu foi ajuste a ruido[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"insuficiente\": ha sinal, e ele NAO paga as barreiras "
+                  f"-- razao de chances nao supera o empate alem da incerteza[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]\"confundido\": as regras perdem dinheiro, entao operar "
+                  f"menos aproxima de zero e isso nao e vantagem[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]ACURACIA NAO APARECE de proposito: prever sempre \"stop\" "
+                  f"acerta 62,8% e nunca opera. a metrica e a razao de chances no "
+                  f"subconjunto DECIDIDO[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]o limiar usa o limite inferior do intervalo de confianca, "
+                  f"nao a estimativa pontual: comparar o ponto converte ruido em "
+                  f"aprovacao[/{C_DIM}]")
+    console.print()
+    console.print(f"  [{C_DIM}]executabilidade (D6): avaliar o modelo por ciclo e barato, "
+                  f"mas NAO existe mecanismo de retreino nem de deteccao de degradacao, "
+                  f"e aqui a degradacao e silenciosa -- o modelo segue emitindo "
+                  f"probabilidades normais enquanto a relacao aprendida morre[/{C_DIM}]")
+
+    export_report(
+        "modelo",
+        {"sl_mult": p.sl_mult, "tp_mult": p.tp_mult,
+         "limite_velas": p.limite_velas, "atributos": ATRIBUTOS,
+         "limiar_decisao": limiar_de_decisao(), "razao_empate": limiar_de_empate(),
+         "margem_vs_embaralhado_pp": MARGEM_VS_EMBARALHADO_PP,
+         "agregado": r},
+        [{"par": a.par, "status": a.status, "motivo": a.motivo,
+          "n_purgadas": a.n_purgadas, "n_embargadas": a.n_embargadas,
+          "n_treino": a.modelo.n_treino if a.modelo else None,
+          "n_teste": a.modelo.n_teste if a.modelo else None,
+          "n_decidido": a.modelo.n_decidido if a.modelo else None,
+          "n_alvo_decidido": a.modelo.n_alvo_decidido if a.modelo else None,
+          "n_stop_decidido": a.modelo.n_stop_decidido if a.modelo else None,
+          "razao_geral": a.modelo.razao_chances_geral if a.modelo else None,
+          "razao_decidido": a.modelo.razao_chances_decidido if a.modelo else None,
+          "convergiu": a.modelo.convergiu if a.modelo else None,
+          "coeficientes": a.modelo.coeficientes if a.modelo else None,
+          "dist_classes": a.modelo.dist_classes if a.modelo else None,
+          "retorno_modelo": a.modelo.backtest.total_return_pct
+                            if (a.modelo and a.modelo.backtest) else None,
+          "retorno_regras": a.regras.total_return_pct if a.regras else None,
+          "ops_modelo": a.modelo.backtest.total_trades
+                        if (a.modelo and a.modelo.backtest) else None,
+          "ops_regras": a.regras.total_trades if a.regras else None,
+          "delta_retorno": a.delta_retorno, "delta_timing": a.delta_timing,
+          "delta_vs_embaralhado": a.delta_vs_embaralhado,
+          "delta_custo": a.delta_custo,
+          "retorno_sem_custo_modelo": a.retorno_sem_custo_modelo,
+          "retorno_sem_custo_regras": a.retorno_sem_custo_regras}
+         for a in avaliacoes],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -911,6 +1093,8 @@ COMMANDS = {
     "voltarget":     cmd_volatilidade,
     "barras":        cmd_barras,
     "bars":          cmd_barras,
+    "modelo":        cmd_modelo,
+    "ml":            cmd_modelo,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
