@@ -55,7 +55,8 @@ regressão nos testes já existentes.
 
 **Goal**: `simular_carteira(pares, capital_inicial)` produz um
 `BacktestResult` com uma única curva de capital, caixa compartilhado,
-teto `MAX_POSITIONS`, saída só pelas 3 barreiras já declaradas de H14.
+teto `MAX_POSITIONS`, saída só por take-profit ATR + stop trailing (D7,
+mesmo mecanismo do backtest publicado de H14).
 
 **Independent Test**: rodar `simular_carteira` sobre um conjunto sintético
 de poucos pares/candles determinístico e confirmar que nunca há mais
@@ -66,14 +67,14 @@ posições simultâneas que `MAX_POSITIONS`, nem caixa negativo.
 - [ ] T004 [P] [US1] Teste em `tests/test_portfolio_h14.py`: caixa nunca fica negativo — uma posição só abre se `caixa >= tamanho_calculado` (FR-004/FR-011)
 - [ ] T005 [P] [US1] Teste: número de posições simultâneas nunca excede `MAX_POSITIONS`, mesmo com mais pares sinalizando compra que slots livres (FR-006)
 - [ ] T006 [P] [US1] Teste **crítico**: dois pares sinalizam compra no mesmo candle com só 1 slot livre — abre o par de maior `previsao_teste` naquele candle, nunca o outro (D4/FR-011)
-- [ ] T007 [P] [US1] Teste: posição fecha exatamente quando o preço toca alvo (`entrada + ATR_TP_MULTIPLIER×ATR`), stop (`entrada - ATR_SL_MULTIPLIER×ATR`), ou o limite de `limite_velas` candles — mesmas 3 barreiras já declaradas de H14, sem mecanismo novo (FR-003)
-- [ ] T008 [P] [US1] Teste: posição aberta no candle final do histórico fecha a mercado com `exit_reason="fim do periodo"` (mesma convenção de H18)
+- [ ] T007 [P] [US1] Teste: posição fecha exatamente quando o preço toca o take-profit por ATR (`entrada + ATR_TP_MULTIPLIER×entry_atr`) ou o stop trailing (`_stop_price`, só sobe com novo máximo) — mesmo mecanismo já usado pelo backtest publicado de H14, D7, sem barreira de tempo nem mecanismo novo (FR-003)
+- [ ] T008 [P] [US1] Teste: posição aberta no candle final do histórico fecha a mercado com `exit_reason="Fim do periodo"` (mesmo rótulo do motor genérico, `_close_trade`)
 - [ ] T009 [P] [US1] Teste: o `BacktestResult` retornado por `simular_carteira` é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido
 
 ### Implementation for User Story 1
 
 - [ ] T010 [US1] Implementar `CarteiraH14`/`PosicaoCarteira` (dataclasses, `data-model.md`) em `backtesting/portfolio_h14.py`
-- [ ] T011 [US1] Implementar `simular_carteira(pares=UNIVERSO_H11, capital_inicial=1000.0) -> BacktestResult` em `backtesting/portfolio_h14.py`: chama `run_modelo_scan(..., retornar_previsao=True)`, une timelines (D3), avança candle a candle fechando por barreira antes de abrir novas posições, dimensiona via `min(MAX_ORDER_SIZE_USDT, (caixa/slots_livres_restantes)*0.95)` com desempate por `previsao_teste` (D4), monta `Trade`s e `_calculate_advanced_metrics` (D6) (depende de T004-T009)
+- [ ] T011 [US1] Implementar `simular_carteira(pares=UNIVERSO_H11, capital_inicial=1000.0) -> BacktestResult` em `backtesting/portfolio_h14.py`: chama `run_modelo_scan(..., retornar_previsao=True)`, une timelines (D3), avança candle a candle fechando por take-profit ATR/stop trailing (D7, reusa `_take_profit_price`/`_stop_price`/`_close_trade` de `backtesting/engine.py`) antes de abrir novas posições, dimensiona via `min(MAX_ORDER_SIZE_USDT, (caixa/slots_livres_restantes)*0.95)` com desempate por `previsao_teste` (D4), monta `Trade`s e `_calculate_advanced_metrics` (D6) (depende de T004-T009)
 
 **Checkpoint**: `pytest tests/test_portfolio_h14.py -v` — T004-T009 passam.
 MVP completo: a carteira simula com risco compartilhado de verdade.

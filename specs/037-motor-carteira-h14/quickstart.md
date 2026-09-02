@@ -15,7 +15,8 @@ Cobre: `avaliar_par(retornar_previsao=True)` devolve a mesma probabilidade
 já usada internamente, e não muda nada no caminho default (D2, regressão);
 caixa nunca abre posição além do disponível; teto de `MAX_POSITIONS`
 respeitado; desempate por maior probabilidade quando sinais excedem
-slots/caixa (D4); saída exatamente nas 3 barreiras já declaradas de H14;
+slots/caixa (D4); saída exatamente por take-profit ATR + stop trailing
+(D7, mesmo mecanismo do backtest publicado de H14);
 posição aberta no fim do histórico fecha a mercado; `BacktestResult`
 produzido passa por `evaluate_approval()` sem erro.
 

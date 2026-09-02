@@ -119,6 +119,38 @@ Um módulo novo, que apenas CONSOME `run_modelo_scan()`/`avaliar_par`
 
 ---
 
+## D7 — Mecanismo de saída: trailing/ATR, não as barreiras de rotulagem
+
+**Decisão:** cada posição sai pelo mesmo mecanismo já usado pelo backtest
+publicado de H14 — take-profit por ATR (`entrada + ATR_TP_MULTIPLIER×ATR`)
+e stop **trailing** (`_stop_price`/lógica de
+`backtesting/engine.py::simulate_backtest`, mesma fórmula de
+`trading/position_lifecycle.py::handle_open_position` em produção): o
+stop só sobe, nunca desce, acompanhando o novo máximo desde a entrada.
+Sem limite de tempo (velas).
+
+**Correção registrada aqui.** `spec.md`/`plan.md` originais (antes desta
+decisão) descreviam a saída como as barreiras de `strategy/
+barreira_tripla.py::rotular` (alvo/stop fixo/24 velas) — verificado, ao ler
+`backtesting/modelo.py::_resultado_modelo`/`_simular_com_sinais`, que isso
+está **errado**: essas barreiras rotulam o alvo de TREINO do classificador
+(`rotular()`), mas `AvaliacaoH14.modelo.backtest` — o número que H14
+publicou como desempenho — vem de `simulate_backtest(prep_teste,
+estrategia, precomputed_signals=sinais)`, o motor genérico do projeto, que
+nunca usa essas barreiras para gerir a posição: aplica take-profit por ATR
+e stop trailing, sem timeout. Medir com as barreiras de rotulagem mediria
+uma estratégia diferente de H14 com o mesmo nome.
+
+**Rationale.** O propósito desta spec é medir o risco de carteira de H14
+tal como H14 foi medido e publicado — reusar `simulate_backtest`
+(via `_take_profit_price`/`_stop_price`/`_close_trade`, já importáveis de
+`backtesting/engine.py`, mesmo padrão de reuso de `modelo.py`/`grid.py`
+com funções privadas do módulo) garante isso. Divergir do mecanismo real
+de H14 tornaria o veredito desta spec sobre uma estratégia hipotética, não
+sobre H14.
+
+---
+
 ## Resumo
 
 | # | Decisão | Efeito |
@@ -129,6 +161,7 @@ Um módulo novo, que apenas CONSOME `run_modelo_scan()`/`avaliar_par`
 | D4 | Desempate por maior probabilidade prevista | Critério derivado do próprio sinal, declarado antes de medir |
 | D5 | Buy-and-hold de carteira igualmente ponderada | `evaluate_approval` tem contra o que comparar, sem critério novo |
 | D6 | `backtesting/portfolio_h14.py`, novo módulo, reuso total do motor de métricas | Fronteira clara entre treino/avaliação por par e simulação de carteira |
+| D7 | Saída por take-profit ATR + stop trailing (mesmo mecanismo do backtest publicado), não as barreiras de rotulagem | Corrige leitura errada de `spec.md`/`plan.md` originais — mede H14 como H14 foi de fato medido |
 
 ## Fontes
 

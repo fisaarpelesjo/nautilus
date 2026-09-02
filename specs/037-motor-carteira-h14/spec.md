@@ -25,9 +25,16 @@ posições, para medir se o risco de carteira sustenta aprovação operacional.
 **O que já está resolvido.** H14 (`docs/research/registro-de-hipoteses.md`
 §4.15) tem sinal estatisticamente robusto que paga as barreiras de custo —
 isso nunca tinha acontecido em nenhuma hipótese direcional deste registro.
-O modelo, o limiar de decisão e as barreiras de saída (stop 1,5×ATR, alvo
-3,0×ATR, 24 velas) já estão treinados e declarados; esta spec não mexe
-neles.
+O modelo e o limiar de decisão já estão treinados e declarados; esta spec
+não mexe neles. **Correção de leitura (2026-09-02, antes de qualquer
+código desta spec):** as barreiras de alvo/stop/24-velas
+(`strategy/barreira_tripla.py::rotular`) são usadas só para RÓTULO de
+treino do classificador — o backtest publicado de H14
+(`AvaliacaoH14.modelo.backtest`) mede desempenho através do motor genérico
+já usado em todo o projeto (`backtesting/engine.py::simulate_backtest`),
+que aplica take-profit por ATR e **stop trailing** (mesma fórmula de
+produção, `trading/position_lifecycle.py::handle_open_position`), sem
+limite de 24 velas. Ver D7, `research.md`.
 
 **O que falta.** Cada avaliação de par em `backtesting/modelo.py::avaliar_par`
 roda `_simular` (`backtesting/horizonte.py`) isoladamente, cada uma com seu
@@ -70,10 +77,11 @@ capital com um único valor de caixa por candle, nunca 12 valores paralelos.
    candle, **When** o caixa disponível não cobre todas as entradas no
    tamanho pleno, **Then** a simulação abre o que o caixa permite, na
    ordem de prioridade declarada (Assumptions), e não inventa capital.
-2. **Given** uma posição aberta em um par, **When** o preço toca o alvo, o
-   stop, ou o limite de tempo (as mesmas barreiras já declaradas de H14),
-   **Then** a posição fecha e o caixa liberado (mais/menos o resultado)
-   volta a ficar disponível para qualquer par, não só o mesmo.
+2. **Given** uma posição aberta em um par, **When** o preço toca o
+   take-profit por ATR ou o stop trailing (mesmo mecanismo já usado pelo
+   backtest publicado de H14, D7), **Then** a posição fecha e o caixa
+   liberado (mais/menos o resultado) volta a ficar disponível para
+   qualquer par, não só o mesmo.
 
 ---
 
@@ -154,9 +162,12 @@ período, sem recálculo escondido.
 - **FR-002**: O sistema MUST usar as probabilidades já treinadas pelo
   modelo de H14 (`avaliar_par`, mesmos atributos, mesmo limiar de decisão)
   — sem retreinar nem promover atributo novo.
-- **FR-003**: A saída de cada posição MUST usar exatamente as barreiras já
-  declaradas de H14 (stop 1,5×ATR, alvo 3,0×ATR, 24 velas) — sem inventar
-  mecanismo de saída novo (ex.: trailing stop).
+- **FR-003**: A saída de cada posição MUST usar exatamente o mecanismo já
+  usado pelo backtest publicado de H14 — take-profit por ATR
+  (`ATR_TP_MULTIPLIER`) e stop trailing (mesma fórmula de
+  `simulate_backtest`/produção) — nunca as barreiras de rotulagem do
+  treino (alvo/stop/24-velas, um mecanismo diferente, D7) nem um
+  mecanismo de saída inventado para esta spec.
 - **FR-004**: O sistema MUST manter um único caixa compartilhado entre os
   12 pares — nunca capital independente por par.
 - **FR-005**: O dimensionamento de cada posição MUST reusar a fórmula já
@@ -214,10 +225,10 @@ período, sem recálculo escondido.
 
 ## Assumptions
 
-- **Universo, barreiras e histórico**: `UNIVERSO_H11` (12 pares), mesmas
-  barreiras já declaradas de H14 (stop 1,5×ATR, alvo 3,0×ATR, 24 velas) e
-  mesmas 6.000 velas (D1, spec 036) — sem escolha nova de amostra que
-  pudesse favorecer um resultado.
+- **Universo, mecanismo de saída e histórico**: `UNIVERSO_H11` (12 pares),
+  mesmo mecanismo de saída já usado pelo backtest publicado de H14
+  (take-profit por ATR + stop trailing, D7) e mesmas 6.000 velas (D1, spec
+  036) — sem escolha nova de amostra que pudesse favorecer um resultado.
 - **Capital inicial**: mesmo valor default já usado pelo motor de
   backtest existente (`backtesting/engine.py`) — declarado exatamente em
   `research.md`, Fase 0, antes de qualquer medição.

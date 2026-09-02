@@ -19,24 +19,29 @@ Estado da simulação — não persistido, só em memória durante
 
 ## `PosicaoCarteira`
 
+Espelha o estado por posição de `simulate_backtest`
+(`backtesting/engine.py`), um por par aberto simultaneamente (D7).
+
 | Campo | Descrição |
 |---|---|
 | `par` | Símbolo |
 | `preco_entrada` | Preço de abertura |
 | `quantidade` | `tamanho_usdt / preco_entrada` |
-| `preco_alvo` / `preco_stop` | `entrada ± ATR_SL_MULTIPLIER/ATR_TP_MULTIPLIER × ATR14` — mesmas barreiras já declaradas de H14 (FR-003), calculadas uma vez na abertura |
-| `instante_limite` | `instante_entrada + limite_velas` (24 velas) — saída por tempo, mesma barreira já declarada |
+| `entry_atr` | ATR travado na entrada (não recalculado depois) |
+| `preco_alvo` | `_take_profit_price(preco_entrada, entry_atr, ...)` — take-profit por ATR, calculado uma vez na abertura |
+| `stop_price` | Trailing — inicia em `_stop_price(preco_entrada, entry_atr, ...)`, só sobe conforme `highest_price` avança (D7) |
+| `highest_price` | Máxima desde a entrada, usada para atualizar `stop_price` |
 | `instante_entrada` | Timestamp do candle de abertura |
 
 ## `Trade` (reusado, `backtesting/engine.py`, sem campo novo)
 
 | Campo | Preenchido como |
 |---|---|
-| `entry_price` / `exit_price` | `preco_entrada` / preço de saída (alvo, stop, ou `close` no limite de tempo/fim do histórico) |
+| `entry_price` / `exit_price` | `preco_entrada` / preço de saída (`"Take Profit"`, `"Stop Loss"`, ou `close` no fim do histórico) |
 | `quantity` | `PosicaoCarteira.quantidade` |
-| `pnl` / `pnl_pct` | Mesma fórmula já usada pelo motor, com `BACKTEST_FEE_RATE`/`BACKTEST_SLIPPAGE_PCT` aplicados |
+| `pnl` / `pnl_pct` | Mesma fórmula já usada pelo motor (`_close_trade`, reusada), com `BACKTEST_FEE_RATE`/`BACKTEST_SLIPPAGE_PCT` aplicados |
 | `entry_time` / `exit_time` | Timestamps dos candles de abertura/fechamento |
-| `exit_reason` | `"alvo"` / `"stop"` / `"tempo"` (mesmas 3 barreiras de H14) ou `"fim do periodo"` (posição aberta quando o histórico termina — mesma convenção de H18) |
+| `exit_reason` | `"Take Profit"` / `"Stop Loss"` (mesmos rótulos de `simulate_backtest`, D7) ou `"Fim do periodo"` (posição aberta quando o histórico termina — mesmo rótulo do motor genérico) |
 
 ## `BacktestResult` (reusado, `backtesting/engine.py`, sem campo novo)
 
@@ -57,8 +62,10 @@ Montado por `simular_carteira()` a partir de `curva_capital`:
    treino/purga global, obtém `previsao_teste` por par (D2).
 2. Une os timestamps de teste de todos os pares (D3), avança
    cronologicamente.
-3. A cada candle: fecha posições que tocaram alvo/stop/tempo (barreiras já
-   declaradas); abre novas posições para pares com `previsao_teste` acima
+3. A cada candle: fecha posições que tocaram take-profit ou stop trailing
+   (D7, mesmo mecanismo do backtest publicado de H14), atualiza o
+   trailing das que continuam abertas; abre novas posições para pares com
+   `previsao_teste` acima
    do limiar de decisão, respeitando `MAX_POSITIONS` e o caixa disponível,
    com desempate por maior probabilidade (D4) e dimensionamento
    `min(MAX_ORDER_SIZE_USDT, (caixa/slots_livres_restantes)*0.95)`

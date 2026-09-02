@@ -9,7 +9,9 @@ treinado por `run_modelo_scan()` (`backtesting/modelo.py`, sem retreinar,
 D2) e simula os 12 pares de `UNIVERSO_H11` numa única linha do tempo
 compartilhada, com um caixa único e `MAX_POSITIONS` como teto (FR-004/
 FR-006). Cada entrada usa o dimensionamento já documentado em `CLAUDE.md`
-(FR-005); cada saída usa as barreiras já declaradas de H14 (FR-003). O
+(FR-005); cada saída usa o mesmo mecanismo já usado pelo backtest
+publicado de H14 — take-profit por ATR + stop trailing, D7 (FR-003), não
+as barreiras de rotulagem do treino. O
 resultado vira um `BacktestResult` (`backtesting/engine.py`, reusado sem
 alteração), avaliado por `evaluate_approval()` (`backtesting/approval.py`,
 sem critério novo, FR-009) — a resposta que faltava desde `specs/
@@ -37,8 +39,8 @@ do tempo de 12 pares (mesma ordem de grandeza de `simulate_backtest()`
 multiplicada por 12) — sem chamada de rede além do fetch já usado por
 `run_modelo_scan`
 
-**Constraints**: FR-003 — nenhum mecanismo de saída novo, só as barreiras
-já declaradas; FR-007 — sem correlação/liquidez/trailing/circuit
+**Constraints**: FR-003 — nenhum mecanismo de saída novo, só take-profit
+ATR + stop trailing (D7, mesmo do backtest publicado de H14); FR-007 — sem correlação/liquidez/trailing/circuit
 breaker/limites de drawdown periódico; FR-009 — `BacktestResult` produzido
 MUST passar por `evaluate_approval()` sem alteração de assinatura ou
 critério; FR-010 — nenhuma ordem real
@@ -105,7 +107,8 @@ Vazio — nenhuma violação de princípio a justificar.
 **Fase 0 ✅** — D1 (capital inicial) → D2 (extensão opt-in de
 `avaliar_par`) → D3 (alinhamento de linha do tempo entre pares) → D4
 (critério de desempate) → D5 (buy-and-hold de carteira) → D6 (arquivo
-novo, reuso do motor de métricas).
+novo, reuso do motor de métricas) → D7 (mecanismo de saída: trailing/ATR,
+correção da leitura original das barreiras de rotulagem).
 
 **Fase 1 ✅** — `data-model.md` + `quickstart.md`. Sem `contracts/`.
 
