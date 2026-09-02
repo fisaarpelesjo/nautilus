@@ -26,7 +26,7 @@ Coluna **Autonomia**:
 | 009 | Itens remanescentes do ROADMAP (relatórios, diagnóstico agressivo, edge out-of-sample, indicadores médios) | Sozinho | ✅ Concluída (`specs/009-itens-remanescentes-roadmap/`, US1-US4 + Polish) — fora do backlog original, criada após auditoria completa do `ROADMAP.md` (não só deste arquivo) revelar 4 itens pequenos genuinamente não implementados |
 | 010 | Paridade de custos entre paper e backtest (fee/slippage em `_paper_buy`/`_paper_sell`) | Sozinho | ✅ Concluída (`specs/010-paridade-custos-paper/`, US1-US2 + Polish) — fora do backlog original, achado crítico de uma auditoria completa de código (não só docs) cruzada com pesquisa de boas práticas de bots de trading; o paper mode rodando na VPS desde 2026-08-16 estava registrando PnL sistematicamente ~0,3%/round-trip mais otimista que a realidade |
 | 011 | Singleton do exchange + retry/backoff de rate limit (`data/fetcher.py`) | Sozinho | ✅ Concluída (`specs/011-rate-limit-hardening/`, US1-US2 + Polish) — risco operacional real pro deploy de 26 pares na VPS; escopo ampliado durante a especificação ao descobrir que `backtesting/scanner.py` tinha o mesmo problema fora de `data/fetcher.py` |
-| 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | 🟡 Parcial — MTF fail-closed corrigido em 2026-08-18 (auditoria de código pós-deploy, fora de uma spec formal: `mtf_confirmed()` agora retorna `False` em erro de rede, igual ao resto de `position_lifecycle.py`); falta ainda a parte de profundidade de liquidez próxima ao preço (`execution/liquidity.py::check_liquidity` soma os 20 níveis do order book, não só os próximos ao preço). Nota: `estimate_slippage_pct()` (spec 018) já caminha o book corretamente para o cálculo de slippage — falta aplicar o mesmo critério ao gate de profundidade |
+| 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | ✅ Concluída em 2026-09-02 — MTF fail-closed corrigido em 2026-08-18 (auditoria de código pós-deploy, fora de uma spec formal: `mtf_confirmed()` agora retorna `False` em erro de rede, igual ao resto de `position_lifecycle.py`); profundidade próxima ao preço fechada em `specs/030-liquidez-proxima-preco/` (fluxo SDD completo: specify → plan → tasks → implement). `check_liquidity` somava os 20 níveis do book sem considerar distância de preço; passa a somar só níveis dentro de `MAX_SPREAD_PCT_ENTRY` do melhor ask (constante reusada, sem parâmetro novo). Medido em 22 pares reais: zero divergência de decisão a US$100/ordem (config atual), divergência real a partir de ~US$5.000 em pares de book mais fino (ORCA, ROBO, COW, HEMI) — gap adormecido na config atual, real assim que `MAX_ORDER_SIZE_USDT` crescer |
 | 013 | Risco de correlação entre posições simultâneas | Sozinho | ✅ Concluída em 2026-08-18 (`risk/correlation.py`, fora do fluxo formal de spec — implementado direto após pesquisa aprofundada de mercado confirmar o gap) — `MAX_POSITION_CORRELATION`/`CORRELATION_LOOKBACK`, bloqueador novo em `handle_entry_candidate` |
 | 014 | Refresh periódico de pares dinâmicos (`DYNAMIC_PAIRS_ENABLED`) | Sozinho | 📋 Candidata — baixa urgência (não é a config atual), mas relevante dado o padrão comprovado de VPS de longa duração |
 | 015 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
@@ -144,20 +144,19 @@ operacional direto pro deploy de 26 pares na VPS (vários chamadas por ciclo de 
 ## Ordem sugerida
 
 Executada: 002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
-→ 013 → 016 → 017 → 018 → 019 → 020 → 021 → 023
+→ 013 → 016 → 017 → 018 → 019 → 020 → 021 → 023 → 012
 
-Próximas, se e quando fizer sentido: 012 (metade restante) → 022 → 014. Nenhuma das três muda
-resultado — são refinamentos de precisão, não correções de comportamento.
+Próximas, se e quando fizer sentido: 022 → 014. Nenhuma das duas muda resultado — são
+refinamentos de precisão, não correções de comportamento.
 
-**Status (2026-08-24)**: 001-005, 008-011, 013, 016-021 e 023 concluídas. 006 e 007 seguem com a parte
+**Status (2026-09-02)**: 001-005, 008-013, 016-021 e 023 concluídas. 006 e 007 seguem com a parte
 autônoma concluída — resta o que depende do operador: "validar preset operacional atual" (006,
 Fase 4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4).
 Continuam exigindo tempo real de operação paper.
 
-**Pendentes**: 012 (metade — profundidade de liquidez próxima ao preço), 014 (refresh de pares
-dinâmicos, baixa urgência) e 022 (relógio real no replay, baixa prioridade). 015 fica fora da fila
-até o resto amadurecer. Nenhuma das três altera comportamento do bot — são refinamentos de
-precisão.
+**Pendentes**: 014 (refresh de pares dinâmicos, baixa urgência) e 022 (relógio real no replay,
+baixa prioridade). 015 fica fora da fila até o resto amadurecer. Nenhuma das duas altera
+comportamento do bot — são refinamentos de precisão.
 
 ### O que mudou desde 2026-08-16 e por quê importa
 
