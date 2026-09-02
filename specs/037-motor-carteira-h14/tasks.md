@@ -64,17 +64,17 @@ posições simultâneas que `MAX_POSITIONS`, nem caixa negativo.
 
 ### Tests for User Story 1
 
-- [ ] T004 [P] [US1] Teste em `tests/test_portfolio_h14.py`: caixa nunca fica negativo — uma posição só abre se `caixa >= tamanho_calculado` (FR-004/FR-011)
-- [ ] T005 [P] [US1] Teste: número de posições simultâneas nunca excede `MAX_POSITIONS`, mesmo com mais pares sinalizando compra que slots livres (FR-006)
-- [ ] T006 [P] [US1] Teste **crítico**: dois pares sinalizam compra no mesmo candle com só 1 slot livre — abre o par de maior `previsao_teste` naquele candle, nunca o outro (D4/FR-011)
-- [ ] T007 [P] [US1] Teste: posição fecha exatamente quando o preço toca o take-profit por ATR (`entrada + ATR_TP_MULTIPLIER×entry_atr`) ou o stop trailing (`_stop_price`, só sobe com novo máximo) — mesmo mecanismo já usado pelo backtest publicado de H14, D7, sem barreira de tempo nem mecanismo novo (FR-003)
-- [ ] T008 [P] [US1] Teste: posição aberta no candle final do histórico fecha a mercado com `exit_reason="Fim do periodo"` (mesmo rótulo do motor genérico, `_close_trade`)
-- [ ] T009 [P] [US1] Teste: o `BacktestResult` retornado por `simular_carteira` é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido
+- [X] T004 [P] [US1] Teste em `tests/test_portfolio_h14.py`: caixa nunca fica negativo — uma posição só abre se `caixa >= tamanho_calculado` (FR-004/FR-011)
+- [X] T005 [P] [US1] Teste: número de posições simultâneas nunca excede `MAX_POSITIONS`, mesmo com mais pares sinalizando compra que slots livres (FR-006)
+- [X] T006 [P] [US1] Teste **crítico**: dois pares sinalizam compra no mesmo candle com só 1 slot livre — abre o par de maior `previsao_teste` naquele candle, nunca o outro (D4/FR-011)
+- [X] T007 [P] [US1] Teste: posição fecha exatamente quando o preço toca o take-profit por ATR (`entrada + ATR_TP_MULTIPLIER×entry_atr`) ou o stop trailing (`_stop_price`, só sobe com novo máximo) — mesmo mecanismo já usado pelo backtest publicado de H14, D7, sem barreira de tempo nem mecanismo novo (FR-003)
+- [X] T008 [P] [US1] Teste: posição aberta no candle final do histórico fecha a mercado com `exit_reason="Fim do periodo"` (mesmo rótulo do motor genérico, `_close_trade`)
+- [X] T009 [P] [US1] Teste: o `BacktestResult` retornado por `simular_carteira` é aceito por `evaluate_approval()` sem exceção, produzindo um `ApprovalVerdict` válido
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implementar `CarteiraH14`/`PosicaoCarteira` (dataclasses, `data-model.md`) em `backtesting/portfolio_h14.py`
-- [ ] T011 [US1] Implementar `simular_carteira(pares=UNIVERSO_H11, capital_inicial=1000.0) -> BacktestResult` em `backtesting/portfolio_h14.py`: chama `run_modelo_scan(..., retornar_previsao=True)`, une timelines (D3), avança candle a candle fechando por take-profit ATR/stop trailing (D7, reusa `_take_profit_price`/`_stop_price`/`_close_trade` de `backtesting/engine.py`) antes de abrir novas posições, dimensiona via `min(MAX_ORDER_SIZE_USDT, (caixa/slots_livres_restantes)*0.95)` com desempate por `previsao_teste` (D4), monta `Trade`s e `_calculate_advanced_metrics` (D6) (depende de T004-T009)
+- [X] T010 [US1] Implementar `CarteiraH14`/`PosicaoCarteira` (dataclasses, `data-model.md`) em `backtesting/portfolio_h14.py`
+- [X] T011 [US1] Implementar `simular_carteira(pares=UNIVERSO_H11, capital_inicial=1000.0) -> BacktestResult` em `backtesting/portfolio_h14.py`: chama `run_modelo_scan(..., retornar_previsao=True)`, une timelines (D3), avança candle a candle fechando por take-profit ATR/stop trailing (D7, reusa `_take_profit_price`/`_stop_price`/`_close_trade` de `backtesting/engine.py`) antes de abrir novas posições, dimensiona via `min(MAX_ORDER_SIZE_USDT, (caixa/slots_livres_restantes)*0.95)` com desempate por `previsao_teste` (D4), monta `Trade`s e `_calculate_advanced_metrics` (D6) (depende de T004-T009)
 
 **Checkpoint**: `pytest tests/test_portfolio_h14.py -v` — T004-T009 passam.
 MVP completo: a carteira simula com risco compartilhado de verdade.
@@ -92,12 +92,12 @@ um cálculo manual de carteira igualmente ponderada sobre o mesmo período.
 
 ### Tests for User Story 2
 
-- [ ] T012 [P] [US2] Teste em `tests/test_portfolio_h14.py`: `buy_hold_return_pct` reflete uma carteira igualmente ponderada nos pares simulados (D5) — não a média dos buy-holds individuais, não zero
-- [ ] T013 [P] [US2] Teste: `evaluate_approval()` sobre o `BacktestResult` real produz veredito em `{"aprovado","reprovado","inconclusivo"}` usando os mesmos limiares já existentes, sem parâmetro novo
+- [X] T012 [P] [US2] Teste em `tests/test_portfolio_h14.py`: `buy_hold_return_pct` reflete uma carteira igualmente ponderada nos pares simulados (D5) — não a média dos buy-holds individuais, não zero
+- [X] T013 [P] [US2] Teste: `evaluate_approval()` sobre o `BacktestResult` real produz veredito em `{"aprovado","reprovado","inconclusivo"}` usando os mesmos limiares já existentes, sem parâmetro novo
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Implementar o cálculo de `buy_hold_return_pct` de carteira (D5) dentro de `simular_carteira` — capital inicial dividido igualmente entre os pares no primeiro candle da janela, sem rebalanceamento (depende de T012-T013)
+- [X] T014 [US2] Implementar o cálculo de `buy_hold_return_pct` de carteira (D5) dentro de `simular_carteira` — capital inicial dividido igualmente entre os pares no primeiro candle da janela, sem rebalanceamento (depende de T012-T013)
 
 **Checkpoint**: US1+US2 juntas respondem a pergunta central da spec —
 veredito de aprovação sobre risco de carteira real.
@@ -115,11 +115,11 @@ os dois números retornam separados, nunca um substituindo o outro.
 
 ### Tests for User Story 3
 
-- [ ] T015 [P] [US3] Teste em `tests/test_portfolio_h14.py`: função de comparação devolve `(drawdown_carteira, maior_drawdown_por_par)` como uma tupla/dict explícito — nunca um único número combinado
+- [X] T015 [P] [US3] Teste em `tests/test_portfolio_h14.py`: função de comparação devolve `(drawdown_carteira, maior_drawdown_por_par)` como uma tupla/dict explícito — nunca um único número combinado
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Implementar a função de comparação em `backtesting/portfolio_h14.py` (depende de T015)
+- [X] T016 [US3] Implementar a função de comparação em `backtesting/portfolio_h14.py` (depende de T015)
 
 **Checkpoint**: as três user stories passam juntas.
 
