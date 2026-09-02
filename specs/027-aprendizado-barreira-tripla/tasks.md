@@ -30,7 +30,7 @@ Projeto único. Código em `strategy/`, `backtesting/`, `main.py`; testes em
 
 - [X] T001 Criar `strategy/barreira_tripla.py` com docstring declarando a tese, o limiar de sucesso de D2 (razão de chances 0,500 contra 0,372 observada) e por que acurácia não é a métrica
 - [X] T002 [P] Criar `backtesting/purga.py` com docstring explicando por que a purga é global entre pares (correlação 0,71 medida em H9)
-- [ ] T003 [P] Criar `backtesting/modelo.py`, `tests/test_barreira_tripla.py`, `tests/test_purga.py` e `tests/test_modelo.py` com testes de fumaça
+- [X] T003 [P] Criar `backtesting/modelo.py`, `tests/test_barreira_tripla.py`, `tests/test_purga.py` e `tests/test_modelo.py` com testes de fumaça
 
 **Checkpoint**: módulos importáveis, suíte verde.
 
@@ -74,16 +74,16 @@ série e o mesmo período.
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T018 [P] [US1] Teste em `tests/test_modelo.py`: `AvaliacaoH14` calcula `delta_retorno`, `delta_drawdown` e `delta_exposicao` como modelo menos regras
-- [ ] T019 [P] [US1] Teste em `tests/test_modelo.py`: falha de convergência produz `nao_convergiu`, nunca métricas calculadas sobre estimação inválida — FR-012
-- [ ] T020 [P] [US1] Teste em `tests/test_modelo.py`: rótulos todos na mesma classe produzem `classe_unica` — FR-012
-- [ ] T021 [P] [US1] Teste em `tests/test_modelo.py`: amostra abaixo do mínimo em qualquer versão produz `inconclusivo`, nunca `piora` — FR-011
+- [X] T018 [P] [US1] Teste em `tests/test_modelo.py`: `AvaliacaoH14` calcula `delta_retorno`, `delta_drawdown` e `delta_exposicao` como modelo menos regras
+- [X] T019 [P] [US1] Teste em `tests/test_modelo.py`: falha de convergência produz `nao_convergiu`, nunca métricas calculadas sobre estimação inválida — FR-012
+- [X] T020 [P] [US1] Teste em `tests/test_modelo.py`: rótulos todos na mesma classe produzem `classe_unica` — FR-012
+- [X] T021 [P] [US1] Teste em `tests/test_modelo.py`: amostra abaixo do mínimo em qualquer versão produz `inconclusivo`, nunca `piora` — FR-011
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implementar `ResultadoModelo` e `estimar(treino, atributos)` em `backtesting/modelo.py`, com falha de convergência como estado explícito
-- [ ] T023 [US1] Implementar `razao_chances_decidido` em `ResultadoModelo` — a métrica central, medida apenas onde o modelo decide entrar
-- [ ] T024 [US1] Implementar `AvaliacaoH14` com as grandezas derivadas de `data-model.md`
+- [X] T022 [US1] Implementar `ResultadoModelo` e `estimar(treino, atributos)` em `backtesting/modelo.py`, com falha de convergência como estado explícito
+- [X] T023 [US1] Implementar `razao_chances_decidido` em `ResultadoModelo` — a métrica central, medida apenas onde o modelo decide entrar
+- [X] T024 [US1] Implementar `AvaliacaoH14` com as grandezas derivadas de `data-model.md`
 - [ ] T025 [US1] Implementar `avaliar_par(par, params)` em `backtesting/modelo.py`, reusando `preparar()` e `_simular()` de `horizonte.py`
 - [ ] T026 [US1] Implementar `run_modelo_scan(pares, params)`, sem abortar quando um par falha — FR-014
 - [ ] T027 [US1] Implementar `cmd_modelo()` em `main.py` e os aliases `modelo` e `ml`
@@ -100,16 +100,16 @@ do modelo.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T028 [P] [US3] Teste em `tests/test_modelo.py`: o embaralhamento preserva a distribuição das classes e destrói a associação atributo–rótulo — FR-007
-- [ ] T029 [P] [US3] Teste em `tests/test_modelo.py`: desempenho indistinguível do embaralhado produz `sem_sinal`, nunca aprovação — FR-008
-- [ ] T030 [P] [US3] Teste em `tests/test_modelo.py`: modelo que se distingue do embaralhado mas com `razao_chances_decidido <= 0,500` produz `insuficiente`, distinto de `sem_sinal` e de `melhora`
-- [ ] T031 [P] [US3] Teste em `tests/test_modelo.py`: `melhora` exige superar as regras, o embaralhado **e** a razão de empate, com confirmação fora da amostra
+- [X] T028 [P] [US3] Teste em `tests/test_modelo.py`: o embaralhamento preserva a distribuição das classes e destrói a associação atributo–rótulo — FR-007
+- [X] T029 [P] [US3] Teste em `tests/test_modelo.py`: desempenho indistinguível do embaralhado produz `sem_sinal`, nunca aprovação — FR-008
+- [X] T030 [P] [US3] Teste em `tests/test_modelo.py`: modelo que se distingue do embaralhado mas com `razao_chances_decidido <= 0,500` produz `insuficiente`, distinto de `sem_sinal` e de `melhora`
+- [X] T031 [P] [US3] Teste em `tests/test_modelo.py`: `melhora` exige superar as regras, o embaralhado **e** a razão de empate, com confirmação fora da amostra
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Implementar `embaralhar_rotulos(rotulos, semente)` em `backtesting/modelo.py`, preservando a distribuição
+- [X] T032 [US3] Implementar `embaralhar_rotulos(rotulos, semente)` em `backtesting/modelo.py`, preservando a distribuição
 - [ ] T033 [US3] Executar o modelo embaralhado em `avaliar_par` e armazenar em `AvaliacaoH14.embaralhado`
-- [ ] T034 [US3] Implementar `classificar_avaliacao` em `backtesting/modelo.py` com os 13 estados de `data-model.md`, **na ordem declarada**
+- [X] T034 [US3] Implementar `classificar_avaliacao` em `backtesting/modelo.py` com os 13 estados de `data-model.md`, **na ordem declarada**
 - [ ] T035 [US3] Exibir `delta_vs_embaralhado` e `razao_chances_decidido` na tabela, adjacentes aos deltas contra as regras
 - [ ] T036 [US3] Adicionar legenda em `main.py` para `sem sinal`, `insuficiente`, `confundido`, `só na busca`, e declarar por que acurácia não aparece
 
