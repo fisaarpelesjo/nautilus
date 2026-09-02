@@ -170,6 +170,7 @@ class AvaliacaoH14:
     n_embargadas: int = 0
     status: str = "inconclusivo"
     motivo: str = ""
+    previsao_teste: Optional[pd.Series] = None
 
     def _bt(self):
         return self.modelo.backtest if self.modelo is not None else None
@@ -428,6 +429,7 @@ def avaliar_par(
     eventos_globais=None,
     atributos: Optional[list] = None,
     extrair_atributos_fn: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+    retornar_previsao: bool = False,
 ) -> AvaliacaoH14:
     """Avalia um par contra as tres linhas de base.
 
@@ -441,6 +443,13 @@ def avaliar_par(
     `extrair_atributos`, os mesmos usados por `run_modelo_scan()` quando
     chamado sem esses parametros. Testado explicitamente em
     tests/test_modelo.py (zero mudanca no caminho default).
+
+    `retornar_previsao` (spec 037, motor de carteira): quando `True`, popula
+    `AvaliacaoH14.previsao_teste` com a MESMA probabilidade ja calculada
+    internamente para a versao "modelo" (nunca "embaralhado") -- reusa a
+    chamada de `prever()` ja feita, nao retreina nem recalcula. Default
+    `False` preserva o resultado publicado byte a byte (D2, specs/
+    037-motor-carteira-h14/research.md).
     """
     from backtesting.horizonte import _simular, preparar
     from backtesting.purga import dividir_com_purga
@@ -517,6 +526,8 @@ def avaliar_par(
             setattr(a, nome, ResultadoModelo(convergiu=False,
                                              n_treino=int(len(treino))))
             continue
+        if retornar_previsao and nome == "modelo":
+            a.previsao_teste = pd.Series(prob, index=teste_deste_par.index)
         coef = dict(zip(["const"] + atributos,
                         [float(v) for v in ajuste.params], strict=False))
         setattr(a, nome, _resultado_modelo(
@@ -576,11 +587,15 @@ def coletar_eventos(pares, params: Optional[ParametrosBarreira] = None):
     return globais, series
 
 
-def run_modelo_scan(pares=None, params: Optional[ParametrosBarreira] = None):
+def run_modelo_scan(pares=None, params: Optional[ParametrosBarreira] = None,
+                     retornar_previsao: bool = False):
     """Avalia cada par contra as tres linhas de base.
 
     Os eventos sao coletados de todos os pares ANTES da avaliacao, para que a
     purga seja global. Uma falha isolada vira `erro` e a varredura continua.
+
+    `retornar_previsao` (spec 037): repassado para `avaliar_par` -- default
+    `False` preserva o comportamento publicado.
     """
     from backtesting.horizonte import UNIVERSO_H11
 
@@ -592,7 +607,8 @@ def run_modelo_scan(pares=None, params: Optional[ParametrosBarreira] = None):
     for par in pares:
         try:
             saida.append(avaliar_par(par, p, df=series.get(par),
-                                     eventos_globais=globais if len(globais) else None))
+                                     eventos_globais=globais if len(globais) else None,
+                                     retornar_previsao=retornar_previsao))
         except Exception as exc:
             log.warning(f"{par}: {type(exc).__name__}: {str(exc)[:60]}")
             saida.append(AvaliacaoH14(par=par, status="erro",

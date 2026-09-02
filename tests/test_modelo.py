@@ -449,6 +449,58 @@ def test_avaliar_par_sem_parametros_novos_reproduz_resultado_atual():
     assert a.modelo.coeficientes["atr_ratio"] == pytest.approx(-226.6898, abs=0.01)
 
 
+# ============================================== spec 037 (motor de carteira)
+# T001/T002: `retornar_previsao` expoe a previsao de teste ja calculada
+# internamente, sem retreinar -- e o default preserva o resultado publicado
+# byte a byte (D2, specs/037-motor-carteira-h14/research.md).
+
+def test_avaliar_par_retornar_previsao_expoe_a_mesma_probabilidade_ja_calculada():
+    """Reconstroi a probabilidade manualmente (sigmoide sobre os coeficientes
+    ja publicados em `a.modelo.coeficientes`) e confirma que bate com
+    `previsao_teste` -- prova que nao ha retreino nem formula duplicada."""
+    import numpy as np
+
+    from backtesting.horizonte import preparar
+    from backtesting.modelo import ATRIBUTOS, avaliar_par, extrair_atributos
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    df = _serie_onchain_regressao()
+    a = avaliar_par("BTC/USDT", df=df, retornar_previsao=True)
+
+    assert isinstance(a.previsao_teste, pd.Series)
+    assert len(a.previsao_teste) == a.modelo.n_teste
+    assert a.previsao_teste.index.is_monotonic_increasing
+
+    prep = preparar(df, EmaRsiStrategy())
+    x_teste = extrair_atributos(prep).loc[a.previsao_teste.index, ATRIBUTOS]
+    coef = a.modelo.coeficientes
+    z = coef["const"] + sum(x_teste[c] * coef[c] for c in ATRIBUTOS)
+    prob_manual = 1.0 / (1.0 + np.exp(-z))
+
+    assert a.previsao_teste.values == pytest.approx(prob_manual.values, abs=1e-9)
+
+
+def test_avaliar_par_sem_retornar_previsao_reproduz_resultado_atual():
+    """Regressao: `retornar_previsao=False` (default) MUST continuar
+    produzindo exatamente o resultado ja publicado, e `previsao_teste`
+    MUST ficar `None` -- mesmos valores de referencia de
+    `test_avaliar_par_sem_parametros_novos_reproduz_resultado_atual`."""
+    from backtesting.modelo import avaliar_par
+
+    df = _serie_onchain_regressao()
+    a = avaliar_par("BTC/USDT", df=df)
+
+    assert a.previsao_teste is None
+    assert a.status == "inconclusivo"
+    assert a.motivo == "versao modelo com 0 operacoes, abaixo do minimo de 10"
+    assert a.n_purgadas == 10
+    assert a.n_embargadas == 13
+    assert a.modelo.n_treino == 782
+    assert a.modelo.n_teste == 346
+    assert a.modelo.convergiu is True
+    assert a.modelo.razao_chances_geral == pytest.approx(0.6411764705882353)
+
+
 def test_avaliar_par_aceita_atributos_customizados_sem_quebrar_default():
     """Confirma que os parametros novos existem e mudam o comportamento
     apenas quando passados explicitamente -- nunca por efeito colateral."""

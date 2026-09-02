@@ -39,12 +39,12 @@ previsão candle a candle).
 
 ### Tests for Foundational
 
-- [ ] T001 [P] Teste em `tests/test_modelo.py`: `avaliar_par(df=..., retornar_previsao=True)` devolve `previsao_teste` como `pd.Series` indexada pelo timestamp da janela de teste, com valores idênticos aos já calculados internamente por `prever()` sobre os mesmos dados
-- [ ] T002 [P] Teste de regressão em `tests/test_modelo.py`: `avaliar_par(df=..., retornar_previsao=False)` (default) devolve `previsao_teste=None` e reproduz exatamente os valores de referência já capturados por `test_avaliar_par_sem_parametros_novos_reproduz_resultado_atual` — zero mudança no caminho existente
+- [X] T001 [P] Teste em `tests/test_modelo.py`: `avaliar_par(df=..., retornar_previsao=True)` devolve `previsao_teste` como `pd.Series` indexada pelo timestamp da janela de teste, com valores idênticos aos já calculados internamente por `prever()` sobre os mesmos dados
+- [X] T002 [P] Teste de regressão em `tests/test_modelo.py`: `avaliar_par(df=..., retornar_previsao=False)` (default) devolve `previsao_teste=None` e reproduz exatamente os valores de referência já capturados por `test_avaliar_par_sem_parametros_novos_reproduz_resultado_atual` — zero mudança no caminho existente
 
 ### Implementation for Foundational
 
-- [ ] T003 [US1] Adicionar `retornar_previsao: bool = False` a `avaliar_par` e o campo `previsao_teste: Optional[pd.Series] = None` a `AvaliacaoH14`, em `backtesting/modelo.py` — populado só quando `retornar_previsao=True`, reusando a chamada de `prever()` já feita internamente (D2) (depende de T001-T002)
+- [X] T003 [US1] Adicionar `retornar_previsao: bool = False` a `avaliar_par` e o campo `previsao_teste: Optional[pd.Series] = None` a `AvaliacaoH14`, em `backtesting/modelo.py` — populado só quando `retornar_previsao=True`, reusando a chamada de `prever()` já feita internamente (D2) (depende de T001-T002)
 
 **Checkpoint**: `pytest tests/test_modelo.py -v` — T001-T002 passam, 0
 regressão nos testes já existentes.
