@@ -41,7 +41,14 @@ import pandas as pd
 
 from backtesting.volatilidade import ganho_de_timing
 from config.settings import EDGE_MIN_TRADES
-from strategy.barreira_tripla import ParametrosBarreira
+from strategy.barreira_tripla import (
+    ATRIBUTOS,
+    ParametrosBarreira,
+    distribuicao_classes,
+    extrair_atributos,
+    razao_de_chances,
+    rotular,
+)
 from utils.logger import get_logger
 
 log = get_logger("modelo")
@@ -137,6 +144,8 @@ class ResultadoModelo:
     razao_chances_decidido: Optional[float] = None
     backtest: object = None
     n_decidido: int = 0
+    n_alvo_decidido: int = 0
+    n_stop_decidido: int = 0
 
     @property
     def classe_unica(self) -> bool:
@@ -220,8 +229,48 @@ class AvaliacaoH14:
 
     @property
     def supera_empate(self) -> bool:
-        r = self.modelo.razao_chances_decidido if self.modelo else None
-        return r is not None and r > limiar_de_empate()
+        """Exige que o limite inferior do IC supere o empate, nao a estimativa
+        pontual -- ver `supera_empate_com_confianca`."""
+        m = self.modelo
+        if m is None:
+            return False
+        return supera_empate_com_confianca(m.n_alvo_decidido, m.n_stop_decidido)
+
+
+def supera_empate_com_confianca(
+    alvo: int,
+    stop: int,
+    params: Optional[ParametrosBarreira] = None,
+    confianca: float = 0.95,
+) -> bool:
+    """Se a razao de chances supera o empate ALEM DA INCERTEZA amostral.
+
+    Comparar a estimativa pontual contra o limiar converte ruido em aprovacao.
+    Medido na execucao real de H14: razao pooled de 0,5134 contra empate de
+    0,500, com 536 alvos e 1044 stops -- diferenca de MEIO erro padrao,
+    p = 0,318. O ponto estimado passava; a evidencia nao existia.
+
+    A checagem correta usa o limite inferior do intervalo de confianca da
+    fracao de alvos. No exemplo acima esse limite da razao 0,4696, abaixo do
+    empate -- e o veredito muda de "supera" para "nao supera".
+
+    Mesma familia de M9 (amostra insuficiente lida como reprovacao) e de M11
+    (encolher lido como vantagem): um numero que parece bom porque a regua nao
+    tem tolerancia.
+    """
+    from statsmodels.stats.proportion import proportion_confint
+
+    n = int(alvo) + int(stop)
+    if n <= 0 or alvo <= 0:
+        return False
+
+    empate = limiar_de_empate(params)
+    # Fracao de alvos equivalente ao empate: razao r <=> fracao r/(1+r).
+    fracao_empate = empate / (1.0 + empate)
+
+    inferior, _ = proportion_confint(int(alvo), n, alpha=1 - confianca,
+                                    method="wilson")
+    return bool(inferior > fracao_empate)
 
 
 def limiar_de_empate(params: Optional[ParametrosBarreira] = None) -> float:
@@ -307,6 +356,297 @@ def classificar_avaliacao(a: AvaliacaoH14):
             f"razao de empate, com confirmacao fora da amostra ({dv:+.2f}pp)")
 
 
+# ------------------------------------------------------ avaliacao por par
+
+def _sinais_do_modelo(prob, indice, limiar: float):
+    """Serie de sinais a partir das probabilidades previstas.
+
+    BUY onde a probabilidade supera o limiar; HOLD no resto. NAO emite SELL: a
+    saida acontece por stop ou alvo, que e exatamente o que os rotulos de
+    barreira tripla codificam. Emitir SELL por probabilidade baixa mediria uma
+    regra de saida que a rotulagem nao treinou.
+    """
+    from strategy.base import Signal
+
+    return pd.Series(
+        [Signal.BUY if pr > limiar else Signal.HOLD for pr in prob],
+        index=indice,
+    )
+
+
+def _simular_com_sinais(prep, estrategia, sinais, **kwargs):
+    """Simula com sinais EXTERNOS.
+
+    Chama `simulate_backtest` diretamente em vez de `horizonte._simular`: aquele
+    calcula os proprios sinais e ja passa `precomputed_signals`, entao repassar
+    o argumento colidiria. A colisao virava TypeError engolido pelo `try` de
+    `_simular` e produzia `backtest=None` silenciosamente -- achado no teste de
+    fumaca em dado real.
+    """
+    from backtesting.engine import simulate_backtest
+    from backtesting.horizonte import aquecimento_candles
+
+    if prep is None or len(prep) < aquecimento_candles() + 10:
+        return None
+    try:
+        return simulate_backtest(prep, estrategia,
+                                 start_index=aquecimento_candles(),
+                                 precomputed_signals=sinais, **kwargs)
+    except Exception as exc:
+        log.warning(f"simulacao com sinais falhou: {type(exc).__name__}: {str(exc)[:60]}")
+        return None
+
+
+def _resultado_modelo(prob, eventos_teste, prep_teste, estrategia, limiar, div,
+                      n_treino, coef, **kwargs):
+    """Monta o `ResultadoModelo` a partir das previsoes sobre a janela de teste."""
+
+    decide = prob > limiar
+    bruto_teste = eventos_teste["rotulo_bruto"]
+
+    r = ResultadoModelo(
+        convergiu=True,
+        n_treino=n_treino,
+        n_teste=int(len(eventos_teste)),
+        coeficientes=coef,
+        dist_classes=distribuicao_classes(bruto_teste),
+        razao_chances_geral=razao_de_chances(bruto_teste),
+        razao_chances_decidido=razao_de_chances(bruto_teste[decide]),
+        n_decidido=int(decide.sum()),
+        n_alvo_decidido=int((bruto_teste[decide] == 1).sum()),
+        n_stop_decidido=int((bruto_teste[decide] == -1).sum()),
+    )
+    sinais = _sinais_do_modelo(prob, prep_teste.index, limiar)
+    r.backtest = _simular_com_sinais(prep_teste, estrategia, sinais, **kwargs)
+    return r
+
+
+def avaliar_par(
+    par: str,
+    params: Optional[ParametrosBarreira] = None,
+    df=None,
+    eventos_globais=None,
+) -> AvaliacaoH14:
+    """Avalia um par contra as tres linhas de base.
+
+    `eventos_globais` carrega os eventos de TODOS os pares, e e o que permite a
+    purga ser global (D4). Passar apenas os deste par reintroduziria o vazamento
+    entre pares correlacionados a 0,71.
+    """
+    from backtesting.horizonte import _simular, preparar
+    from backtesting.purga import dividir_com_purga
+    from config.settings import TIMEFRAME
+    from data.fetcher import fetch_ohlcv
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    p = params or ParametrosBarreira()
+    a = AvaliacaoH14(par=par)
+    estrategia = EmaRsiStrategy()
+
+    if df is None:
+        try:
+            df = fetch_ohlcv(par, TIMEFRAME, 2000)
+        except Exception as exc:
+            a.status, a.motivo = "erro", f"historico indisponivel: {type(exc).__name__}"
+            return a
+
+    prep = preparar(df, estrategia)
+    if prep is None:
+        a.status, a.motivo = "erro", "indicadores nao puderam ser calculados"
+        return a
+
+    rotulos = rotular(prep, p)
+    X = extrair_atributos(prep)
+    validos = rotulos["rotulo"].notna() & X.notna().all(axis=1)
+    if not validos.any():
+        a.status, a.motivo = "erro", "nenhum evento rotulavel"
+        return a
+
+    eventos = rotulos[validos].copy()
+    eventos["par"] = par
+    for col in ATRIBUTOS:
+        eventos[col] = X.loc[validos, col]
+
+    # A purga enxerga TODOS os pares quando `eventos_globais` e fornecido.
+    base_purga = eventos if eventos_globais is None else eventos_globais
+    try:
+        div = dividir_com_purga(base_purga, ratio_teste=0.3,
+                                embargo_velas=p.limite_velas)
+    except ValueError as exc:
+        a.status, a.motivo = "erro", str(exc)[:80]
+        return a
+
+    a.n_purgadas, a.n_embargadas = div.n_purgadas, div.n_embargadas
+
+    treino = base_purga.loc[div.indices_treino]
+    teste_deste_par = eventos[eventos["instante"] >= div.inicio_teste]
+    if len(treino) < MIN_TREINO or len(teste_deste_par) < EDGE_MIN_TRADES:
+        a.modelo = ResultadoModelo(convergiu=True, n_treino=int(len(treino)),
+                                   n_teste=int(len(teste_deste_par)),
+                                   dist_classes=distribuicao_classes(
+                                       teste_deste_par["rotulo_bruto"]))
+        a.status, a.motivo = classificar_avaliacao(a)
+        return a
+
+    prep_teste = prep.loc[teste_deste_par.index]
+    limiar = limiar_de_decisao(p)
+
+    # Linha de base 1: as regras, sobre a MESMA janela de teste.
+    a.regras = _simular(prep_teste, estrategia)
+
+    for nome, y in (("modelo", treino["rotulo"]),
+                    ("embaralhado", embaralhar_rotulos(treino["rotulo"], semente=42))):
+        ajuste = estimar(treino[ATRIBUTOS], y)
+        if ajuste is None:
+            setattr(a, nome, ResultadoModelo(convergiu=False,
+                                             n_treino=int(len(treino))))
+            continue
+        prob = prever(ajuste, teste_deste_par[ATRIBUTOS])
+        if prob is None:
+            setattr(a, nome, ResultadoModelo(convergiu=False,
+                                             n_treino=int(len(treino))))
+            continue
+        coef = dict(zip(["const"] + ATRIBUTOS,
+                        [float(v) for v in ajuste.params], strict=False))
+        setattr(a, nome, _resultado_modelo(
+            prob, teste_deste_par, prep_teste, estrategia, limiar, div,
+            int(len(treino)), coef))
+
+    # E6 -- custo de giro.
+    if a.modelo is not None and a.modelo.convergiu:
+        ajuste = estimar(treino[ATRIBUTOS], treino["rotulo"])
+        prob = prever(ajuste, teste_deste_par[ATRIBUTOS]) if ajuste else None
+        if prob is not None:
+            sc = _simular_com_sinais(
+                prep_teste, estrategia,
+                _sinais_do_modelo(prob, prep_teste.index, limiar),
+                fee_rate=0.0, slippage_pct=0.0)
+            a.retorno_sem_custo_modelo = sc.total_return_pct if sc else None
+    sc_reg = _simular(prep_teste, estrategia, fee_rate=0.0, slippage_pct=0.0)
+    a.retorno_sem_custo_regras = sc_reg.total_return_pct if sc_reg else None
+
+    a.status, a.motivo = classificar_avaliacao(a)
+    return a
+
+
+def coletar_eventos(pares, params: Optional[ParametrosBarreira] = None):
+    """Eventos rotulados de TODOS os pares, para a purga global (D4)."""
+    from backtesting.horizonte import preparar
+    from config.settings import TIMEFRAME
+    from data.fetcher import fetch_ohlcv
+    from strategy.ema_rsi import EmaRsiStrategy
+
+    p = params or ParametrosBarreira()
+    estrategia = EmaRsiStrategy()
+    partes, series = [], {}
+
+    for par in pares:
+        try:
+            df = fetch_ohlcv(par, TIMEFRAME, 2000)
+        except Exception as exc:
+            log.warning(f"{par}: {type(exc).__name__}: {str(exc)[:60]}")
+            continue
+        prep = preparar(df, estrategia)
+        if prep is None:
+            continue
+        series[par] = df
+        rot = rotular(prep, p)
+        X = extrair_atributos(prep)
+        val = rot["rotulo"].notna() & X.notna().all(axis=1)
+        if not val.any():
+            continue
+        ev = rot[val].copy()
+        ev["par"] = par
+        for col in ATRIBUTOS:
+            ev[col] = X.loc[val, col]
+        partes.append(ev)
+
+    globais = pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
+    return globais, series
+
+
+def run_modelo_scan(pares=None, params: Optional[ParametrosBarreira] = None):
+    """Avalia cada par contra as tres linhas de base.
+
+    Os eventos sao coletados de todos os pares ANTES da avaliacao, para que a
+    purga seja global. Uma falha isolada vira `erro` e a varredura continua.
+    """
+    from backtesting.horizonte import UNIVERSO_H11
+
+    pares = pares if pares is not None else UNIVERSO_H11
+    p = params or ParametrosBarreira()
+
+    globais, series = coletar_eventos(pares, p)
+    saida = []
+    for par in pares:
+        try:
+            saida.append(avaliar_par(par, p, df=series.get(par),
+                                     eventos_globais=globais if len(globais) else None))
+        except Exception as exc:
+            log.warning(f"{par}: {type(exc).__name__}: {str(exc)[:60]}")
+            saida.append(AvaliacaoH14(par=par, status="erro",
+                                      motivo=f"{type(exc).__name__}: {str(exc)[:60]}"))
+    return saida
+
+
+def resumo_agregado(avaliacoes, params: Optional[ParametrosBarreira] = None) -> dict:
+    """Resposta agregada de H14, sobre todos os pares de uma vez.
+
+    POR QUE AGREGAR
+
+    O modelo e UNICO e treinado sobre os pares agrupados (D4). Avalia-lo par a
+    par fragmenta esse modelo em amostras pequenas demais para julgar: medido,
+    a linha de base de regras faz 1 a 9 operacoes na janela de teste de cada
+    par, nunca as 10 do minimo, e as doze avaliacoes voltam `inconclusivo` por
+    amostra. A unidade natural de avaliacao de um modelo global e o conjunto.
+
+    O QUE SE AGREGA, E O QUE NAO
+
+    Agrega-se o que soma: contagens de operacoes e de desfechos. A razao de
+    chances pooled sai das contagens brutas -- soma de alvos sobre soma de
+    stops -- e nao da media das razoes por par, que daria peso igual a um par
+    com 2 decisoes e a outro com 200.
+
+    NAO se agrega drawdown: ele depende da trajetoria conjunta de capital, que
+    exigiria um motor de carteira. Somar ou promediar drawdowns de series
+    diferentes produziria um numero sem significado.
+    """
+    p = params or ParametrosBarreira()
+    validas = [a for a in avaliacoes if a.modelo is not None and a.modelo.convergiu]
+
+    def pooled(pegar):
+        alvo = sum(getattr(pegar(a), "n_alvo_decidido", 0) for a in validas if pegar(a))
+        stop = sum(getattr(pegar(a), "n_stop_decidido", 0) for a in validas if pegar(a))
+        razao = (float("inf") if stop == 0 and alvo > 0
+                 else (None if stop == 0 else alvo / stop))
+        return {"alvo": alvo, "stop": stop, "razao": razao}
+
+    mod = pooled(lambda a: a.modelo)
+    emb = pooled(lambda a: a.embaralhado)
+
+    trades = {
+        "modelo": sum(a.modelo.backtest.total_trades for a in validas
+                      if a.modelo.backtest),
+        "embaralhado": sum(a.embaralhado.backtest.total_trades for a in validas
+                           if a.embaralhado and a.embaralhado.backtest),
+        "regras": sum(a.regras.total_trades for a in validas if a.regras),
+    }
+
+    empate = limiar_de_empate(p)
+    return {
+        "n_pares": len(validas),
+        "razao_empate": empate,
+        "modelo": mod,
+        "embaralhado": emb,
+        "trades": trades,
+        "supera_empate": supera_empate_com_confianca(mod["alvo"], mod["stop"], p),
+        "supera_empate_pontual": mod["razao"] is not None and mod["razao"] > empate,
+        "supera_embaralhado": (
+            mod["razao"] is not None and emb["razao"] is not None
+            and mod["razao"] > emb["razao"]),
+    }
+
+
 __all__ = [
     "MARGEM_VS_EMBARALHADO_PP",
     "MIN_TREINO",
@@ -317,5 +657,10 @@ __all__ = [
     "estimar",
     "limiar_de_decisao",
     "limiar_de_empate",
+    "avaliar_par",
+    "coletar_eventos",
     "prever",
+    "resumo_agregado",
+    "supera_empate_com_confianca",
+    "run_modelo_scan",
 ]

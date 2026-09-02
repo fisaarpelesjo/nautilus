@@ -23,14 +23,22 @@ def _res(trades=20, ret=10.0, dd=8.0, expo=50.0, bh=5.0, pf=1.5):
 
 
 def _modelo(razao_decidido=0.60, backtest=None, convergiu=True, n_treino=5000,
-            n_teste=2000, razao_geral=0.372):
+            n_teste=2000, razao_geral=0.372, n_decisoes=1000):
+    """As contagens brutas sao derivadas da razao pedida.
+
+    `supera_empate` usa o limite inferior do IC sobre as CONTAGENS, nao a razao
+    pontual, entao um fixture que so setasse a razao testaria outra coisa.
+    """
     from backtesting.modelo import ResultadoModelo
 
+    stop = int(round(n_decisoes / (1.0 + razao_decidido)))
+    alvo = n_decisoes - stop
     return ResultadoModelo(
         convergiu=convergiu, n_treino=n_treino, n_teste=n_teste,
         dist_classes={"alvo": 23.4, "stop": 62.8, "tempo": 12.8, "n": n_teste},
         razao_chances_geral=razao_geral,
         razao_chances_decidido=razao_decidido,
+        n_decidido=n_decisoes, n_alvo_decidido=alvo, n_stop_decidido=stop,
         backtest=backtest if backtest is not None else _res(),
     )
 
@@ -366,3 +374,39 @@ def test_alvo_maior_reduz_o_limiar_de_decisao():
     largo = limiar_de_decisao(ParametrosBarreira(sl_mult=1.5, tp_mult=6.0))
 
     assert largo < estreito
+
+
+# ========= banda de incerteza no limiar — lacuna achada na execução real
+
+def test_razao_acima_do_empate_por_ruido_nao_supera():
+    """A estimativa pontual acima do limiar não basta.
+
+    Medido na execução real: razão pooled de 0,5134 contra empate de 0,500,
+    com 536 alvos e 1044 stops. Sob a hipótese de empate exato esperar-se-iam
+    526,7 alvos, erro padrão 18,7 — a diferença é de meio erro padrão,
+    p = 0,318. Comparar `0,5134 > 0,500` converteria ruído em aprovação.
+    """
+    from backtesting.modelo import supera_empate_com_confianca
+
+    assert supera_empate_com_confianca(alvo=536, stop=1044) is False
+
+
+def test_razao_folgadamente_acima_do_empate_supera():
+    from backtesting.modelo import supera_empate_com_confianca
+
+    # Mesma amostra, mas com vantagem grande: razao ~0,80.
+    assert supera_empate_com_confianca(alvo=700, stop=880) is True
+
+
+def test_amostra_minuscula_nunca_supera_por_falta_de_evidencia():
+    """Três alvos e um stop dão razão 3,0, muito acima do empate — e não
+    significam nada. A banda de incerteza precisa cobrir isso."""
+    from backtesting.modelo import supera_empate_com_confianca
+
+    assert supera_empate_com_confianca(alvo=3, stop=1) is False
+
+
+def test_sem_decisoes_nao_supera():
+    from backtesting.modelo import supera_empate_com_confianca
+
+    assert supera_empate_com_confianca(alvo=0, stop=0) is False
