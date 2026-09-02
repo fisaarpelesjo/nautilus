@@ -25,8 +25,8 @@ design (US1 sozinha reintroduziria o risco que hoje não existe). US3
 
 ## Phase 1: Setup
 
-- [ ] T001 Adicionar `DYNAMIC_PAIRS_REFRESH_CYCLES = int(os.getenv("DYNAMIC_PAIRS_REFRESH_CYCLES", "1440"))` em `config/settings.py`, junto de `DYNAMIC_PAIRS_TOP_N`/`DYNAMIC_PAIRS_CANDIDATES` (D1, research.md)
-- [ ] T002 Adicionar validação `DYNAMIC_PAIRS_REFRESH_CYCLES < 1` → erro em `config/settings.py::validate_config()`, mesmo padrão de `DYNAMIC_PAIRS_TOP_N`/`_CANDIDATES`
+- [X] T001 Adicionar `DYNAMIC_PAIRS_REFRESH_CYCLES = int(os.getenv("DYNAMIC_PAIRS_REFRESH_CYCLES", "1440"))` em `config/settings.py`, junto de `DYNAMIC_PAIRS_TOP_N`/`DYNAMIC_PAIRS_CANDIDATES` (D1, research.md)
+- [X] T002 Adicionar validação `DYNAMIC_PAIRS_REFRESH_CYCLES < 1` → erro em `config/settings.py::validate_config()`, mesmo padrão de `DYNAMIC_PAIRS_TOP_N`/`_CANDIDATES`
 
 ---
 
@@ -48,16 +48,16 @@ da nova seleção, e confirmar que ele permanece na lista retornada.
 > FALHARIA se a guarda fosse removida (mutar mentalmente: `nova_lista =
 > selecionados` sem a união faria este teste específico falhar).
 
-- [ ] T003 [P] [US1] Teste em `tests/test_runner_dynamic_pairs_refresh.py`: `_refresh_active_pairs` retorna a nova seleção quando ela difere de `active_pairs` e nenhum símbolo tem posição aberta — `nova_lista == selecionados`, `resumo["added"]`/`resumo["removed"]` corretos
-- [ ] T004 [P] [US1] Teste: quando o seletor retorna exatamente os mesmos símbolos já ativos, `nova_lista == active_pairs`, `resumo["added"] == []`, `resumo["removed"] == []` (idempotência, Acceptance Scenario 2 de US1)
-- [ ] T005 [P] [US2] Teste **crítico**: `_FakeManager` com posição aberta num símbolo que o seletor mockado não inclui mais — `nova_lista` MUST conter esse símbolo, `resumo["removed"]` MUST NOT contê-lo, `resumo["kept_for_open_position"]` MUST contê-lo
-- [ ] T006 [P] [US2] Teste: símbolo sem posição aberta que o seletor não escolhe mais é removido normalmente (`resumo["removed"]` o contém) — confirma que a guarda de T005 é específica de posição aberta, não um bloqueio geral de remoção
-- [ ] T007 [P] [US1][US2] Teste (D2): seletor mockado levanta exceção — `nova_lista == active_pairs` (lista vigente preservada, não `PAIRS` estático), `resumo["error"]` presente
+- [X] T003 [P] [US1] Teste em `tests/test_runner_dynamic_pairs_refresh.py`: `_refresh_active_pairs` retorna a nova seleção quando ela difere de `active_pairs` e nenhum símbolo tem posição aberta — `nova_lista == selecionados`, `resumo["added"]`/`resumo["removed"]` corretos
+- [X] T004 [P] [US1] Teste: quando o seletor retorna exatamente os mesmos símbolos já ativos, `nova_lista == active_pairs`, `resumo["added"] == []`, `resumo["removed"] == []` (idempotência, Acceptance Scenario 2 de US1)
+- [X] T005 [P] [US2] Teste **crítico**: `_FakeManager` com posição aberta num símbolo que o seletor mockado não inclui mais — `nova_lista` MUST conter esse símbolo, `resumo["removed"]` MUST NOT contê-lo, `resumo["kept_for_open_position"]` MUST contê-lo
+- [X] T006 [P] [US2] Teste: símbolo sem posição aberta que o seletor não escolhe mais é removido normalmente (`resumo["removed"]` o contém) — confirma que a guarda de T005 é específica de posição aberta, não um bloqueio geral de remoção
+- [X] T007 [P] [US1][US2] Teste (D2): seletor mockado levanta exceção — `nova_lista == active_pairs` (lista vigente preservada, não `PAIRS` estático), `resumo["error"]` presente
 
 ### Implementation for User Story 1 + 2
 
-- [ ] T008 [US1][US2] Implementar `_refresh_active_pairs(manager, active_pairs: list[str]) -> tuple[list[str], dict]` em `trading/runner.py`: chama `select_dynamic_pairs()`/`selected_symbols()`, calcula `nova_lista = selecionados ∪ {s in active_pairs se manager.has_position(s)}`, monta `resumo` (`added`, `removed`, `kept_for_open_position`); captura exceção do seletor e retorna `(active_pairs, {"added": [], "removed": [], "kept_for_open_position": [], "error": str(exc)})` (D2) (depende de T003-T007)
-- [ ] T009 [US1] Integrar no loop principal de `trading/runner.py::run()`: quando `DYNAMIC_PAIRS_ENABLED` e `cycle_id % DYNAMIC_PAIRS_REFRESH_CYCLES == 0`, chamar `_refresh_active_pairs(manager, active_pairs)` e reatribuir `active_pairs` — mesmo padrão de posição do `if cycle_id % RECONCILIATION_INTERVAL_CYCLES == 0` já existente (depende de T008, T001)
+- [X] T008 [US1][US2] Implementar `_refresh_active_pairs(manager, active_pairs: list[str]) -> tuple[list[str], dict]` em `trading/runner.py`: chama `select_dynamic_pairs()`/`selected_symbols()`, calcula `nova_lista = selecionados ∪ {s in active_pairs se manager.has_position(s)}`, monta `resumo` (`added`, `removed`, `kept_for_open_position`); captura exceção do seletor e retorna `(active_pairs, {"added": [], "removed": [], "kept_for_open_position": [], "error": str(exc)})` (D2) (depende de T003-T007)
+- [X] T009 [US1] Integrar no loop principal de `trading/runner.py::run()`: quando `DYNAMIC_PAIRS_ENABLED` e `cycle_id % DYNAMIC_PAIRS_REFRESH_CYCLES == 0`, chamar `_refresh_active_pairs(manager, active_pairs)` e reatribuir `active_pairs` — mesmo padrão de posição do `if cycle_id % RECONCILIATION_INTERVAL_CYCLES == 0` já existente (depende de T008, T001)
 
 **Checkpoint**: `pytest tests/test_runner_dynamic_pairs_refresh.py -v` —
 T003-T007 passam. MVP completo: refresh funciona e nunca abandona posição.
@@ -75,12 +75,12 @@ da gravação do evento, e ler `logs/events-*.jsonl` (ou o mock de
 
 ### Tests for User Story 3
 
-- [ ] T010 [P] [US3] Teste em `tests/test_runner_dynamic_pairs_refresh.py`: após um refresh que muda a lista, `log_event` (mockado) é chamado com `"dynamic_pairs_refreshed"`, `mode=TRADING_MODE`, `added`, `removed`, `kept_for_open_position` corretos
-- [ ] T011 [P] [US3] Teste: refresh sem nenhuma mudança ainda grava o evento, com os três campos vazios (Acceptance Scenario 2 de US3 — nunca omitido)
+- [X] T010 [P] [US3] Teste em `tests/test_runner_dynamic_pairs_refresh.py`: após um refresh que muda a lista, `log_event` (mockado) é chamado com `"dynamic_pairs_refreshed"`, `mode=TRADING_MODE`, `added`, `removed`, `kept_for_open_position` corretos
+- [X] T011 [P] [US3] Teste: refresh sem nenhuma mudança ainda grava o evento, com os três campos vazios (Acceptance Scenario 2 de US3 — nunca omitido)
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Chamar `log_event("dynamic_pairs_refreshed", mode=TRADING_MODE, added=resumo["added"], removed=resumo["removed"], kept_for_open_position=resumo["kept_for_open_position"])` em `trading/runner.py::run()`, logo após `_refresh_active_pairs` (T009), envolto em `safe_step` (mesmo padrão de outros eventos do loop) (depende de T010, T011, T009)
+- [X] T012 [US3] Chamar `log_event("dynamic_pairs_refreshed", mode=TRADING_MODE, added=resumo["added"], removed=resumo["removed"], kept_for_open_position=resumo["kept_for_open_position"])` em `trading/runner.py::run()`, logo após `_refresh_active_pairs` (T009), envolto em `safe_step` (mesmo padrão de outros eventos do loop) (depende de T010, T011, T009)
 
 **Checkpoint**: as três user stories passam juntas.
 
@@ -88,9 +88,9 @@ da gravação do evento, e ler `logs/events-*.jsonl` (ou o mock de
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T013 [P] Teste em `tests/test_runner_dynamic_pairs_refresh.py`: com `DYNAMIC_PAIRS_ENABLED=false` (monkeypatch), `select_dynamic_pairs` mockado nunca é chamado durante o loop, mesmo após `DYNAMIC_PAIRS_REFRESH_CYCLES` ciclos simulados (FR-006)
-- [ ] T014 Validar manualmente o passo 3 do `quickstart.md` (custo real de `select_dynamic_pairs()`) para confirmar que a ordem de grandeza medida em `research.md` (~36s) ainda vale neste ambiente
-- [ ] T015 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `trading/runner.py` (boot, reconciliação, ciclo principal) e `market/selector.py` (intocado)
+- [X] T013 [P] Teste em `tests/test_runner_dynamic_pairs_refresh.py`: com `DYNAMIC_PAIRS_ENABLED=false` (monkeypatch), `select_dynamic_pairs` mockado nunca é chamado durante o loop, mesmo após `DYNAMIC_PAIRS_REFRESH_CYCLES` ciclos simulados (FR-006)
+- [X] T014 Validar manualmente o passo 3 do `quickstart.md` (custo real de `select_dynamic_pairs()`) para confirmar que a ordem de grandeza medida em `research.md` (~36s) ainda vale neste ambiente
+- [X] T015 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `trading/runner.py` (boot, reconciliação, ciclo principal) e `market/selector.py` (intocado)
 
 ---
 

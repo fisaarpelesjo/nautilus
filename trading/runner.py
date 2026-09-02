@@ -6,6 +6,7 @@ from config.settings import (
     DAILY_DRAWDOWN_LIMIT,
     DAILY_REPORT_HOUR,
     DYNAMIC_PAIRS_ENABLED,
+    DYNAMIC_PAIRS_REFRESH_CYCLES,
     ENTRY_COOLDOWN_CYCLES,
     MAX_CONSECUTIVE_LOSSES,
     MAX_ORDER_SIZE_USDT,
@@ -94,6 +95,42 @@ def _run_reconciliation(manager: OrderManager, tracked_symbols):
     safe_step(log, "Falha ao persistir resultado de reconciliacao", lambda: manager.record_reconciliation(
         result.status, result.checked_at.isoformat(), result.diffs
     ))
+
+
+def _refresh_active_pairs(manager: OrderManager, active_pairs: list) -> tuple:
+    """Re-seleciona a lista de pares ativos (spec 031).
+
+    Nunca remove um simbolo com posicao aberta (`manager.has_position`),
+    independente do resultado do seletor -- o loop principal so chama
+    `handle_open_position` (stop loss, trailing, take profit, saida por
+    sinal) para simbolos dentro de `active_pairs`; remover um com posicao
+    aberta o deixaria orfao, sem gestao de risco nenhuma ate reiniciar o
+    processo (achado de auditoria, ver spec.md Contexto).
+
+    Falha na selecao preserva a lista VIGENTE (nao volta para `PAIRS`
+    estatico) -- uma falha transitoria de rede nao pode descartar horas ou
+    dias de operacao (research.md D2).
+    """
+    try:
+        selecionados = selected_symbols(select_dynamic_pairs())
+    except Exception as exc:
+        error_message = str(exc)
+        log.error(f"Selecao dinamica de pares falhou no refresh: {error_message}")
+        resumo = {"added": [], "removed": [], "kept_for_open_position": [], "error": error_message}
+        safe_step(log, "Falha ao publicar evento de refresh de pares dinamicos",
+                  lambda: log_event("dynamic_pairs_refreshed", mode=TRADING_MODE, **resumo))
+        return active_pairs, resumo
+
+    mantidos_por_posicao = [s for s in active_pairs if s not in selecionados and manager.has_position(s)]
+    nova_lista = selecionados + mantidos_por_posicao
+    resumo = {
+        "added": [s for s in selecionados if s not in active_pairs],
+        "removed": [s for s in active_pairs if s not in nova_lista],
+        "kept_for_open_position": mantidos_por_posicao,
+    }
+    safe_step(log, "Falha ao publicar evento de refresh de pares dinamicos",
+              lambda: log_event("dynamic_pairs_refreshed", mode=TRADING_MODE, **resumo))
+    return nova_lista, resumo
 
 
 def _print_live_confirmation_banner(pairs, manager: OrderManager):
@@ -190,6 +227,8 @@ def run():
             cycle_id += 1
             if cycle_id % RECONCILIATION_INTERVAL_CYCLES == 0:
                 _run_reconciliation(manager, active_pairs)
+            if DYNAMIC_PAIRS_ENABLED and cycle_id % DYNAMIC_PAIRS_REFRESH_CYCLES == 0:
+                active_pairs, _refresh_summary = _refresh_active_pairs(manager, active_pairs)
             if entry_cooldown > 0:
                 entry_cooldown -= 1
             if manager.pending_limit_orders:

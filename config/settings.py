@@ -33,6 +33,7 @@ RESEARCH_SYMBOLS = [s.strip() for s in _research_env.split(",") if s.strip()]
 DYNAMIC_PAIRS_ENABLED = os.getenv("DYNAMIC_PAIRS_ENABLED", "false").lower() in {"1", "true", "yes", "sim"}
 DYNAMIC_PAIRS_TOP_N = int(os.getenv("DYNAMIC_PAIRS_TOP_N", "5"))
 DYNAMIC_PAIRS_CANDIDATES = int(os.getenv("DYNAMIC_PAIRS_CANDIDATES", "20"))
+DYNAMIC_PAIRS_REFRESH_CYCLES = int(os.getenv("DYNAMIC_PAIRS_REFRESH_CYCLES", "1440"))
 MIN_VOLUME_USDT = float(os.getenv("MIN_VOLUME_USDT", "10000000"))
 MIN_PRICE_USDT = float(os.getenv("MIN_PRICE_USDT", "0.001"))
 MAX_SPREAD_PCT = float(os.getenv("MAX_SPREAD_PCT", "0.003"))
@@ -229,6 +230,8 @@ def validate_config():
         errors.append("LIMIT_ORDER_TIMEOUT_CYCLES deve ser pelo menos 1.")
     if DYNAMIC_PAIRS_TOP_N < 1 or DYNAMIC_PAIRS_CANDIDATES < 1:
         errors.append("DYNAMIC_PAIRS_TOP_N e DYNAMIC_PAIRS_CANDIDATES devem ser maiores que zero.")
+    if DYNAMIC_PAIRS_REFRESH_CYCLES < 1:
+        errors.append("DYNAMIC_PAIRS_REFRESH_CYCLES deve ser pelo menos 1.")
     if MIN_VOLUME_USDT < 0 or MAX_SPREAD_PCT < 0 or MIN_VOLATILITY_PCT < 0:
         errors.append("Filtros dinamicos de mercado nao podem ser negativos.")
     if MIN_PRICE_USDT < 0:
