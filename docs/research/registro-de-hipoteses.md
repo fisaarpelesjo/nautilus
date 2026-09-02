@@ -1284,8 +1284,33 @@ custo, e sim um **dez vezes maior** que o observado.
 latência e gestão de risco de inventário; competitividade dominada por
 participantes profissionais.
 
-**H17 — Sinais on-chain** — literatura classifica como nascente; qualidade de
-dado heterogênea.
+**H17 — Sinais on-chain** — *avaliada em 2026-09-02, status
+**inconclusiva*** (`specs/033-fonte-dados-onchain/`,
+`specs/034-sinais-onchain/`). Única das quatro hipóteses de prioridade
+baixa em que infraestrutura era obstáculo removível — construída
+(`data/onchain.py`, fonte pública `api.blockchain.info`, sem chave, só
+Bitcoin). Atributo declarado antes de medir (D1, research.md da spec 034):
+variação de 7 dias da MA7 de endereços únicos ativos
+(`onchain_addr_growth_7d`). Colinearidade contra os 5 atributos de H14
+medida e abaixo do limiar (máxima 0,304, `atr_ratio` — limiar 0,80): o
+atributo sobrevive à checagem.
+
+**Comparação isolada BTC/USDT** (mesmo par, mesmo período, 5 atributos de
+H14 vs 5 + on-chain; nunca comparado contra o resultado pooled de 12 pares
+que H14 publicou): as duas avaliações vieram **inconclusivas** pelo mesmo
+motivo — a linha de base de regras teve só 7 operações na janela de teste
+(2.000 candles de 4h ≈ 333 dias, mesmo teto que `avaliar_par()` já usa para
+H14), abaixo do mínimo de 10. Não é um problema do atributo on-chain nem da
+amostra rotulada (1.951 eventos, `n_treino`=1.342, `n_teste`=586 — ordens de
+grandeza acima dos mínimos): é a estratégia de regras operando pouco nesse
+período específico de BTC-only, algo que o pool de 12 pares de H14 nunca
+expôs porque agrega operações de vários pares.
+
+**O que isso não decide.** Não aprova nem reprova H17 — inconclusivo por
+amostra da linha de base, não por ausência de sinal. Reavaliar exigiria mais
+histórico de candles que o teto atual (2.000) permite, ou um período com
+mais atividade de regras — nenhuma das duas é uma correção de código, então
+fica registrado aqui, não reaberto como spec nova.
 
 **H18 — Grid trading** — carece de fundamentação preditiva; equivale a venda de
 volatilidade sem gestão de cauda.

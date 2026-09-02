@@ -37,8 +37,8 @@ resultado de H14 em nenhum caminho existente. **Bloqueante**: nenhuma task
 de US1/US2/US3 pode tocar `avaliar_par` antes desta garantia existir e
 estar testada.
 
-- [ ] T001 Teste de regressão em `tests/test_modelo.py`: `avaliar_par(par, df=fixture_pequeno_deterministico)` chamado **sem** `atributos`/`extrair_atributos_fn` produz `AvaliacaoH14` com os mesmos campos (status, motivo, `n_treino`, `n_teste`, coeficientes) que o comportamento atual — grava o resultado atual como fixture de referência antes de qualquer mudança em `avaliar_par`
-- [ ] T002 Implementar `atributos: list[str] = ATRIBUTOS` e `extrair_atributos_fn: Callable = extrair_atributos` como parâmetros de `avaliar_par()` em `backtesting/modelo.py`, substituindo as referências internas à constante/função módulo pelos parâmetros (D4, research.md) (depende de T001 — deve continuar passando)
+- [X] T001 Teste de regressão em `tests/test_modelo.py`: `avaliar_par(par, df=fixture_pequeno_deterministico)` chamado **sem** `atributos`/`extrair_atributos_fn` produz `AvaliacaoH14` com os mesmos campos (status, motivo, `n_treino`, `n_teste`, coeficientes) que o comportamento atual — grava o resultado atual como fixture de referência antes de qualquer mudança em `avaliar_par`
+- [X] T002 Implementar `atributos: list[str] = ATRIBUTOS` e `extrair_atributos_fn: Callable = extrair_atributos` como parâmetros de `avaliar_par()` em `backtesting/modelo.py`, substituindo as referências internas à constante/função módulo pelos parâmetros (D4, research.md) (depende de T001 — deve continuar passando)
 
 **Checkpoint**: `pytest tests/test_modelo.py -v` — 100% dos testes
 existentes de `avaliar_par`/`run_modelo_scan` continuam passando, mais T001.
@@ -57,16 +57,16 @@ muda dentro do mesmo dia calendário do candle.
 
 ### Tests for User Story 1 + 2
 
-- [ ] T003 [P] [US2] Teste `onchain_addr_growth_7d(serie)` em `tests/test_onchain_hipotese.py`: sobre uma série sintética de 20+ dias, calcula `(ma7 - ma7.shift(7)) / ma7.shift(7)` corretamente (valores conhecidos calculados à mão)
-- [ ] T004 [P] [US2] Teste `_merge_causal(indice_candles, serie_diaria)`: para uma série sintética com um valor distinto por dia, um candle no meio do dia `D` MUST receber o valor do dia `D-1`, nunca o de `D` — mesmo quando o dia `D` já tem valor disponível na série de entrada (garante que a função não "trapaceia" olhando o dia corrente só porque o dado existe)
-- [ ] T005 [P] [US1] Teste `construir_extrator_onchain(serie_growth)`: a função retornada, aplicada a um `prep` de teste, devolve `DataFrame` com as 5 colunas de `extrair_atributos` mais `onchain_addr_growth_7d`
-- [ ] T006 [P] [US1] Teste `avaliar_par` com `atributos=ATRIBUTOS + ["onchain_addr_growth_7d"]` e `extrair_atributos_fn` do extrator on-chain, sobre um `df` de teste pequeno e determinístico — retorna `AvaliacaoH14` cujo `modelo.coeficientes` inclui a chave `onchain_addr_growth_7d`
+- [X] T003 [P] [US2] Teste `onchain_addr_growth_7d(serie)` em `tests/test_onchain_hipotese.py`: sobre uma série sintética de 20+ dias, calcula `(ma7 - ma7.shift(7)) / ma7.shift(7)` corretamente (valores conhecidos calculados à mão)
+- [X] T004 [P] [US2] Teste `_merge_causal(indice_candles, serie_diaria)`: para uma série sintética com um valor distinto por dia, um candle no meio do dia `D` MUST receber o valor do dia `D-1`, nunca o de `D` — mesmo quando o dia `D` já tem valor disponível na série de entrada (garante que a função não "trapaceia" olhando o dia corrente só porque o dado existe)
+- [X] T005 [P] [US1] Teste `construir_extrator_onchain(serie_growth)`: a função retornada, aplicada a um `prep` de teste, devolve `DataFrame` com as 5 colunas de `extrair_atributos` mais `onchain_addr_growth_7d`
+- [X] T006 [P] [US1] Teste `avaliar_par` com `atributos=ATRIBUTOS + ["onchain_addr_growth_7d"]` e `extrair_atributos_fn` do extrator on-chain, sobre um `df` de teste pequeno e determinístico — retorna `AvaliacaoH14` cujo `modelo.coeficientes` inclui a chave `onchain_addr_growth_7d`
 
 ### Implementation for User Story 1 + 2
 
-- [ ] T007 [US1][US2] Implementar `onchain_addr_growth_7d(serie: pd.Series) -> pd.Series`, `_merge_causal(indice_candles, serie_diaria) -> pd.Series` e `construir_extrator_onchain(serie_growth) -> Callable` em `backtesting/onchain_hipotese.py` (depende de T003-T006)
-- [ ] T008 [US1] Implementar `RelatorioH17` (dataclass, `data-model.md`) e `avaliar_h17(par="BTC/USDT") -> RelatorioH17` em `backtesting/onchain_hipotese.py`: busca a série on-chain (spec 033), calcula `onchain_addr_growth_7d`, chama `avaliar_par` duas vezes (sem e com o atributo, mesmo `df` buscado uma vez só) e mede `correlacao_onchain` contra os 5 atributos originais
-- [ ] T009 [US1] Criar `cmd_onchain()` em `main.py`: chama `avaliar_h17()`, imprime as duas razões de chances lado a lado, os estados de cada avaliação e a correlação medida; registrar `"onchain": cmd_onchain` em `COMMANDS`; exportar via `export_report("onchain", ...)`, mesmo padrão de `modelo`/`barras`
+- [X] T007 [US1][US2] Implementar `onchain_addr_growth_7d(serie: pd.Series) -> pd.Series`, `_merge_causal(indice_candles, serie_diaria) -> pd.Series` e `construir_extrator_onchain(serie_growth) -> Callable` em `backtesting/onchain_hipotese.py` (depende de T003-T006)
+- [X] T008 [US1] Implementar `RelatorioH17` (dataclass, `data-model.md`) e `avaliar_h17(par="BTC/USDT") -> RelatorioH17` em `backtesting/onchain_hipotese.py`: busca a série on-chain (spec 033), calcula `onchain_addr_growth_7d`, chama `avaliar_par` duas vezes (sem e com o atributo, mesmo `df` buscado uma vez só) e mede `correlacao_onchain` contra os 5 atributos originais
+- [X] T009 [US1] Criar `cmd_onchain()` em `main.py`: chama `avaliar_h17()`, imprime as duas razões de chances lado a lado, os estados de cada avaliação e a correlação medida; registrar `"onchain": cmd_onchain` em `COMMANDS`; exportar via `export_report("onchain", ...)`, mesmo padrão de `modelo`/`barras`
 
 **Checkpoint**: `pytest tests/test_onchain_hipotese.py -v` — todos passam.
 MVP completo: a comparação roda e é causal.
@@ -83,7 +83,7 @@ confirmar que reflete os valores medidos em `research.md` (D2).
 
 ### Tests for User Story 3
 
-- [ ] T010 [P] [US3] Teste em `tests/test_onchain_hipotese.py`: `avaliar_h17()` (ou a função que calcula `correlacao_onchain` isoladamente) retorna um dict com as 5 chaves de `ATRIBUTOS`, todos os valores com `abs() < 0.80` (guarda de regressão: se um valor cruzar o limiar no futuro — dado on-chain mudou de comportamento — o teste MUST falhar, não passar silenciosamente)
+- [X] T010 [P] [US3] Teste em `tests/test_onchain_hipotese.py`: `avaliar_h17()` (ou a função que calcula `correlacao_onchain` isoladamente) retorna um dict com as 5 chaves de `ATRIBUTOS`, todos os valores com `abs() < 0.80` (guarda de regressão: se um valor cruzar o limiar no futuro — dado on-chain mudou de comportamento — o teste MUST falhar, não passar silenciosamente)
 
 ### Implementation for User Story 3
 
@@ -95,9 +95,9 @@ Nenhuma — `correlacao_onchain` já é calculado por T008. T010 é a prova.
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T011 Rodar `python main.py onchain` contra dados reais (BTC/USDT) — validação manual do passo 3 do `quickstart.md`, resultado real (não mockado) da comparação
-- [ ] T012 Registrar o veredito real (resultado de T011) em `docs/research/registro-de-hipoteses.md` §6.3 (H17) — mesmo padrão de fechamento das demais hipóteses do registro; o texto exato depende do resultado medido em T011, não pode ser escrito antes dele
-- [ ] T013 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/modelo.py` (H14) e nos demais consumidores (`horizonte.py`, `volatilidade.py`, etc., que não usam os parâmetros novos)
+- [X] T011 Rodar `python main.py onchain` contra dados reais (BTC/USDT) — validação manual do passo 3 do `quickstart.md`, resultado real (não mockado) da comparação
+- [X] T012 Registrar o veredito real (resultado de T011) em `docs/research/registro-de-hipoteses.md` §6.3 (H17) — mesmo padrão de fechamento das demais hipóteses do registro; o texto exato depende do resultado medido em T011, não pode ser escrito antes dele
+- [X] T013 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/modelo.py` (H14) e nos demais consumidores (`horizonte.py`, `volatilidade.py`, etc., que não usam os parâmetros novos)
 
 ---
 

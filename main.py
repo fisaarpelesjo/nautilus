@@ -1183,6 +1183,81 @@ def cmd_arbitragem():
     )
 
 
+def cmd_onchain():
+    """H17 -- sinais on-chain, comparacao isolada BTC-only (spec 034).
+
+    NAO e um veredito de aprovacao/reprovacao -- compara, sobre o mesmo
+    par (BTC/USDT, unica cobertura da fonte de dados, spec 033) e mesmo
+    periodo, o modelo original de H14 contra o modelo com o atributo
+    on-chain a mais, reusando a bateria de avaliacao ja existente sem
+    alterar criterio.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.onchain_hipotese import avaliar_h17
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]sinais on-chain (H17)[/]")
+    console.print(f"  [{C_DIM}]BTC/USDT -- unica cobertura da fonte de dados (spec 033); "
+                  f"comparacao isolada contra o mesmo par/periodo, nunca contra o resultado "
+                  f"pooled de 12 pares ja publicado por H14[/{C_DIM}]")
+    console.print()
+
+    relatorio = avaliar_h17()
+
+    console.print(f"  [{C_LABEL}]atributo declarado[/]: {relatorio.atributo_declarado}")
+    console.print(f"  [{C_LABEL}]colinearidade contra os 5 atributos de H14[/]:")
+    for nome, valor in sorted(relatorio.correlacao_onchain.items()):
+        console.print(f"    [{C_DIM}]{nome}: {valor:+.3f}[/{C_DIM}]")
+    console.print()
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Avaliacao")
+    for col in ("n_treino", "n_teste", "razao geral", "razao decidido"):
+        t.add_column(col, justify="right")
+    t.add_column("Estado")
+
+    cores = {"melhora": C_POS, "piora": C_NEG}
+    for nome, a in (("sem on-chain", relatorio.avaliacao_base),
+                    ("com on-chain", relatorio.avaliacao_onchain)):
+        cor = cores.get(a.status, C_DIM)
+        m = a.modelo
+        t.add_row(
+            nome,
+            str(m.n_treino) if m else "-",
+            str(m.n_teste) if m else "-",
+            f"{m.razao_chances_geral:.3f}" if m and m.razao_chances_geral is not None else "-",
+            f"{m.razao_chances_decidido:.3f}" if m and m.razao_chances_decidido is not None else "-",
+            f"[{cor}]{a.status}[/{cor}]" + (f" ({a.motivo})" if a.motivo else ""),
+        )
+    console.print(t)
+    console.print()
+
+    console.print(f"  [{C_DIM}]nenhum veredito de aprovacao/reprovacao aqui -- compara a "
+                  f"razao de chances com e sem o atributo, mesmos eventos. Nenhuma ordem "
+                  f"enviada, producao intocada[/{C_DIM}]")
+
+    def _serializar(a):
+        m = a.modelo
+        return {
+            "status": a.status, "motivo": a.motivo,
+            "n_treino": m.n_treino if m else None, "n_teste": m.n_teste if m else None,
+            "razao_geral": m.razao_chances_geral if m else None,
+            "razao_decidido": m.razao_chances_decidido if m else None,
+        }
+
+    export_report(
+        "onchain",
+        {"par": "BTC/USDT", "atributo": relatorio.atributo_declarado,
+         "correlacao": relatorio.correlacao_onchain},
+        [{"avaliacao": "sem_onchain", **_serializar(relatorio.avaliacao_base)},
+         {"avaliacao": "com_onchain", **_serializar(relatorio.avaliacao_onchain)}],
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1199,6 +1274,7 @@ COMMANDS = {
     "modelo":        cmd_modelo,
     "ml":            cmd_modelo,
     "arbitragem":    cmd_arbitragem,
+    "onchain":       cmd_onchain,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
