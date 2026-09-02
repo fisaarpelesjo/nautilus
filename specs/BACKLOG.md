@@ -28,7 +28,7 @@ Coluna **Autonomia**:
 | 011 | Singleton do exchange + retry/backoff de rate limit (`data/fetcher.py`) | Sozinho | ✅ Concluída (`specs/011-rate-limit-hardening/`, US1-US2 + Polish) — risco operacional real pro deploy de 26 pares na VPS; escopo ampliado durante a especificação ao descobrir que `backtesting/scanner.py` tinha o mesmo problema fora de `data/fetcher.py` |
 | 012 | MTF fail-closed + profundidade de liquidez próxima ao preço | Sozinho | ✅ Concluída em 2026-09-02 — MTF fail-closed corrigido em 2026-08-18 (auditoria de código pós-deploy, fora de uma spec formal: `mtf_confirmed()` agora retorna `False` em erro de rede, igual ao resto de `position_lifecycle.py`); profundidade próxima ao preço fechada em `specs/030-liquidez-proxima-preco/` (fluxo SDD completo: specify → plan → tasks → implement). `check_liquidity` somava os 20 níveis do book sem considerar distância de preço; passa a somar só níveis dentro de `MAX_SPREAD_PCT_ENTRY` do melhor ask (constante reusada, sem parâmetro novo). Medido em 22 pares reais: zero divergência de decisão a US$100/ordem (config atual), divergência real a partir de ~US$5.000 em pares de book mais fino (ORCA, ROBO, COW, HEMI) — gap adormecido na config atual, real assim que `MAX_ORDER_SIZE_USDT` crescer |
 | 013 | Risco de correlação entre posições simultâneas | Sozinho | ✅ Concluída em 2026-08-18 (`risk/correlation.py`, fora do fluxo formal de spec — implementado direto após pesquisa aprofundada de mercado confirmar o gap) — `MAX_POSITION_CORRELATION`/`CORRELATION_LOOKBACK`, bloqueador novo em `handle_entry_candidate` |
-| 014 | Refresh periódico de pares dinâmicos (`DYNAMIC_PAIRS_ENABLED`) | Sozinho | 📋 Candidata — baixa urgência (não é a config atual), mas relevante dado o padrão comprovado de VPS de longa duração |
+| 014 | Refresh periódico de pares dinâmicos (`DYNAMIC_PAIRS_ENABLED`) | Sozinho | ✅ Concluída em 2026-09-02 — `specs/031-refresh-pares-dinamicos/` (fluxo SDD completo). Achado de auditoria pré-requisito: o loop principal só gere posição aberta para símbolos dentro de `active_pairs`; um refresh ingênuo que removesse um par com posição aberta o deixaria órfão, sem stop loss/trailing/take profit gerido. `_refresh_active_pairs()` nunca remove símbolo com `manager.has_position()`, a cada `DYNAMIC_PAIRS_REFRESH_CYCLES=1440` (~24h, medido: `select_dynamic_pairs()` custa 36s) ciclos, com evento `dynamic_pairs_refreshed` auditável |
 | 015 | Avançado (ML, multi-corretora) | Bloqueado | ⏸️ Fora da fila — ROADMAP.md já diz "só depois que validação/risco/operação estiverem maduros" |
 | 016 | Teto de perda por trade + circuit breaker destravável | Sozinho | ✅ Concluída em 2026-08-18 (fora do fluxo formal de spec) — `MAX_STOP_LOSS_PCT` (SL via ATR não tinha limite prático: ACE/USDT abriu com stop a ~20% da entrada) e `CIRCUIT_BREAKER_COOLDOWN_HOURS` (breaker ativado sem posição aberta travava para sempre, pois nada gerava o trade lucrativo que o resetava) |
 | 017 | Risco de correlação entre posições | Sozinho | ✅ Concluída em 2026-08-18 — ver 013 (mesma entrega, `risk/correlation.py`) |
@@ -144,19 +144,20 @@ operacional direto pro deploy de 26 pares na VPS (vários chamadas por ciclo de 
 ## Ordem sugerida
 
 Executada: 002 → 003 → 004 → 005 → 006 (parte sozinho) → 007 (parte sozinho) → 009 → 010 → 011
-→ 013 → 016 → 017 → 018 → 019 → 020 → 021 → 023 → 012
+→ 013 → 016 → 017 → 018 → 019 → 020 → 021 → 023 → 012 → 014
 
-Próximas, se e quando fizer sentido: 022 → 014. Nenhuma das duas muda resultado — são
-refinamentos de precisão, não correções de comportamento.
+Próxima, se e quando fizer sentido: 022. Não muda resultado — é refinamento de precisão
+(relógio real no replay), não correção de comportamento.
 
-**Status (2026-09-02)**: 001-005, 008-013, 016-021 e 023 concluídas. 006 e 007 seguem com a parte
+**Status (2026-09-02)**: 001-005, 008-014, 016-021 e 023 concluídas. 006 e 007 seguem com a parte
 autônoma concluída — resta o que depende do operador: "validar preset operacional atual" (006,
 Fase 4 item 1), forward test formal e comparação paper-vs-backtest (007, Fase 5 itens 1 e 4).
 Continuam exigindo tempo real de operação paper.
 
-**Pendentes**: 014 (refresh de pares dinâmicos, baixa urgência) e 022 (relógio real no replay,
-baixa prioridade). 015 fica fora da fila até o resto amadurecer. Nenhuma das duas altera
-comportamento do bot — são refinamentos de precisão.
+**Pendentes**: só 022 (relógio real no replay, baixa prioridade — não altera comportamento do
+bot). 015 fica fora da fila até o resto amadurecer. Diferente de 012/018 (medição) e 014
+(segurança — a guarda de posição aberta), 022 é puramente precisão de simulação: nenhuma das
+correções restantes tem efeito em produção.
 
 ### O que mudou desde 2026-08-16 e por quê importa
 
