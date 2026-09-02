@@ -237,19 +237,45 @@ def comparar(leitura_a: LeituraLivro, leitura_b: LeituraLivro, volume_usdt: floa
     )
 
 
-def medir_ciclo(par: str, volume_usdt: float = VOLUME_USDT_PADRAO) -> tuple[list[Comparacao], list[str]]:
+def mesma_cotacao(leitura_a: LeituraLivro, leitura_b: LeituraLivro) -> tuple[bool, Optional[str]]:
+    """Compara so entre pares de mesma moeda de cotacao (FR-003).
+
+    Comparar `BTC/USDT` com `BTC/USD` mistura o diferencial de arbitragem
+    com o desvio de paridade USDT/USD -- medido em research.md: 0,104% entre
+    cotacoes diferentes contra 0,037% entre iguais, a maior parte do
+    "diferencial" era so a paridade.
+    """
+    cotacao_a = leitura_a.par.split("/")[1]
+    cotacao_b = leitura_b.par.split("/")[1]
+    if cotacao_a != cotacao_b:
+        motivo = (f"cotacoes diferentes: {cotacao_a} ({leitura_a.corretora}) "
+                  f"vs {cotacao_b} ({leitura_b.corretora})")
+        return False, motivo
+    return True, None
+
+
+def medir_ciclo(
+    par: str, volume_usdt: float = VOLUME_USDT_PADRAO,
+) -> tuple[list[Comparacao], list[str], list[tuple[str, str, str]]]:
     """Um ciclo de medicao: le o livro de `par` nas seis corretoras (D1) e
-    compara cada combinacao entre as que responderam.
+    compara cada combinacao entre as que responderam e tem a mesma cotacao.
 
     Falha isolada de uma corretora nunca aborta o ciclo (FR-011) -- ela so
-    fica de fora das combinacoes e aparece na lista de indisponiveis.
+    fica de fora das combinacoes e aparece na lista de indisponiveis. Par de
+    cotacao diferente nunca vira Comparacao (FR-003) -- aparece em
+    `pares_recusados` com o motivo, nunca silenciosamente incluido.
     """
     leituras = {corretora: ler_livro(corretora, par) for corretora in CORRETORAS}
     indisponiveis = [corretora for corretora, leitura in leituras.items() if not leitura.sucesso]
     disponiveis = [leitura for leitura in leituras.values() if leitura.sucesso]
 
-    comparacoes = [
-        comparar(leitura_a, leitura_b, volume_usdt)
-        for leitura_a, leitura_b in combinations(disponiveis, 2)
-    ]
-    return comparacoes, indisponiveis
+    comparacoes = []
+    pares_recusados: list[tuple[str, str, str]] = []
+    for leitura_a, leitura_b in combinations(disponiveis, 2):
+        compativel, motivo = mesma_cotacao(leitura_a, leitura_b)
+        if not compativel:
+            pares_recusados.append((leitura_a.corretora, leitura_b.corretora, motivo))
+            continue
+        comparacoes.append(comparar(leitura_a, leitura_b, volume_usdt))
+
+    return comparacoes, indisponiveis, pares_recusados

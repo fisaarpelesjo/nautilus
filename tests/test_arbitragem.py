@@ -185,10 +185,49 @@ def test_medir_ciclo_falha_isolada_nao_aborta(monkeypatch):
 
     monkeypatch.setattr(arbitragem, "ler_livro", _ler_livro_falso)
 
-    comparacoes, indisponiveis = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+    comparacoes, indisponiveis, pares_recusados = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
 
     assert indisponiveis == ["kraken"]
     corretoras_nas_comparacoes = {c.corretora_compra for c in comparacoes} | {c.corretora_venda for c in comparacoes}
     assert "kraken" not in corretoras_nas_comparacoes
     from math import comb
     assert len(comparacoes) == comb(len(arbitragem.CORRETORAS) - 1, 2)
+    assert pares_recusados == []
+
+
+# ---------------------------------------------------------------------------
+# US2: mesma_cotacao (T016, T017)
+# ---------------------------------------------------------------------------
+
+def test_mesma_cotacao_compativel():
+    leitura_a = arbitragem.LeituraLivro(corretora="binance", par="BTC/USDT", instante=0.0)
+    leitura_b = arbitragem.LeituraLivro(corretora="kraken", par="BTC/USDT", instante=0.0)
+    compativel, motivo = arbitragem.mesma_cotacao(leitura_a, leitura_b)
+    assert compativel
+    assert motivo is None
+
+
+def test_mesma_cotacao_incompativel():
+    leitura_a = arbitragem.LeituraLivro(corretora="binance", par="BTC/USDT", instante=0.0)
+    leitura_b = arbitragem.LeituraLivro(corretora="kraken", par="BTC/USD", instante=0.0)
+    compativel, motivo = arbitragem.mesma_cotacao(leitura_a, leitura_b)
+    assert not compativel
+    assert motivo is not None
+    assert "USDT" in motivo and "USD" in motivo
+
+
+def test_medir_ciclo_recusa_cotacao_diferente(monkeypatch):
+    def _ler_livro_falso(corretora, par):
+        cotacao = "USD" if corretora == "kraken" else "USDT"
+        return arbitragem.LeituraLivro(
+            corretora=corretora, par=f"BTC/{cotacao}", instante=0.0,
+            bids=[(99.9, 100.0)], asks=[(100.0, 100.0)],
+        )
+
+    monkeypatch.setattr(arbitragem, "ler_livro", _ler_livro_falso)
+
+    comparacoes, indisponiveis, pares_recusados = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+
+    corretoras_nas_comparacoes = {c.corretora_compra for c in comparacoes} | {c.corretora_venda for c in comparacoes}
+    assert "kraken" not in corretoras_nas_comparacoes
+    assert any("kraken" in (a, b) for a, b, _motivo in pares_recusados)

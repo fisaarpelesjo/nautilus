@@ -1102,12 +1102,20 @@ def cmd_arbitragem():
     console.print(f"  [{C_DIM}]{par} em {len(CORRETORAS)} corretoras publicas, "
                   f"volume de US$ {VOLUME_USDT_PADRAO:,.0f} por perna -- "
                   f"nenhuma ordem enviada, producao intocada[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]cotacao: {par.split('/')[1]} -- comparacoes entre cotacoes "
+                  f"diferentes sao recusadas, nunca incluidas[/{C_DIM}]")
     console.print()
 
-    comparacoes, indisponiveis = medir_ciclo(par)
+    comparacoes, indisponiveis, pares_recusados = medir_ciclo(par)
 
     if indisponiveis:
         console.print(f"  [{C_NEG}]corretoras indisponiveis neste ciclo[/]: {', '.join(indisponiveis)}")
+        console.print()
+
+    if pares_recusados:
+        console.print(f"  [{C_NEG}]pares recusados (cotacao diferente)[/]:")
+        for corretora_a, corretora_b, motivo in pares_recusados:
+            console.print(f"    [{C_DIM}]{corretora_a} x {corretora_b}: {motivo}[/{C_DIM}]")
         console.print()
 
     cores = {"oportunidade": C_POS, "sem_oportunidade": C_DIM,
