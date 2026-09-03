@@ -2463,6 +2463,176 @@ def cmd_funding():
     )
 
 
+def cmd_basis():
+    """H23 -- premio de futuros com vencimento fixo (contango) vs
+    funding perpetuo (spec 059).
+
+    Diferente de H8 (funding perpetuo, pago a cada 8h, pode inverter de
+    sinal), futuros trimestrais convergem DETERMINISTICAMENTE ao spot no
+    vencimento -- travar as duas pernas ate o vencimento captura o
+    premio sem depender de uma taxa periodica variavel. So BTC/USDT e
+    ETH/USDT tem contrato trimestral USDT-margined na Binance
+    (universo pequeno, real, nao escolhido). Retrato instantaneo, nao
+    serie historica -- um contrato vencido nao tem preco consultavel
+    depois (diferente de funding rate).
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.basis_carry import avaliar_universo
+    from backtesting.funding_carry import BENCHMARK_RENDA_FIXA_AA
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H23 -- premio de futuros trimestrais (contango)[/]")
+    console.print(f"  [{C_DIM}]convergencia deterministica ao vencimento, diferente do funding "
+                  f"variavel de H8. So BTC/USDT e ETH/USDT tem contrato trimestral USDT-margined. "
+                  f"Retrato instantaneo (hoje), nao serie de 1 ano[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo()
+
+    if not resultados:
+        console.print(f"  [{C_NEG}]nenhum contrato trimestral USDT-margined disponivel[/{C_NEG}]")
+        return
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Contrato")
+    for col in ("vencimento", "dias", "basis bruto a.a.", "liq./nocional", "liq./capital"):
+        t.add_column(col, justify="right")
+    t.add_column("Supera benchmark")
+
+    for r in resultados:
+        cor = C_POS if r.supera_benchmark else C_NEG
+        t.add_row(
+            r.symbol, r.expiry_datetime[:10], f"{r.dias_ate_vencimento:.0f}",
+            f"{r.basis_bruto_aa:+.2%}", f"{r.basis_liquido_aa_nocional:+.2%}",
+            f"{r.basis_liquido_aa_capital_implantado:+.2%}",
+            f"[{cor}]{r.supera_benchmark}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    n_supera = sum(1 for r in resultados if r.supera_benchmark)
+    console.print(f"  [{C_LABEL}]{n_supera} de {len(resultados)}[/] contratos superam o benchmark "
+                  f"({BENCHMARK_RENDA_FIXA_AA:.0%} a.a.) sobre capital implantado")
+
+    export_report(
+        "basis",
+        {"bases": ["BTC", "ETH"], "benchmark_renda_fixa_aa": BENCHMARK_RENDA_FIXA_AA},
+        {
+            "resultados": [
+                {"par": r.par, "symbol": r.symbol, "expiry_datetime": r.expiry_datetime,
+                 "dias_ate_vencimento": r.dias_ate_vencimento, "basis_bruto_aa": r.basis_bruto_aa,
+                 "basis_liquido_aa_nocional": r.basis_liquido_aa_nocional,
+                 "basis_liquido_aa_capital_implantado": r.basis_liquido_aa_capital_implantado,
+                 "supera_benchmark": r.supera_benchmark}
+                for r in resultados
+            ],
+            "n_supera_benchmark": n_supera,
+            "n_total": len(resultados),
+        },
+    )
+
+
+def cmd_triangular():
+    """H22 -- arbitragem triangular intra-corretora (spec 060).
+
+    Instrumento de amostragem, nao veredito: mede o diferencial liquido
+    de um ciclo de tres pernas DENTRO DA MESMA CORRETORA (ex.: BTC/USDT
+    -> ETH/BTC -> ETH/USDT -> volta a USDT), sem enviar ordem alguma e
+    sem exigir chave de API. Diferente de H15 (duas pernas, corretoras
+    diferentes -- o obstaculo dominante e latencia de rede entre
+    corretoras), aqui o obstaculo e concorrencia com bots de alta
+    frequencia na escala de milissegundos, nao latencia estrutural.
+    """
+
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.arbitragem_triangular import (
+        CUSTO_3_PERNAS,
+        MIN_OBSERVACOES_AGREGACAO,
+        VOLUME_USDT_PADRAO,
+        agregar,
+        medir_triangulo,
+    )
+    from data.arbitragem_triangular_store import carregar_observacoes
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    intermediaria = sys.argv[2] if len(sys.argv) > 2 else "ETH"
+    base = sys.argv[3] if len(sys.argv) > 3 else "BTC"
+    cotacao = sys.argv[4] if len(sys.argv) > 4 else "USDT"
+
+    header()
+    console.print(f"[bold {C_CYAN}]arbitragem triangular intra-corretora (H22)[/]")
+    console.print(f"  [{C_DIM}]{base}/{cotacao} -> {intermediaria}/{base} -> {intermediaria}/{cotacao} "
+                  f"na Binance, volume de US$ {VOLUME_USDT_PADRAO:,.0f} -- custo de 3 pernas "
+                  f"{CUSTO_3_PERNAS:.2%} -- nenhuma ordem enviada, producao intocada[/{C_DIM}]")
+    console.print()
+
+    ciclos, indisponiveis = medir_triangulo(base=base, intermediaria=intermediaria, cotacao=cotacao)
+
+    if indisponiveis:
+        console.print(f"  [{C_NEG}]pernas indisponiveis neste ciclo[/]: {', '.join(indisponiveis)}")
+        console.print(f"  [{C_DIM}]ciclo abortado -- sem medicao parcial[/{C_DIM}]")
+        return
+
+    cores = {"oportunidade": C_POS, "sem_oportunidade": C_DIM,
+             "profundidade_insuficiente": C_CYAN, "latencia_alta": C_CYAN}
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Direcao")
+    for col in ("Bruto %", "Custo %", "Liquido %", "Volume final US$", "Intervalo ms"):
+        t.add_column(col, justify="right")
+    t.add_column("Estado")
+
+    for c in ciclos:
+        cor = cores.get(c.estado, C_DIM)
+        t.add_row(
+            c.direcao,
+            f"{c.diferencial_bruto_pct * 100:+.4f}", f"{c.custo_pct * 100:.3f}",
+            f"{c.diferencial_liquido_pct * 100:+.4f}", f"{c.volume_final_usdt:,.2f}",
+            f"{c.intervalo_ms:.0f}", f"[{cor}]{c.estado.replace('_', ' ')}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    historico = carregar_observacoes()
+    relatorio = agregar(ciclos, historico)
+
+    console.print(f"  [bold {C_CYAN}]agregado historico[/]")
+    console.print(f"    [{C_LABEL}]N total[/]: {relatorio.n_observacoes_total}")
+    for (triangulo, direcao), n in sorted(relatorio.n_observacoes_por_direcao.items()):
+        console.print(f"      [{C_DIM}]{triangulo} ({direcao}): {n}[/{C_DIM}]")
+    if relatorio.estado_agregado == "inconclusivo":
+        menor = min(relatorio.n_observacoes_por_direcao.values(), default=0)
+        console.print(f"    [{C_CYAN}]inconclusivo[/] -- faltam "
+                       f"{max(0, MIN_OBSERVACOES_AGREGACAO - menor)} observacoes na direcao "
+                       f"menos medida para atingir o minimo declarado ({MIN_OBSERVACOES_AGREGACAO})")
+    else:
+        console.print(f"    [{C_POS}]amostra suficiente[/] -- so descritivo, "
+                       f"NAO e veredito de aprovacao/reprovacao")
+    console.print()
+
+    console.print(f"  [{C_LABEL}]executabilidade (D6)[/]: [{C_NEG}]inexecutavel hoje[/] -- "
+                  f"{relatorio.motivo_executabilidade}")
+
+    export_report(
+        "triangular",
+        {"base": base, "intermediaria": intermediaria, "cotacao": cotacao,
+         "volume_usdt": VOLUME_USDT_PADRAO, "n_observacoes_total": relatorio.n_observacoes_total,
+         "estado_agregado": relatorio.estado_agregado},
+        [{"direcao": c.direcao, "diferencial_bruto_pct": c.diferencial_bruto_pct,
+          "custo_pct": c.custo_pct, "diferencial_liquido_pct": c.diferencial_liquido_pct,
+          "volume_final_usdt": c.volume_final_usdt, "intervalo_ms": c.intervalo_ms,
+          "estado": c.estado}
+         for c in ciclos],
+    )
+
+
 def _fracao_custo_consumida(com_custo, sem_custo):
     """Fracao da vantagem bruta que o custo de execucao consome -- mesma
     formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
@@ -2657,6 +2827,8 @@ COMMANDS = {
     "carteira_barreira": cmd_carteira_barreira,
     "carteira_barreira_corr": cmd_carteira_barreira_corr,
     "funding": cmd_funding,
+    "basis": cmd_basis,
+    "triangular": cmd_triangular,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

@@ -67,6 +67,8 @@ python main.py arbitragem [PAR]     # diferencial liquido entre corretoras, inst
 python main.py onchain               # H17 -- comparacao isolada BTC-only com/sem atributo on-chain (spec 034)
 python main.py grid                  # H18 -- grid trading com gestao de cauda (regime ADX), UNIVERSO_H11 (spec 035)
 python main.py funding               # H8 -- arbitragem de funding rate, universo amplo e eficiencia de capital (spec 058)
+python main.py basis                 # H23 -- premio de futuros trimestrais (contango) vs funding perpetuo (spec 059)
+python main.py triangular [ETH] [BTC] [USDT]  # H22 -- arbitragem triangular intra-corretora (spec 060)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal

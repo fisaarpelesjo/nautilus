@@ -24,6 +24,7 @@ data/performance_report.html
 data/state.json
 data/killswitch.json
 data/arbitragem.jsonl
+data/arbitragem_triangular.jsonl
 data/ohlcv/
 .coverage
 reports/

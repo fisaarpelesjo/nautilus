@@ -69,6 +69,8 @@ python main.py arbitragem [PAIR]    # net differential between exchanges, sampli
 python main.py onchain               # H17 -- isolated BTC-only comparison with/without on-chain attribute (spec 034)
 python main.py grid                  # H18 -- grid trading with tail-risk management (ADX regime), UNIVERSO_H11 (spec 035)
 python main.py funding               # H8 -- funding rate arbitrage, wide universe and capital efficiency correction (spec 058)
+python main.py basis                 # H23 -- quarterly futures premium (contango) vs perpetual funding (spec 059)
+python main.py triangular [ETH] [BTC] [USDT]  # H22 -- triangular arbitrage within a single exchange (spec 060)
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal

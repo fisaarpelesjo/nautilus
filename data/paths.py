@@ -6,6 +6,7 @@ DECISIONS_FILE = "data/decisions.csv"
 STATE_FILE = "data/state.json"
 KILLSWITCH_FILE = "data/killswitch.json"
 ARBITRAGEM_FILE = "data/arbitragem.jsonl"
+ARBITRAGEM_TRIANGULAR_FILE = "data/arbitragem_triangular.jsonl"
 OHLCV_DIR = "data/ohlcv"
 
 Path(OHLCV_DIR).mkdir(parents=True, exist_ok=True)
