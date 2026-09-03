@@ -3062,6 +3062,52 @@ entrada.
   seleção (menor liquidez em vez de maior) dentro dos limiares mínimos
   operáveis já declarados.
 
+**Atualização — testada, excesso negativo em treino E validação, refutada (2026-09-03, spec 067).**
+`python main.py fator_tamanho`, `UNIVERSO_AMPLO_HISTORICO_COMPLETO` (22
+pares): cesta igualmente ponderada dos 7 pares de menor volume médio
+vs. os 7 de maior volume, rebalanceada a cada 180 candles (30 dias),
+comparadas em treino e validação sob 3 multiplicadores de slippage
+(1x/3x/5x, já que backtest não tem order book histórico real —
+`research.md` D4).
+
+**Resultado (1x slippage):**
+
+| Fatia | Cesta | Retorno | Drawdown |
+|---|---|---|---|
+| Treino | menor volume | +192,00% | 62,56% |
+| Treino | maior volume | **+343,29%** | 54,52% |
+| Validação | menor volume | **−41,57%** | 70,65% |
+| Validação | maior volume | −5,03% | 51,27% |
+
+**Excesso ilíquida-líquida: −151,29pp no treino, −36,54pp na
+validação — negativo nos dois lados do corte, na direção OPOSTA à
+hipótese.** Diferente de H10 (excesso positivo só no treino, "só na
+busca") ou de resultados marginais como H8/ASTER, aqui a rejeição é
+consistente e de magnitude grande nos dois cortes — não é um caso limite
+que uma checagem de confiança poderia reverter. O multiplicador de
+slippage (1x→5x) muda o resultado em menos de 2 pontos percentuais em
+qualquer célula — o custo de execução não é o que decide este resultado,
+a seleção de ativos em si é.
+
+**Por que a direção inverteu em relação à literatura.** A janela medida
+(mesmos ~2,7 anos de histórico de todas as hipóteses desta sessão) é
+predominantemente de queda para o universo cripto amplo (buy-and-hold
+negativo em quase todas as outras hipóteses medidas nesta sessão) — e
+em quedas amplas, ativos menores/menos estabelecidos tendem a cair MAIS
+que os líderes de mercado (BTC/ETH dominam a cesta "maior volume"),
+não menos. O prêmio de tamanho documentado na literatura é medido sobre
+períodos e regimes mais longos que os ~2,7 anos disponíveis aqui — este
+resultado não refuta a literatura de forma geral, refuta o tilt como
+operável NESTE universo e NESTA janela específicos.
+
+**Veredito: REPROVADA.** Excesso negativo e consistente nos dois lados
+do corte fora da amostra — não sobrevive nem à checagem mais básica
+(sinal do excesso), muito menos precisaria da sensibilidade a custo
+para ser descartada.
+
+**Reprodução:** `python main.py fator_tamanho` ·
+`specs/067-h30-fator-tamanho-iliquidez/`.
+
 ### 6.2 Prioridade média
 
 **H24 — Diferencial de funding rate entre corretoras (perp × perp, sem perna a vista)** *(adicionada em 2026-09-03)*
