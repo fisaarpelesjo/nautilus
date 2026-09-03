@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from backtesting.portfolio_h14 import _simular_carteira_core, comparar_drawdown
+from backtesting.portfolio_h14 import UNIVERSO_AMPLO, _simular_carteira_core, comparar_drawdown
 
 LIMIAR = 0.3333
 
@@ -226,3 +226,16 @@ def test_comparar_drawdown_devolve_os_dois_numeros_separados():
     assert r["drawdown_carteira"] == pytest.approx(12.5)
     assert r["maior_drawdown_por_par"] == pytest.approx(45.0)
     assert r["drawdowns_por_par"] == {"A/USDT": 30.0, "B/USDT": 45.0}
+
+
+# ============================================== spec 040 (universo amplo)
+
+def test_universo_amplo_tem_34_pares_unicos_usdt():
+    assert len(UNIVERSO_AMPLO) == 34
+    assert len(set(UNIVERSO_AMPLO)) == 34
+    assert all(p.endswith("/USDT") for p in UNIVERSO_AMPLO)
+
+
+def test_universo_amplo_nao_inclui_pegged_excluidos():
+    excluidos = {"USD1/USDT", "RLUSD/USDT", "EUR/USDT", "XAUT/USDT", "PAXG/USDT"}
+    assert not (excluidos & set(UNIVERSO_AMPLO))

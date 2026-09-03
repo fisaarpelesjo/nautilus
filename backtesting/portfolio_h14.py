@@ -40,6 +40,22 @@ from config.settings import (
 )
 
 
+# Universo amplo (spec 040) -- 34 pares, snapshot 2026-09-03. Medido via
+# market/selector.py::_filter_tickers (limiares de liquidez ja declarados
+# do projeto, MIN_VOLUME_USDT/MAX_SPREAD_PCT), menos 5 pegged que o
+# filtro de stablecoins existente nao cobre (USD1, RLUSD, EUR, XAUT,
+# PAXG -- specs/040-carteira-universo-amplo/research.md, D1). Fixo, nao
+# recalculado a cada execucao -- mesma reprodutibilidade de UNIVERSO_H11.
+UNIVERSO_AMPLO = [
+    "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ZEC/USDT", "UNI/USDT",
+    "BNB/USDT", "DOGE/USDT", "SUI/USDT", "HEMI/USDT", "ARB/USDT", "ENA/USDT",
+    "U/USDT", "TRUMP/USDT", "LINK/USDT", "AAVE/USDT", "TRX/USDT", "NEAR/USDT",
+    "BMT/USDT", "SNDKB/USDT", "PUMP/USDT", "ADA/USDT", "FIL/USDT", "PROM/USDT",
+    "LTC/USDT", "T/USDT", "PEPE/USDT", "WLD/USDT", "ASTER/USDT", "CRCLB/USDT",
+    "TUT/USDT", "MUBARAK/USDT", "TAO/USDT", "AVAX/USDT",
+]
+
+
 @dataclass
 class PosicaoCarteira:
     """Espelha o estado por posicao de `simulate_backtest` -- um por par
@@ -298,6 +314,7 @@ def comparar_drawdown(resultado_carteira: BacktestResult, avaliacoes: list) -> d
 __all__ = [
     "CarteiraH14",
     "PosicaoCarteira",
+    "UNIVERSO_AMPLO",
     "_dados_da_carteira",
     "_simular_carteira_core",
     "comparar_drawdown",

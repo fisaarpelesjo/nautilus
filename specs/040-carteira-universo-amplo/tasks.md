@@ -37,12 +37,12 @@ símbolos únicos, todos `/USDT`, e nenhum dos 5 pegged excluídos (D1).
 
 ### Tests for User Story 1
 
-- [ ] T001 [P] [US1] Teste em `tests/test_portfolio_h14.py`: `UNIVERSO_AMPLO` tem 34 símbolos únicos, todos terminam em `/USDT` (FR-001)
-- [ ] T002 [P] [US1] Teste: nenhum dos 5 pegged excluídos (USD1, RLUSD, EUR, XAUT, PAXG) aparece em `UNIVERSO_AMPLO` (D1)
+- [X] T001 [P] [US1] Teste em `tests/test_portfolio_h14.py`: `UNIVERSO_AMPLO` tem 34 símbolos únicos, todos terminam em `/USDT` (FR-001)
+- [X] T002 [P] [US1] Teste: nenhum dos 5 pegged excluídos (USD1, RLUSD, EUR, XAUT, PAXG) aparece em `UNIVERSO_AMPLO` (D1)
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Adicionar `UNIVERSO_AMPLO` (lista de 34 símbolos, D1) em `backtesting/portfolio_h14.py` (depende de T001-T002)
+- [X] T003 [US1] Adicionar `UNIVERSO_AMPLO` (lista de 34 símbolos, D1) em `backtesting/portfolio_h14.py` (depende de T001-T002)
 
 **Checkpoint**: `pytest tests/test_portfolio_h14.py -v` — T001-T002
 passam. MVP completo: universo declarado e pronto para consumo por
