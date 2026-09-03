@@ -1810,6 +1810,66 @@ linha) — não mais parâmetros ou combinações de quando entrar.
 
 ---
 
+#### Atualização — calibração do classificador, filtro de confiança refutado (2026-09-03, spec 055)
+
+A linha de overlays de risco fechou (spec 047) apontando para dois
+próximos passos: o classificador de entrada em si, ou o mecanismo de
+saída. Esta spec ataca o primeiro, e o mais barato de medir: o
+subconjunto já decidido em produção (`prob > limiar_de_decisao`,
+0,3333) tem uma **cauda de alta confiança** explorável — um corte mais
+estrito (menos trades, mais confiantes) que concentraria qualidade e
+abriria caminho para uma variante de entrada por confiança?
+
+**Resultado (`python main.py calibracao`, 2026-09-03, `UNIVERSO_H11`):**
+
+| corte | n | alvo | stop | razão | supera_empate_ci95 |
+|---|---|---|---|---|---|
+| 0,3333 (real) | 2.486 | 968 | 1.378 | 0,7025 | **True** |
+| 0,35 | 1.056 | 411 | 597 | 0,6884 | **True** |
+| 0,40 | 80 | 32 | 44 | 0,7273 | **False** |
+| 0,45 | 17 | 10 | 6 | 1,6667 | **True** (amostra minúscula) |
+| 0,50 | 6 | 2 | 3 | 0,6667 | **False** |
+| 0,55 | 1 | 1 | 0 | inf | **False** |
+| 0,60 | 1 | 1 | 0 | inf | **False** |
+
+**Hipótese refutada — não existe cauda explorável.** Entre 0,3333 e
+0,35, a única faixa com amostra grande o bastante para comparar, a
+razão não sobe (0,7025 → 0,6884, dentro do ruído). A partir de 0,40 a
+amostra desaba (80 → 17 → 6 → 1 → 1) e a razão oscila sem padrão —
+ruído amostral, não sinal crescente. O ponto em 0,45 "supera" com
+`n=17`, exatamente o padrão que motivou `supera_empate_com_confianca`
+existir (M9/M13): ponto estimado bom sem amostra para sustentar. Subir
+o corte não troca trades ruins por bons — só descarta amostra até sobrar
+ruído. A variante de entrada por confiança (filtro binário mais estrito)
+está refutada; não vale a pena construí-la.
+
+**O que isso não muda.** O subconjunto já decidido em 0,3333 continua
+com razão real e significativa (0,70 > empate 0,50) — o mesmo achado de
+spec 036, agora confirmado por uma medição independente (diferença de
+0,3-1,1% nas contagens brutas, atribuída a detalhe de alinhamento de
+índice entre scripts, não a divergência de metodologia; `research.md`
+D2 documenta a reconciliação). Não testa **dimensionar** a posição pela
+confiança (apostar menos nas previsões fracas em vez de descartá-las) —
+mecanismo diferente de filtrar, ainda não coberto. Não testa o
+mecanismo de saída (take-profit ATR + stop trailing, nunca alterado em
+nenhuma das nove specs de H14 até aqui).
+
+**M-catalog, nota lateral.** O diagnóstico ad-hoc que motivou esta spec
+cometeu dois erros próprios antes de chegar ao resultado acima:
+confundiu `limiar_de_empate` (razão de empate, 0,500) com
+`limiar_de_decisao` (limiar de probabilidade real, 0,3333) — funções
+lado a lado em `backtesting/modelo.py` com nomes parecidos — e contou
+`rotulo_bruto == 0` (timeout genuíno) como `NaN` (reservado a ATR
+inválido). Nenhum dos dois chegou a produzir uma conclusão publicada;
+`research.md` D1 documenta ambos como parte do processo, não como
+achado de instrumentação (M) — o defeito era do script de diagnóstico,
+não de código do projeto.
+
+**Reprodução:** `python main.py calibracao` ·
+`specs/055-h14-calibracao-classificador/`.
+
+---
+
 ### 4.16 H20 — Geometria de barreira
 
 **Origem.** Única hipótese do registro derivada de um **resultado** e não da
