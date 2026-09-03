@@ -1820,6 +1820,7 @@ COMMANDS = {
     "carteira_ampla": cmd_carteira_ampla,
     "carteira_vol":  cmd_carteira_vol,
     "carteira_corr": cmd_carteira_corr,
+    "carteira_combo": cmd_carteira_combo,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
