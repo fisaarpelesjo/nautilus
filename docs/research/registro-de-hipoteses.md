@@ -3095,6 +3095,38 @@ que motivou testar esta variante.
   atributo único de H17 — declarar um atributo, medir colinearidade
   contra os 5 de H14, testar).
 
+**Atualização — viabilidade testada, negativa nas duas fontes (2026-09-03, spec 068).**
+Chamadas reais (não suposição) contra as duas fontes candidatas:
+
+| Critério (barra declarada) | GitHub (`stats/commit_activity`) | Google Trends (`pytrends`) |
+|---|---|---|
+| Histórico ~2,7 anos | **Falha** — 52 semanas (1 ano), teto do próprio endpoint | Passa — 262 semanas (5 anos) disponíveis |
+| Granularidade compatível com candles de 4h | **Falha** — só semanal | **Falha** — semanal na janela longa (diária só em janelas curtas, que perderiam a maior parte do histórico) |
+| Confiabilidade para campanha de 12 pares sem infra paga | Passa — rate limit 60/hora não-autenticado, generoso | **Falha** — segunda chamada bloqueada (HTTP 400) mesmo com sessão nova e 20s de espera antes |
+
+**Nenhuma fonte passa nos três critérios simultaneamente.** GitHub tem
+rate limit generoso mas histórico/granularidade inadequados (o teto de
+52 semanas é do endpoint, não contornável por paginação sem trocar de
+abordagem inteiramente). Google Trends tem histórico e potencial
+granularidade adequados, mas o rate limit agressivo já citado na
+fundamentação se confirmou na prática — a segunda chamada de um teste
+de duas falhou, o que projeta uma campanha real de 12 pares como
+inviável sem infraestrutura paga (proxies, API paga) fora do escopo
+declarado.
+
+**Não é REPROVADA — é viabilidade negativa, categoria distinta.** Nada
+foi medido sobre sentimento predizer retorno; a pergunta não pôde nem
+começar a ser testada com os recursos gratuitos disponíveis hoje.
+Reabrível se uma fonte gratuita com histórico/granularidade adequados
+aparecer no futuro. Nenhuma dependência nova entrou no ambiente
+compartilhado do projeto (`pytrends` testado via instalação isolada em
+diretório temporário, nunca adicionado ao `.venv`); nenhuma conta ou
+chave paga foi criada.
+
+**Reprodução:** `specs/068-h31-dados-alternativos-sentimento/research.md`
+(checagem ad-hoc documentada, sem comando de produção — nenhum código
+foi construído).
+
 **H32 — On-chain mais rico (fluxo de exchange, carteiras grandes, oferta de stablecoin)** *(adicionada em 2026-09-03)*
 
 - *Fundamentação:* H17 testou UM atributo on-chain (`onchain_addr_growth_7d`,
