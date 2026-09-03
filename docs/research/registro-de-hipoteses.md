@@ -227,7 +227,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
-| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66% (5x o maior por par isolado), profit factor 0,72 (spec 037) |
+| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — ainda reprovado por margem substancial; o problema é o profit factor por trade, não a composição de risco |
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** | Tese refutada por medição; sinal aterrissa no empate em **duas** geometrias |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
@@ -1628,6 +1628,60 @@ até aqui nesta linha de investigação.
 
 ---
 
+#### Atualização — combinação total (teto), a expectativa se confirma e fecha a linha de investigação (2026-09-03, spec 047)
+
+Os três mecanismos não-degenerados (dimensionamento spec 041, correlação
+spec 042, limite diário spec 045) ligados ao mesmo tempo — teto da
+família inteira, expectativa declarada antes de medir: resultado perto
+do gate de correlação sozinho, não soma aditiva
+(`specs/047-combinado-total-h14/spec.md`).
+
+**Resultado (`python main.py carteira_teto`, 2026-09-03) — todos os oito testes desta linha de investigação:**
+
+| Overlay | Trades | Retorno | Drawdown | Profit factor |
+|---|---|---|---|---|
+| Sem overlay (037) | 931 | −20,12% | 28,66% | 0,72 |
+| Só volatilidade (041) | 763 | −18,16% | 23,04% | 0,72 |
+| Só correlação (042) | 595 | −16,04% | 20,74% | 0,68 |
+| Vol + correlação (043) | 595 | −15,98% | 20,24% | 0,67 |
+| Circuit breaker (044, degenerado) | 6 | −0,40% | 0,57% | 0,36 |
+| Só limite diário (045) | 762 | −16,50% | 22,17% | 0,75 |
+| Correlação + limite diário (046) | 594 | −15,63% | 20,38% | 0,68 |
+| **Teto: vol + correlação + limite diário (047)** | **594** | **−15,56%** | **19,88%** | **0,68** |
+
+**A expectativa se confirmou.** `total_trades` do teto (594) é
+essencialmente idêntico ao do gate de correlação sozinho (595) — a
+composição dos três não muda a decisão de QUAIS trades abrem além do
+que a correlação já decide; dimensionamento e limite diário só
+contribuem ajustes marginais (tamanho de posição e uma pausa ocasional)
+por cima da mesma seleção. **Este é o melhor drawdown de toda a linha
+de investigação não-degenerada: 19,88%** — pela primeira vez abaixo de
+20%, mas por uma margem pequena (0,86 ponto percentual abaixo do gate
+sozinho) que não muda a leitura qualitativa.
+
+**Ainda reprovado, e por boa margem em ambos os critérios**: drawdown
+quase o dobro do teto aceitável (10%), profit factor 0,68 bem abaixo do
+mínimo 1,2. **Fecha a linha de investigação de overlays de risco sobre
+a decisão de entrada de H14.** Oito testes, cinco mecanismos distintos
+(dois espaciais/de tamanho — dimensionamento, correlação —, dois
+temporais — circuit breaker, limite diário —, mais suas combinações),
+e o teto medido da família inteira ainda reprova por margem
+substancial. A composição de risco não resolve o problema porque o
+problema não é de composição de risco: o sinal estatístico de H14 é
+real (spec 036, z = +7,97) mas o profit factor por trade nunca passou
+de 0,75 em nenhuma configuração testada — nenhum overlay que só decide
+QUANDO/QUANTO abrir consegue consertar uma taxa de acerto por trade que
+já nasce abaixo do necessário. Os próximos passos, se houver, atacam
+outra parte do mecanismo — o classificador de entrada em si (por que o
+profit factor por trade é baixo) ou o mecanismo de saída (take-profit
+por ATR + stop trailing, nunca alterado em nenhuma das oito specs desta
+linha) — não mais parâmetros ou combinações de quando entrar.
+
+**Reprodução:** `python main.py carteira_teto` ·
+`specs/047-combinado-total-h14/`.
+
+---
+
 ### 4.16 H20 — Geometria de barreira
 
 **Origem.** Única hipótese do registro derivada de um **resultado** e não da
@@ -1927,7 +1981,13 @@ o teste que definia `insuficiente` passou a responder **sim** — z = +7,97 cont
 (`specs/037-motor-carteira-h14/`): **reprovada** — drawdown de carteira 28,66%
 (5x o maior drawdown isolado por par, 5,54%), profit factor 0,72. Sinal
 estatístico continua real; não sobrevive a capital compartilhado entre os
-12 pares.)*
+12 pares. Linha de overlays de risco (specs 040-047, 2026-09-03): universo
+amplo refutado; dimensionamento, correlação, circuit breaker (degenerado),
+limite de drawdown diário e suas combinações medidos isolados e no teto —
+melhor caso (vol+correlação+limite diário) 19,88% de drawdown, profit
+factor 0,68, ainda reprovado por margem substancial. Linha fechada: o
+problema é o profit factor por trade, não a composição de risco — ver
+§4.15, atualização spec 047.)*
 
 *(H20 avaliada em 2026-09-01 — ver seção 4.16. Status: **reprovada**. Tese
 refutada por medição; o sinal aterrissa no ponto de empate em duas geometrias
