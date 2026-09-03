@@ -59,7 +59,7 @@ sem alterar o resultado default.
 
 ## Phase 3: Polish & Cross-Cutting Concerns
 
-- [ ] T009 Criar `cmd_carteira_corr()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_gate_correlacao=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e o drawdown já publicado sem o gate (28,66%, spec 037) lado a lado; registrar `"carteira_corr": cmd_carteira_corr` em `COMMANDS`; exportar via `export_report("carteira_corr", ...)`
+- [X] T009 Criar `cmd_carteira_corr()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_gate_correlacao=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e o drawdown já publicado sem o gate (28,66%, spec 037) lado a lado; registrar `"carteira_corr": cmd_carteira_corr` em `COMMANDS`; exportar via `export_report("carteira_corr", ...)`
 - [ ] T010 Rodar `python main.py carteira_corr` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — validação manual do passo 2 do `quickstart.md`, resultado real
 - [ ] T011 Registrar o resultado real de T010 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — comparação explícita contra os 28,66% já publicados e contra o resultado de dimensionamento por volatilidade (23,04%, spec 041); texto depende do resultado medido, não escrito antes de T010
 - [ ] T012 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `risk/correlation.py`/`backtesting/engine.py`/`backtesting/approval.py` (intocados)

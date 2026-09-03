@@ -1671,6 +1671,68 @@ def cmd_carteira_vol():
     )
 
 
+def cmd_carteira_corr():
+    """Gate de correlacao na carteira de H14 (spec 042).
+
+    Bloqueia uma entrada nova quando correlacionada (retornos >=
+    MAX_POSITION_CORRELATION na janela CORRELATION_LOOKBACK) com uma
+    posicao ja aberta -- checagem ponto-no-tempo com a mesma semantica
+    do gate real de producao (risk/correlation.py), nunca busca dado ao
+    vivo dentro do backtest.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]gate de correlacao na carteira de H14[/]")
+    console.print(f"  [{C_DIM}]bloqueia entrada correlacionada (>=0,7 em 50 candles) com posicao "
+                  f"ja aberta -- mesmo limiar do gate real de producao. Mesmos 12 pares do "
+                  f"resultado ja publicado (spec 037)[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(pares=list(UNIVERSO_H11), usar_gate_correlacao=True)
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%")
+    console.print(f"  [{C_LABEL}]drawdown agregado (com gate de correlacao)[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]drawdown ja publicado -- sem gate (spec 037) 28.66%   "
+                  f"com dimensionamento por volatilidade (spec 041) 23.04%[/{C_LABEL}]")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_corr",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_sem_gate_publicado": 28.66, "drawdown_dimensionamento_vol_publicado": 23.04},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1694,6 +1756,7 @@ COMMANDS = {
     "pairs":         cmd_pairs,
     "carteira_ampla": cmd_carteira_ampla,
     "carteira_vol":  cmd_carteira_vol,
+    "carteira_corr": cmd_carteira_corr,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
