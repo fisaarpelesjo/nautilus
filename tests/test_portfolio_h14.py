@@ -8,6 +8,7 @@ from backtesting.portfolio_h14 import (
     _simular_carteira_core,
     comparar_drawdown,
 )
+from config.settings import MAX_CONSECUTIVE_LOSSES
 
 LIMIAR = 0.3333
 
@@ -439,3 +440,88 @@ def test_fator_nunca_amplia_alem_do_teto_ja_existente():
     )
 
     assert r_vol_baixa.trades[0].quantity <= r_sem.trades[0].quantity * 1.0001
+
+
+# ==================================== spec 044 (circuit breaker de perdas consecutivas)
+
+def _cenario_circuit_breaker(com_reset: bool):
+    """A abre e bate stop 3x seguidas (perdas_consecutivas -> 3, o
+    default de MAX_CONSECUTIVE_LOSSES). C tenta abrir logo depois -- so
+    consegue se algo resetar o contador antes. Se `com_reset=True`, B
+    abre junto com a 3a entrada de A e bate take-profit depois do
+    breaker disparar, resetando o contador antes da tentativa de C."""
+    assert MAX_CONSECUTIVE_LOSSES == 3, "cenario assume o default -- ajustar se MAX_CONSECUTIVE_LOSSES mudar"
+    idx = _idx(12)
+    n = len(idx)
+
+    sinal_a = [0.0] * n
+    close_a = [100.0] * n
+    high_a = [100.0] * n
+    low_a = [99.9] * n
+    for entrada in (0, 2, 4):
+        sinal_a[entrada] = 1.0
+    for saida_stop in (1, 3, 5):
+        low_a[saida_stop] = 96.0  # stop = 100 - 1.5*2 = 97 -> dispara
+
+    sinal_c = [0.0] * n
+    close_c = [100.0] * n
+    high_c = [100.0] * n
+    low_c = [99.9] * n
+    for t in range(6, n):
+        sinal_c[t] = 1.0  # tenta abrir em todo candle a partir do gatilho do breaker
+
+    previsoes = {
+        "A/USDT": pd.Series(sinal_a, index=idx),
+        "C/USDT": pd.Series(sinal_c, index=idx),
+    }
+    preparados = {
+        "A/USDT": _prep(idx, close=close_a, high=high_a, low=low_a),
+        "C/USDT": _prep(idx, close=close_c, high=high_c, low=low_c),
+    }
+
+    if com_reset:
+        sinal_b = [0.0] * n
+        sinal_b[4] = 1.0  # abre junto com a 3a entrada de A (perdas ainda = 2, nao bloqueia)
+        close_b = [100.0] * n
+        high_b = [100.0] * n
+        high_b[7] = 107.0  # alvo = 100 + 3.0*2 = 106 -> take profit em t7, reseta o contador
+        low_b = [99.9] * n
+        previsoes["B/USDT"] = pd.Series(sinal_b, index=idx)
+        preparados["B/USDT"] = _prep(idx, close=close_b, high=high_b, low=low_b)
+
+    return previsoes, preparados
+
+
+def test_circuit_breaker_bloqueia_apos_perdas_consecutivas_no_limite():
+    previsoes, preparados = _cenario_circuit_breaker(com_reset=False)
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_circuit_breaker=True,
+    )
+
+    assert r.total_trades == 3  # so as 3 perdas de A -- C nunca chega a abrir, nada reseta o contador
+    assert all(t.exit_reason == "Stop Loss" for t in r.trades)
+
+
+def test_circuit_breaker_reseta_no_primeiro_trade_lucrativo():
+    previsoes, preparados = _cenario_circuit_breaker(com_reset=True)
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_circuit_breaker=True,
+    )
+
+    # 3 perdas de A + o lucro de B (que reseta o contador) + C, agora liberado
+    assert r.total_trades == 5
+    assert sum(1 for t in r.trades if t.exit_reason == "Take Profit") == 1
+
+
+def test_circuit_breaker_desligado_por_padrao_reproduz_resultado_ja_publicado():
+    previsoes, preparados = _cenario_circuit_breaker(com_reset=False)
+
+    r_sem_flag = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0)
+    r_com_flag_false = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_circuit_breaker=False,
+    )
+
+    assert r_sem_flag.total_trades == r_com_flag_false.total_trades == 4  # C abre normalmente, sem bloqueio
+    assert r_sem_flag.total_return_pct == pytest.approx(r_com_flag_false.total_return_pct)

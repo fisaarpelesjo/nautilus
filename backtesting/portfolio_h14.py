@@ -34,6 +34,7 @@ from config.settings import (
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
     CORRELATION_LOOKBACK,
+    MAX_CONSECUTIVE_LOSSES,
     MAX_ORDER_SIZE_USDT,
     MAX_POSITION_CORRELATION,
     MAX_POSITIONS,
@@ -140,6 +141,7 @@ def _simular_carteira_core(
     slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
     usar_dimensionamento_vol: bool = False,
     usar_gate_correlacao: bool = False,
+    usar_circuit_breaker: bool = False,
 ) -> Optional[BacktestResult]:
     """Mecanica pura de carteira -- sem rede, sem treino. `previsoes[par]` e
     `preparados[par]` (colunas close/high/low/atr) MUST compartilhar o
@@ -155,8 +157,16 @@ def _simular_carteira_core(
     (`_correlacionado_com_posicao_aberta`, mesmos limiares do gate de
     producao) com qualquer posicao ja aberta, antes de dimensionar.
 
-    Ambos default `False` reproduzem o resultado ja publicado (spec 037)
-    byte a byte.
+    `usar_circuit_breaker` (spec 044): mesma semantica de
+    `execution/order_manager.py` -- contador global de trades fechados
+    consecutivos com `pnl < 0`, reseta no primeiro `pnl > 0`. Ao atingir
+    `MAX_CONSECUTIVE_LOSSES`, nenhum candidato novo abre ate resetar
+    (D1, specs/044-circuit-breaker-carteira-h14/research.md: sem o
+    cooldown por tempo de producao, desnecessario numa carteira de 12
+    pares onde sempre ha trade fechando).
+
+    Os tres default `False` reproduzem o resultado ja publicado
+    (spec 037) byte a byte.
     """
     pares_validos = [p for p in previsoes if len(previsoes[p]) > 0 and p in preparados]
     if not pares_validos:
@@ -170,6 +180,7 @@ def _simular_carteira_core(
     trades: List[Trade] = []
     peak_equity = capital_inicial
     max_drawdown_pct = 0.0
+    perdas_consecutivas = 0
 
     for t in timeline:
         # 1. Fecha posicoes que tocaram take-profit ou stop trailing (D7).
@@ -197,6 +208,10 @@ def _simular_carteira_core(
                 )
                 trades.append(trade)
                 del carteira.posicoes[par]
+                if trade.pnl < 0:
+                    perdas_consecutivas += 1
+                elif trade.pnl > 0:
+                    perdas_consecutivas = 0
             elif row["high"] > pos.highest_price:
                 pos.highest_price = row["high"]
                 new_trail = pos.highest_price - ATR_SL_MULTIPLIER * pos.entry_atr
@@ -216,6 +231,8 @@ def _simular_carteira_core(
             if prob > limiar:
                 candidatos.append((prob, par))
         candidatos.sort(key=lambda item: item[0], reverse=True)
+        if usar_circuit_breaker and perdas_consecutivas >= MAX_CONSECUTIVE_LOSSES:
+            candidatos = []
 
         for _prob, par in candidatos:
             slots_livres = MAX_POSITIONS - len(carteira.posicoes)
@@ -328,7 +345,8 @@ def simular_carteira(pares=None, capital_inicial: float = 1000.0,
                      fee_rate: float = BACKTEST_FEE_RATE,
                      slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
                      usar_dimensionamento_vol: bool = False,
-                     usar_gate_correlacao: bool = False) -> Optional[BacktestResult]:
+                     usar_gate_correlacao: bool = False,
+                     usar_circuit_breaker: bool = False) -> Optional[BacktestResult]:
     """Busca dados reais, treina o modelo (`run_modelo_scan`, D2) e simula a
     carteira. Para testes sem rede, usar `_simular_carteira_core`
     diretamente."""
@@ -343,7 +361,7 @@ def simular_carteira(pares=None, capital_inicial: float = 1000.0,
 
     return _simular_carteira_core(
         previsoes, preparados, limiar_de_decisao(), capital_inicial, fee_rate, slippage_pct,
-        usar_dimensionamento_vol, usar_gate_correlacao,
+        usar_dimensionamento_vol, usar_gate_correlacao, usar_circuit_breaker,
     )
 
 
