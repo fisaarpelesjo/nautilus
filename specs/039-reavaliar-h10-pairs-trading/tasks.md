@@ -54,9 +54,9 @@ MVP completo: H10 mede com o instrumento corrigido.
 ## Phase 3: Polish & Cross-Cutting Concerns
 
 - [ ] T006 Criar `cmd_pairs()` em `main.py`: chama `run_pairs_scan()`, imprime treino e validação lado a lado (trades, retorno, buy-hold, drawdown, profit factor) e o veredito de `evaluate_approval()` sobre a validação; registrar `"pairs": cmd_pairs` em `COMMANDS`; exportar via `export_report("pairs", ...)`
-- [ ] T007 Rodar `python main.py pairs` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — validação manual do passo 2 do `quickstart.md`, resultado real
-- [ ] T008 Registrar o resultado real de T007 em `docs/research/registro-de-hipoteses.md` §4.11 (H10) — substitui "inconclusiva, requer reavaliação" por um status definitivo (ou nova limitação específica); texto depende do resultado medido, não escrito antes de T007
-- [ ] T009 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/`backtesting/approval.py`/`backtesting/pairs_trading.py::run_pairs_backtest` (intocados)
+- [X] T007 Rodar `python main.py pairs` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — validação manual do passo 2 do `quickstart.md`, resultado real
+- [X] T008 Registrar o resultado real de T007 em `docs/research/registro-de-hipoteses.md` §4.11 (H10) — substitui "inconclusiva, requer reavaliação" por um status definitivo (ou nova limitação específica); texto depende do resultado medido, não escrito antes de T007
+- [X] T009 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/`backtesting/approval.py`/`backtesting/pairs_trading.py::run_pairs_backtest` (intocados)
 
 ---
 

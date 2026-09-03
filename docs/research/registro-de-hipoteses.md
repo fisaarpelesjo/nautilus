@@ -223,7 +223,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H7 | Momentum transversal | Direcional, carteira | **REPROVADA** | Ganho de timing médio −1,37pp |
 | H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
-| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** | Aprovada em E2; reprovada em E3/E4; seletor com 20% de poder |
+| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** (2026-09-02) | Seletor corrigido (20%→60% de poder, spec 039), mas só 6 trades na validação — universo de 12 pares não gera amostra suficiente |
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
@@ -613,6 +613,68 @@ são curtas demais em relação à janela de formação.
 que permita formação de 500+ candles com janelas de teste que comportem ≥ 10
 operações. A paginação de `fetch_ohlcv` (2026-08-31) removeu o teto de 1000
 candles da Binance, tornando isso viável.
+
+#### Atualização — histórico estendido, instrumento corrigido (2026-09-02, spec 039)
+
+`formacao` de 250 → 500 candles (D1, poder de detecção medido em 60%
+contra 20% a 250, tabela acima) sobre 6.000 candles de histórico (spec
+036), split treino/validação 70/30 com aquecimento causal (os 500 candles
+finais do treino prepostos à validação, para o seletor não começar
+"frio" — `specs/039-reavaliar-h10-pairs-trading/research.md`, D2).
+Mesmo critério de seleção, entrada, saída e aprovação — só o instrumento
+de amostragem muda.
+
+**Resultado (`python main.py pairs`, 2026-09-02):**
+
+| | Treino | Validação |
+|---|---|---|
+| Trades | 36 | **6** |
+| Retorno | +10,30% | −6,92% |
+| Buy-and-hold | +20,73% | −40,06% |
+| Drawdown | 23,69% | 8,06% |
+| Profit factor | **1,22** | **0,04** |
+
+O treino passa profit factor (1,22 > 1,20) mas falha drawdown (23,69% >
+10%). A validação tem drawdown aceitável (8,06%) mas só 6 trades — ainda
+**abaixo do mínimo de 10** — e profit factor 0,04, dominado por 1-2
+saídas ruins numa amostra pequena demais para ler o número como
+significativo em qualquer direção. Notável à parte: a estratégia perdeu
+muito menos que o mercado no período (−6,92% contra um buy-and-hold de
+−40,06%, uma queda severa) — nenhum veredito se apoia nisso sozinho, mas
+descarta a leitura de "a estratégia simplesmente não funciona".
+
+**Por que o veredito automático ("reprovado") está sendo corrigido para
+INCONCLUSIVA aqui — achado metodológico (M14, ver §5).** A correção de
+formação resolveu o problema medido antes (poder de detecção do seletor,
+20%→60%) — mas revelou um problema **diferente**: mesmo com o seletor
+capaz de detectar o par, `UNIVERSO_H11` (12 pares, 66 combinações) produz
+poucos pares que passam ADF **e** meia-vida negociável ao mesmo tempo, e
+menos ainda geram sinal de entrada dentro de uma janela de validação de
+~1.800 candles. `evaluate_approval()` (`backtesting/approval.py`,
+compartilhada por `grid`/`carteira`/`leadlag`/`pairs`) trata amostra
+abaixo do mínimo como **um motivo de reprovação a mais**, nunca como
+categoria própria — diferente de `classificar_avaliacao()`
+(`backtesting/modelo.py`, usada por H14), que devolve `"inconclusivo"`
+explicitamente quando `total_trades < EDGE_MIN_TRADES`, **antes** de
+sequer olhar profit factor ou drawdown. É a mesma família de M9 ("regra
+de amostra mínima aplicada só à janela de busca, não à de confirmação"):
+aqui a regra existe na validação, mas devolve o rótulo errado quando
+falha sozinha. `evaluate_approval()` não foi alterada nesta spec — o
+escopo de `specs/039-reavaliar-h10-pairs-trading/` era só a janela de
+formação de H10; corrigir a função compartilhada afetaria todo veredito
+que já a usa (`grid`, `carteira`, `leadlag`) e exige revisão própria,
+registrada como M14 em vez de corrigida silenciosamente aqui.
+
+**Novo status: INCONCLUSIVA (não reprovada).** O poder de detecção do
+seletor deixou de ser a limitação — mas o universo de 12 pares não
+produziu operações suficientes na validação para decidir. Resolver
+exigiria mais pares candidatos (não `UNIVERSO_H11`, que foi fixado para
+comparabilidade entre hipóteses) ou uma janela de validação ainda maior —
+qualquer um dos dois seria uma escolha nova, não uma correção pontual
+como esta.
+
+**Reprodução:** `python main.py pairs` ·
+`specs/039-reavaliar-h10-pairs-trading/`.
 
 ---
 
@@ -1414,6 +1476,7 @@ com base em medições anteriores.
 | M12 | Duas convenções de índice convivendo ao comparar amostragens | `pandas.resample` rotula a barra pela borda **esquerda** (abertura) enquanto a construção de barras dirigidas rotulava pelo último candle do grupo. O mesmo instante passava a ter preços de fechamento diferentes em cada versão — medido: 111.169,92 contra 110.422,10 — e o buy-and-hold de cada amostragem media um trecho ligeiramente distinto, desancorando a comparação. A guarda de ancoragem reprovava **todas** as combinações, corretamente. Correção: rotular pelo instante em que a barra **termina**, nas duas versões, o que faz `close` ser função apenas do rótulo e torna a âncora exata (divergência 0,00000000pp) | Corrigido (`data/bars.py`, `backtesting/barras.py`, 2026-09-01) |
 
 | M13 | Estimativa pontual comparada a um limiar, sem banda de incerteza | A verificação de "a razão de chances supera o empate?" comparava o ponto contra 0,500. Medido em H14: razão de **0,5134** com 536 alvos e 1.044 stops — a checagem devolvia **sim**. Mas sob empate exato esperar-se-iam 526,7 alvos, erro padrão 18,7: a diferença é de **meio erro padrão**, p = 0,318, e o limite inferior do intervalo de confiança dá razão de 0,4696, **abaixo** do empate. A estimativa pontual passava e a evidência não existia | Corrigido (`supera_empate_com_confianca`, limite inferior de Wilson, 2026-09-01) |
+| M14 | `evaluate_approval()` trata amostra abaixo do mínimo como motivo de reprovação, não como categoria própria | Medido em H10 (spec 039, 2026-09-02): validação com 6 trades (abaixo do mínimo de 10) devolveu `"reprovado"` — `"apenas 6 trades... "` listado ao lado de `"profit factor abaixo do mínimo"` como se fossem evidência do mesmo tipo. `classificar_avaliacao()` (`backtesting/modelo.py`, usada por H14) já resolve isso: devolve `"inconclusivo"` explicitamente quando `total_trades < EDGE_MIN_TRADES`, **antes** de avaliar profit factor ou drawdown — mas `evaluate_approval()` (`backtesting/approval.py`), compartilhada por `grid`/`carteira`/`leadlag`/`pairs`, não tem essa distinção | **Não corrigido** — fora do escopo de spec 039 (só a janela de formação de H10); afeta todo veredito já produzido por `evaluate_approval()` com amostra pequena, exige revisão própria antes de mudar a função compartilhada |
 
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
@@ -1438,6 +1501,13 @@ M11 lia encolher como vantagem; M13 lia ruído como aprovação. As três se
 corrigem do mesmo jeito — exigindo que a evidência sobreviva à incerteza antes
 de virar veredito.
 
+**M14 é M9 outra vez, num lugar diferente do código.** M9 foi corrigido em
+`classificar_status`/`classificar_avaliacao` (`backtesting/horizonte.py`/
+`modelo.py`) — mas `evaluate_approval()` (`backtesting/approval.py`), a
+função de aprovação mais usada do projeto, nunca recebeu a mesma correção.
+O defeito ficou latente até H10 (spec 039) produzir uma validação com
+amostra pequena o bastante para expor.
+
 **M12 tem procedência diferente das demais.** Não veio de confrontar resultado
 com predição, e sim de um **teste de fumaça em dado real** rodado antes da
 varredura. A guarda que o detectou (`FR-007`, buy-and-hold ancorado) tinha sido
@@ -1454,7 +1524,10 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 
 ### 6.1 Prioridade alta
 
-*(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.)*
+*(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.
+Reavaliada em 2026-09-02 (`specs/039-reavaliar-h10-pairs-trading/`): seletor
+corrigido (poder 20%→60%), mas segue **inconclusiva** — só 6 trades na
+validação, abaixo do mínimo de 10 (achado M14, §5).)*
 
 *(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico. Reavaliada com histórico estendido em 2026-09-02
 (`specs/036-historico-estendido/`): veredito mantido, fração inconclusiva cai de 27% para 2-8%.)*
