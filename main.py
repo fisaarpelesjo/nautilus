@@ -2846,6 +2846,91 @@ def cmd_sazonalidade():
     )
 
 
+def cmd_onchain_volume():
+    """H32 -- on-chain mais rico, valor transacionado (spec 069).
+
+    NAO e um veredito de aprovacao/reprovacao -- mesma disciplina de
+    H17: checa colinearidade contra os 5 atributos de H14 e contra
+    onchain_addr_growth_7d (H17) ANTES de qualquer leitura de
+    desempenho. Se colinear, para ai. Se nao, compara isolado
+    (BTC/USDT, mesmo periodo) o modelo com e sem o atributo.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.onchain_volume_hipotese import avaliar_h32
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]on-chain mais rico (H32)[/]")
+    console.print(f"  [{C_DIM}]BTC/USDT -- estimated-transaction-volume-usd (valor movimentado "
+                  f"on-chain), diferente do crescimento de rede ja testado por H17. Colinearidade "
+                  f"checada ANTES de qualquer leitura de desempenho[/{C_DIM}]")
+    console.print()
+
+    relatorio = avaliar_h32()
+
+    console.print(f"  [{C_LABEL}]atributo declarado[/]: {relatorio.atributo_declarado}")
+    console.print(f"  [{C_LABEL}]colinearidade[/]:")
+    for nome, valor in sorted(relatorio.correlacao.items()):
+        cor = C_NEG if abs(valor) >= 0.80 else C_DIM
+        console.print(f"    [{cor}]{nome}: {valor:+.3f}[/{cor}]")
+    console.print()
+
+    if relatorio.colinear:
+        console.print(f"  [bold {C_NEG}]colinear[/bold {C_NEG}] -- atributo descartado antes de "
+                       f"medir desempenho (limiar 0,80 excedido)")
+        export_report(
+            "onchain_volume",
+            {"par": "BTC/USDT", "atributo": relatorio.atributo_declarado},
+            {"colinear": True, "correlacao": relatorio.correlacao},
+        )
+        return
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Avaliacao")
+    for col in ("n_treino", "n_teste", "razao geral", "razao decidido"):
+        t.add_column(col, justify="right")
+    t.add_column("Estado")
+
+    cores = {"melhora": C_POS, "piora": C_NEG}
+    for nome, a in (("sem atributo", relatorio.avaliacao_base),
+                    ("com volume on-chain", relatorio.avaliacao_volume)):
+        cor = cores.get(a.status, C_DIM)
+        m = a.modelo
+        t.add_row(
+            nome,
+            str(m.n_treino) if m else "-",
+            str(m.n_teste) if m else "-",
+            f"{m.razao_chances_geral:.3f}" if m and m.razao_chances_geral is not None else "-",
+            f"{m.razao_chances_decidido:.3f}" if m and m.razao_chances_decidido is not None else "-",
+            f"[{cor}]{a.status}[/{cor}]" + (f" ({a.motivo})" if a.motivo else ""),
+        )
+    console.print(t)
+    console.print()
+    console.print(f"  [{C_DIM}]nenhum veredito de aprovacao/reprovacao aqui -- compara a razao "
+                  f"de chances com e sem o atributo, mesmos eventos[/{C_DIM}]")
+
+    def _serializar(a):
+        m = a.modelo
+        return {
+            "status": a.status, "motivo": a.motivo,
+            "n_treino": m.n_treino if m else None, "n_teste": m.n_teste if m else None,
+            "razao_geral": m.razao_chances_geral if m else None,
+            "razao_decidido": m.razao_chances_decidido if m else None,
+        }
+
+    export_report(
+        "onchain_volume",
+        {"par": "BTC/USDT", "atributo": relatorio.atributo_declarado,
+         "correlacao": relatorio.correlacao},
+        {"colinear": False,
+         "sem_atributo": _serializar(relatorio.avaliacao_base),
+         "com_atributo": _serializar(relatorio.avaliacao_volume)},
+    )
+
+
 def _fracao_custo_consumida(com_custo, sem_custo):
     """Fracao da vantagem bruta que o custo de execucao consome -- mesma
     formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
@@ -3021,6 +3106,7 @@ COMMANDS = {
     "ml":            cmd_modelo,
     "arbitragem":    cmd_arbitragem,
     "onchain":       cmd_onchain,
+    "onchain_volume": cmd_onchain_volume,
     "grid":          cmd_grid,
     "carteira":      cmd_carteira,
     "leadlag":       cmd_leadlag,

@@ -65,6 +65,7 @@ python main.py barras [TIPO]        # compara amostragem por tempo vs por inform
 python main.py modelo               # classificador sobre rotulos de barreira tripla (spec 027)
 python main.py arbitragem [PAR]     # diferencial liquido entre corretoras, instrumento de amostragem (spec 029)
 python main.py onchain               # H17 -- comparacao isolada BTC-only com/sem atributo on-chain (spec 034)
+python main.py onchain_volume        # H32 -- on-chain mais rico, valor transacionado on-chain (spec 069)
 python main.py grid                  # H18 -- grid trading com gestao de cauda (regime ADX), UNIVERSO_H11 (spec 035)
 python main.py funding               # H8 -- arbitragem de funding rate, universo amplo e eficiencia de capital (spec 058)
 python main.py basis                 # H23 -- premio de futuros trimestrais (contango) vs funding perpetuo (spec 059)

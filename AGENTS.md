@@ -67,6 +67,7 @@ python main.py barras [TYPE]        # compare time-based vs information-driven s
 python main.py modelo               # supervised classifier on triple-barrier labels (spec 027)
 python main.py arbitragem [PAIR]    # net differential between exchanges, sampling instrument (spec 029)
 python main.py onchain               # H17 -- isolated BTC-only comparison with/without on-chain attribute (spec 034)
+python main.py onchain_volume        # H32 -- richer on-chain signal, transacted value (spec 069)
 python main.py grid                  # H18 -- grid trading with tail-risk management (ADX regime), UNIVERSO_H11 (spec 035)
 python main.py funding               # H8 -- funding rate arbitrage, wide universe and capital efficiency correction (spec 058)
 python main.py basis                 # H23 -- quarterly futures premium (contango) vs perpetual funding (spec 059)
