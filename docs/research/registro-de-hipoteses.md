@@ -223,7 +223,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H7 | Momentum transversal | Direcional, carteira | **REPROVADA** | Ganho de timing médio −1,37pp |
 | H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
-| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** (2026-09-03) | Seletor corrigido (spec 039), 6 trades na validação — universo amplo testado (spec 052, 12→22 pares) e refutado como causa: continua exatamente 6 trades. Treino passa PF (1,22) nos dois universos; gargalo provável é `max_pares`/frequência de reseleção, não candidatos |
+| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **REPROVADA** (2026-09-03) | Universo amplo refutado (spec 052), reseleção mais frequente (a cada 120, não 500 candles) resolveu a fome de amostra (spec 054): validação foi de 6 para 10 trades, primeiro veredito não bloqueado por amostra insuficiente — PF 0,15, drawdown 16,61%, reprovada por ampla margem |
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
@@ -231,8 +231,11 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, mecanismo totalmente diagnosticado) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados (spec 049). Custo domina (spec 050); dentro do custo, taxa domina slippage em 12/12 pares (spec 051) — nem execução mais barata (ordens limit) resolveria, taxa não muda com tipo de ordem neste projeto |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
-**Taxa de aprovação: 0 de 16.** Três inconclusivas (H10; H11 em escala
-semanal; H12 por impossibilidade estrutural de teste — ver 4.13). H20
+**Taxa de aprovação: 0 de 16.** Duas inconclusivas (H11 em escala
+semanal; H12 por impossibilidade estrutural de teste — ver 4.13). H10
+saiu de inconclusiva para REPROVADA em 2026-09-03 (spec 054) — reseleção
+mais frequente resolveu a fome de amostra, revelando profit factor 0,15
+na validação. H20
 teve uma reversão de dois estágios em 2026-09-03: sinal de rótulo
 confirmado com histórico estendido (spec 048), depois reprovada de
 novo quando testada contra o backtest real (spec 049) — custo de
@@ -735,6 +738,71 @@ uma delas uma escolha nova, não uma correção pontual.
 
 **Reprodução:** `python main.py pairs_amplo` ·
 `specs/052-h10-universo-amplo/`.
+
+---
+
+#### Atualização — reseleção mais frequente resolve a amostra: REPROVADA, não mais inconclusiva (2026-09-03, spec 054)
+
+Antes de tocar em qualquer parâmetro, diagnóstico direto sobre a
+janela de validação real (22 pares, sem código novo, script de
+investigação) mediu a causa exata: `reselecionar_a_cada` estava
+amarrado a `formacao` (500) — só **4 ciclos de reseleção** ocorrem em
+~2.300 candles de validação, elegendo 1-3 pares cada. Dentro dessa
+janela inteira, o z-score de algum par elegível cruza o limiar de
+entrada (`entrada_z=2,0`) **exatamente 6 vezes** — o mesmo número dos
+6 trades já publicados nos dois universos (specs 039, 052). `max_pares`
+descartado como gargalo por medição direta: 1.794 de 2.300 candles
+(78%) têm slot livre e nenhuma oportunidade entre os pares
+selecionados no momento (`specs/054-h10-reselecao-frequente/research.md`,
+D1).
+
+`run_pairs_scan` ganhou `reselecionar_a_cada` desacoplado de
+`formacao` (D2: `selecionar_pares` sempre olha `formacao=500` candles
+para trás a partir de cada checkpoint, independente da cadência —
+reselecionar mais não reduz o poder de detecção). Testado com
+`reselecionar_a_cada=120` (`PairsParams.meia_vida_max`, já existente —
+critério mecânico, D3: o maior intervalo que ainda garante um
+checkpoint por ciclo de reversão completo da relação mais lenta que a
+própria regra aceita).
+
+**Resultado (`python main.py pairs_reselecao`, 2026-09-03):**
+
+| | 12 pares, cadência 500 (spec 039) | 22 pares, cadência 500 (spec 052) | 22 pares, cadência 120 (spec 054) |
+|---|---|---|---|
+| Treino — trades | não reportado | 31 | **54** |
+| Treino — PF | 1,22 | 1,22 | 1,20 |
+| **Validação — trades** | 6 | 6 | **10** |
+| Validação — retorno | −6,92% | −0,58% | **−12,28%** |
+| Validação — drawdown | 8,06% | 2,76% | **16,61%** |
+| Validação — PF | 0,04 | 0,73 | **0,15** |
+| Veredito | inconclusiva | inconclusiva | **REPROVADA** |
+
+**A reseleção mais frequente resolveu exatamente o problema
+diagnosticado — validação foi de 6 para 10 trades, atingindo
+`EDGE_MIN_TRADES`.** Pela primeira vez desde 2026-09-01, H10 produz um
+veredito que não é bloqueado por amostra insuficiente. E o veredito é
+claramente negativo: profit factor 0,15 (bem abaixo do mínimo 1,2) e
+drawdown 16,61% (acima do teto de 10%) — não uma aprovação que a fome
+de amostra escondia.
+
+**Veredito final: REPROVADA.** Diferente de H14/H20 (sinal real que
+não sobrevive a outro obstáculo), aqui a amostra maior revela que o
+sinal em si não é bom o bastante — profit factor 0,15 é o pior já
+medido para uma linha de base de treino que passava (1,20). O treino
+com mais trades (54) ainda passa profit factor por uma margem mínima
+(1,20, na fronteira de 1,2), mas a validação — a única janela que
+conta — reprova por ampla margem nos dois critérios.
+
+**Trajetória completa de H10, todos os estágios reais:** insuficiente
+(2026-09-01) → poder de detecção corrigido, ainda inconclusiva por
+amostra (spec 039, 2026-09-02) → universo amplo refutado como causa
+(spec 052, 2026-09-03) → reseleção mais frequente resolve a amostra e
+revela REPROVADA (spec 054, 2026-09-03). Quatro specs, cada uma
+respondendo uma pergunta genuinamente diferente, nenhuma invalidando a
+anterior — o padrão que definiu toda a investigação desta noite.
+
+**Reprodução:** `python main.py pairs_reselecao` ·
+`specs/054-h10-reselecao-frequente/`.
 
 ---
 
@@ -2310,8 +2378,13 @@ corrigido (poder 20%→60%), mas segue **inconclusiva** — só 6 trades na
 validação, abaixo do mínimo de 10 (achado M14, §5). Universo amplo testado em
 2026-09-03 (`specs/052-h10-universo-amplo/`, 12→22 pares de histórico
 completo): **refutado como causa** — validação continua com exatamente 6
-trades nos dois universos. Segue inconclusiva; gargalo provável agora é
-`max_pares`/frequência de reseleção, não quantidade de candidatos.)*
+trades nos dois universos. Diagnóstico direto (sem tocar parâmetro) mediu a
+causa real: só 4 ciclos de reseleção em ~2.300 candles de validação, 6
+oportunidades de entrada no total — o mesmo número dos trades. Reseleção
+desacoplada da formação e testada a cada 120 candles (`meia_vida_max`,
+`specs/054-h10-reselecao-frequente/`): validação foi para 10 trades, primeiro
+veredito não bloqueado por amostra — **REPROVADA**, profit factor 0,15,
+drawdown 16,61%. Status final.)*
 
 *(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico. Reavaliada com histórico estendido em 2026-09-02
 (`specs/036-historico-estendido/`): veredito mantido, fração inconclusiva cai de 27% para 2-8%.)*
