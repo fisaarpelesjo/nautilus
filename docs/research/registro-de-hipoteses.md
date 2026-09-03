@@ -223,7 +223,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H7 | Momentum transversal | Direcional, carteira | **REPROVADA** | Ganho de timing médio −1,37pp |
 | H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
-| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** (2026-09-02) | Seletor corrigido (20%→60% de poder, spec 039), mas só 6 trades na validação — universo de 12 pares não gera amostra suficiente |
+| H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **INCONCLUSIVA** (2026-09-03) | Seletor corrigido (spec 039), 6 trades na validação — universo amplo testado (spec 052, 12→22 pares) e refutado como causa: continua exatamente 6 trades. Treino passa PF (1,22) nos dois universos; gargalo provável é `max_pares`/frequência de reseleção, não candidatos |
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
@@ -680,6 +680,61 @@ como esta.
 
 **Reprodução:** `python main.py pairs` ·
 `specs/039-reavaliar-h10-pairs-trading/`.
+
+---
+
+#### Atualização — universo amplo não resolve a fome de amostra: continua inconclusiva (2026-09-03, spec 052)
+
+Spec 039 apontou o universo de 12 pares (66 combinações) como candidato
+a explicar a amostra pequena da validação. Testado diretamente:
+`UNIVERSO_AMPLO_HISTORICO_COMPLETO` (22 pares — subconjunto de
+`UNIVERSO_AMPLO`, spec 040, filtrado para histórico completo de 6.000
+candles, D1 de `specs/052-h10-universo-amplo/research.md`, depois de a
+primeira tentativa com `UNIVERSO_AMPLO` bruto colidir com
+`split_treino_validacao` — interseção de índices de tempo colapsada
+por uma listagem recente de só 504 candles), 231 combinações contra 66.
+
+**Resultado (`python main.py pairs_amplo`, 2026-09-03):**
+
+| | 12 pares (spec 039) | 22 pares (spec 052) |
+|---|---|---|
+| Treino — trades | não reportado individualmente | 31 |
+| Treino — retorno / PF | +10,30% / 1,22 | +12,55% / 1,22 |
+| **Validação — trades** | **6** | **6** |
+| Validação — retorno / PF | −6,92% / 0,04 | −0,58% / 0,73 |
+| Validação — drawdown | 8,06% | 2,76% |
+| Veredito | inconclusiva (< 10 trades) | inconclusiva (< 10 trades) |
+
+**Quase dobrar o universo candidato (12→22 pares, 66→231 combinações)
+não mudou o número de trades na validação — continua exatamente 6.**
+A hipótese declarada em spec 039 ("resolver exigiria mais pares
+candidatos") está refutada por medição direta: o gargalo não é
+quantidade de combinações testadas por `selecionar_pares`. Read-out
+mais provável: `max_pares=3` limita quantos pares operam
+simultaneamente independente de quantos são elegíveis, e/ou a
+reseleção a cada `formacao` (500 candles) dá poucas janelas de
+oportunidade dentro dos ~1.800 candles de validação, independente de
+quantos candidatos existem para preencher essas poucas janelas. Nenhum
+dos dois foi isolado nesta spec.
+
+**Segundo achado de instrumento no caminho** (não formalizado como M
+numerado, documentado em `research.md` D1 de spec 052):
+`split_treino_validacao` exige um índice de tempo comum entre **todos**
+os pares recebidos — incompatível com listar pares de histórico
+desigual (diferente de `backtesting/portfolio_h14.py`, que alinha cada
+par independentemente). Filtrar por histórico completo antes de
+chamar é agora prática declarada para qualquer futuro uso de universos
+maiores com este motor específico.
+
+**Continua INCONCLUSIVA — não REPROVADA.** O treino segue passando
+profit factor (1,22, igual aos dois universos). O que falta ainda é
+amostra na validação, mas "mais candidatos" já não é mais uma hipótese
+em aberto para resolver isso — precisaria ser outra coisa (janela de
+validação maior, mais `max_pares`, ou reseleção mais frequente), cada
+uma delas uma escolha nova, não uma correção pontual.
+
+**Reprodução:** `python main.py pairs_amplo` ·
+`specs/052-h10-universo-amplo/`.
 
 ---
 
@@ -2252,7 +2307,11 @@ Fila de avaliação, ordenada por razão evidência-publicada / custo-de-impleme
 *(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.
 Reavaliada em 2026-09-02 (`specs/039-reavaliar-h10-pairs-trading/`): seletor
 corrigido (poder 20%→60%), mas segue **inconclusiva** — só 6 trades na
-validação, abaixo do mínimo de 10 (achado M14, §5).)*
+validação, abaixo do mínimo de 10 (achado M14, §5). Universo amplo testado em
+2026-09-03 (`specs/052-h10-universo-amplo/`, 12→22 pares de histórico
+completo): **refutado como causa** — validação continua com exatamente 6
+trades nos dois universos. Segue inconclusiva; gargalo provável agora é
+`max_pares`/frequência de reseleção, não quantidade de candidatos.)*
 
 *(H11 avaliada em 2026-09-01 — ver seção 4.12. Status: reprovada em 4h e 1d; inconclusiva em 1w por limitação estrutural de histórico. Reavaliada com histórico estendido em 2026-09-02
 (`specs/036-historico-estendido/`): veredito mantido, fração inconclusiva cai de 27% para 2-8%.)*
