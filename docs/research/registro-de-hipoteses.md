@@ -2932,6 +2932,89 @@ relevante sem uma oportunidade real para executar.
   (spec 058), só troca o instrumento de perpétuo por futuro com
   vencimento.
 
+**H27 — Meta-labeling: filtro de aposta sobre o sinal existente** *(adicionada em 2026-09-03, revisão de literatura pós-encerramento)*
+
+- *Fundamentação:* arquitetura genuinamente diferente de H14 (classificador
+  treinado do zero para prever direção). Meta-labeling (López de Prado,
+  *Advances in Financial Machine Learning*) treina um modelo SECUNDÁRIO
+  que decide se um sinal PRIMÁRIO já existente (o crossover EMA/RSI de
+  produção) deve ser executado — aprende a filtrar/dimensionar apostas
+  do sinal, não a gerar sinal novo. Separa a pergunta "que direção" (já
+  respondida pela estratégia de regras) de "essa entrada específica vale
+  a pena" (nunca perguntada isoladamente neste registro).
+- *Obstáculo:* ainda depende do sinal primário (EMA/RSI) ter alguma
+  informação real para filtrar — H1 (o mesmo crossover) foi reprovado
+  isoladamente, então o meta-modelo estaria filtrando ruído, não sinal.
+  Precisa de uma justificativa clara de por que filtrar entradas de uma
+  estratégia sem edge produziria edge — risco real de não ser testável
+  pela mesma razão estrutural que bloqueou H12 (§6.4).
+- *Custo:* baixo — reusa o motor de classificação de H14
+  (`backtesting/modelo.py`) e o gerador de sinal de produção
+  (`strategy/ema_rsi.py`) sem modificar nenhum dos dois; só treina um
+  modelo novo sobre os eventos de entrada já gerados.
+
+**H28 — Gate condicionado por macro externo (DXY, yields, VIX)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* todos os filtros de regime já testados neste registro
+  (ADX, `HIGH_VOLATILITY_FILTER_ENABLED`) derivam de indicadores
+  INTERNOS ao próprio preço cripto. Um gate condicionado por variáveis
+  macro externas (índice do dólar, yield de 10 anos americano, VIX) é
+  uma fonte de sinal categoricamente diferente — não deriva do mercado
+  que está sendo negociado. `data/sources/` já busca dados não-cripto
+  via `yfinance` (spec 023, multi-mercado) — os mesmos tickers
+  (`DX-Y.NYB`, `^TNX`, `^VIX`) já são acessíveis sem infraestrutura
+  nova.
+- *Obstáculo:* mesma disciplina de pré-registro que H5/H25 (filtros de
+  tempo) — precisa declarar o limiar/direção do gate ANTES de medir,
+  para não repetir "só na busca". Correlação entre regime macro e
+  retorno cripto é documentada na literatura, mas nem sempre estável
+  (mudou de regime em 2022-2024 conforme parte das fontes já revisadas
+  nesta sessão).
+- *Custo:* baixo — `data/sources/` já resolve símbolos não-cripto via
+  `yfinance`; só precisa de um gate aditivo (mesmo padrão de
+  `REGIME_FILTER_ENABLED`) sobre a estratégia já existente.
+
+**H29 — Pairs trading via cópula** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* H10 testou cointegração via z-score linear — mede só
+  a distância entre os dois preços numa escala normal, assume
+  dependência linear. Cópulas modelam a distribuição conjunta completa
+  dos retornos dos dois ativos, capturando dependência não-linear
+  (cauda) que a abordagem linear de H10 não vê — mecanismo
+  estatisticamente diferente sobre o MESMO par de ativos. Já citado nas
+  referências do próprio registro (`docs/research/copula-based-trading-of
+  -cointegrated-cryptocurrency-pairs.md`), nunca implementado.
+- *Obstáculo:* mais complexo de ajustar corretamente que z-score
+  (escolha de família de cópula, estimação de parâmetros) — risco real
+  de re-descobrir o mesmo resultado de H10 (REPROVADA, PF 0,15) só que
+  com uma ferramenta estatística mais cara.
+- *Custo:* médio — reusa a seleção de pares e o motor de backtest de H10
+  (`backtesting/pairs_trading.py`), precisa de uma biblioteca de cópulas
+  (`copulas` ou implementação própria de cópula gaussiana/t simples) e
+  uma regra de entrada/saída baseada em probabilidade condicional em vez
+  de z-score.
+
+**H30 — Fator de tamanho/iliquidez (cross-sectional, sem timing)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* literatura de factor investing em cripto (Liu-Tsyvinski-Wu,
+  já citada nas referências do registro) documenta tamanho e iliquidez
+  como os fatores com maior retorno cumulativo no cross-section cripto —
+  diferente de H7 (momentum transversal, JÁ testado e reprovado) e de H9
+  (prêmio de rebalanceamento, bloqueado por correlação alta). Mecanismo:
+  manter sistematicamente uma cesta de tokens menores/menos líquidos
+  (rebalanceada periodicamente), sem qualquer componente de timing ou
+  previsão — um TILT estrutural, não uma estratégia ativa.
+- *Obstáculo:* "menor/menos líquido" e retorno mais alto também significa
+  mais risco de cauda e mais custo de execução (slippage) — o próprio
+  fator pode ser, em parte, compensação por risco não capturado nas
+  métricas usuais de `evaluate_approval`. Precisa checar se o retorno
+  sobrevive ao custo de slippage real (`REAL_SLIPPAGE_ENABLED`,
+  já existente) antes de qualquer leitura otimista.
+- *Custo:* baixo — reusa `market/selector.py` (já ordena candidatos por
+  liquidez) e o motor de backtest existente; só inverte o critério de
+  seleção (menor liquidez em vez de maior) dentro dos limiares mínimos
+  operáveis já declarados.
+
 ### 6.2 Prioridade média
 
 **H24 — Diferencial de funding rate entre corretoras (perp × perp, sem perna a vista)** *(adicionada em 2026-09-03)*
@@ -2989,6 +3072,66 @@ que motivou testar esta variante.
 
 **Reprodução:** `python main.py funding_cross` ·
 `specs/061-h24-funding-cross-exchange/`.
+
+**H31 — Dados alternativos: sentimento social/notícia** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* fonte de dado inteiramente nova, nunca tocada neste
+  registro — nenhuma das 26 hipóteses fechadas usa texto (social, notícia,
+  atividade de desenvolvimento). Sentimento agregado (volume de menção,
+  polaridade) é uma das categorias de dado alternativo mais estudadas na
+  literatura de trading quantitativo (Quantpedia cita ~100 de ~700
+  estratégias catalogadas usando dado alternativo).
+- *Obstáculo, real e não trivial:* a API do Twitter/X está paga e cara
+  desde 2023; a API do Reddit também restringiu acesso gratuito. Fontes
+  viáveis sem custo alto: Google Trends (via `pytrends`, não-oficial,
+  sujeito a rate limit agressivo) ou métricas de atividade de
+  desenvolvimento no GitHub (commits/estrelas de repositórios de
+  projetos cripto, público via API do GitHub, sem custo). **Precisa de
+  uma spec de viabilidade de fonte de dado ANTES de qualquer medição de
+  hipótese** — mesmo princípio que já vetou H16/H19 por infraestrutura,
+  aqui a barreira é dado, não execução.
+- *Custo:* alto até a viabilidade ser resolvida; baixo depois (se GitHub
+  ou Google Trends se mostrarem utilizáveis, o resto reusa o padrão de
+  atributo único de H17 — declarar um atributo, medir colinearidade
+  contra os 5 de H14, testar).
+
+**H32 — On-chain mais rico (fluxo de exchange, carteiras grandes, oferta de stablecoin)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* H17 testou UM atributo on-chain (`onchain_addr_growth_7d`,
+  crescimento de endereços ativos) — insuficiente para julgar a família
+  inteira, per a ressalva já registrada em §6.3 ("não é veredito sobre
+  'sinais on-chain' em geral"). Fluxo líquido de stablecoin para
+  corretoras (proxy de intenção de compra), movimento de carteiras
+  grandes ("whale tracking") e oferta circulante de stablecoin são
+  atributos on-chain qualitativamente diferentes do já testado — medem
+  posicionamento e liquidez, não atividade de rede.
+- *Obstáculo:* a fonte pública já usada por H17 (`api.blockchain.info`)
+  cobre só Bitcoin e métricas básicas de rede — fluxo de exchange e
+  whale tracking normalmente exigem provedores pagos (Glassnode, Nansen)
+  ou parsing próprio de blocos, mais caro que H17. Precisa mapear quais
+  atributos são obteníveis de fontes gratuitas antes de comprometer a
+  spec.
+- *Custo:* médio-alto — depende de qual atributo específico sobrevive à
+  checagem de fonte gratuita; a infraestrutura de teste (colinearidade,
+  medição isolada BTC-only) já existe e é reusável de H17.
+
+**H33 — Arbitragem DEX↔CEX (e MEV-adjacent)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* infraestrutura categoricamente diferente de H15/H22
+  (que comparam preço entre corretoras CENTRALIZADAS). Uma exchange
+  descentralizada (Uniswap, etc.) e uma centralizada podem divergir de
+  preço por não estarem conectadas por um mecanismo de arbitragem
+  instantâneo — a literatura de 2026 já cita MEV e arbitragem DEX-CEX
+  como categoria ativa de estratégia cripto.
+- *Obstáculo, o mais caro de todas as sete:* exige ler estado on-chain
+  (preço de pool via subgraph/RPC), calcular custo de gas, e competir
+  com bots MEV especializados que monitoram o mempool em tempo real —
+  a mesma dominância de participantes profissionais que já reprovou H16
+  (market making) por raciocínio, agora com a adição de custo de gas e
+  latência de confirmação de bloco. Não tem, hoje, nenhuma infraestrutura
+  reusável no projeto (nenhum código já lê estado on-chain de DEX).
+- *Custo:* alto — nova dependência (web3.py ou similar), nova fonte de
+  dado (RPC de nó ou subgraph), sem nenhuma base de código reusável.
 
 ### 6.3 Prioridade baixa
 
