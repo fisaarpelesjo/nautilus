@@ -28,9 +28,9 @@ description: "Task list for H20 decomposicao de custo -- taxa vs slippage (spec 
 
 - [X] T003 [US1] Adicionar `retorno_sem_slippage_modelo`/`retorno_sem_taxa_modelo` (`Optional[float] = None`) a `AvaliacaoH14` e as duas chamadas correspondentes no bloco E6 de `avaliar_par` (`backtesting/modelo.py`) (depende de T001-T002)
 - [X] T004 [US1] Estender `cmd_geometria()` em `main.py`: imprime os dois novos campos ao lado do já existente (com custo / sem custo) por par; adiciona ao `export_report` (depende de T003)
-- [ ] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
-- [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — qual componente (taxa ou slippage) domina, com a ressalva sobre o teto otimista; texto depende do resultado medido, não escrito antes de T005
-- [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
+- [X] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — qual componente (taxa ou slippage) domina, com a ressalva sobre o teto otimista; texto depende do resultado medido, não escrito antes de T005
+- [X] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T004 implementação e testes) + (T005-T007 execução real e registro).
 

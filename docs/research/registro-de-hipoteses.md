@@ -228,7 +228,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — ainda reprovado por margem substancial; o problema é o profit factor por trade, não a composição de risco |
-| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, mecanismo isolado) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados (spec 049). Custo de execução isolado (spec 050): explicação dominante — sem custo, 8/12 pares positivos e 7/12 batem buy-and-hold; payoff apertado (2:1,5) torna a estratégia sensível a custo |
+| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, mecanismo totalmente diagnosticado) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados (spec 049). Custo domina (spec 050); dentro do custo, taxa domina slippage em 12/12 pares (spec 051) — nem execução mais barata (ordens limit) resolveria, taxa não muda com tipo de ordem neste projeto |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
 **Taxa de aprovação: 0 de 16.** Três inconclusivas (H10; H11 em escala
@@ -1999,6 +1999,67 @@ vez de inferido por analogia.
 
 **Reprodução:** `python main.py geometria` ·
 `specs/050-h20-custo-de-execucao/`.
+
+---
+
+#### Atualização — custo decomposto: taxa domina, não slippage — fecha a via de execução mais barata (2026-09-03, spec 051)
+
+`USE_LIMIT_ORDERS` (produção, `execution/order_manager.py`) não é
+simulável com dados históricos — sem order book do passado, mesma
+limitação que já força `REAL_SLIPPAGE_ENABLED=false` em `python main.py
+replay`. O que é testável: decompor o custo já isolado em spec 050
+(taxa e slippage juntos) nos dois componentes independentes, reusando
+`simulate_backtest(fee_rate=..., slippage_pct=...)` já existente —
+zero mecânica nova (`specs/051-h20-decomposicao-custo/`).
+
+**Resultado (`python main.py geometria`, 2026-09-03, mesmos 12 pares):**
+
+| Par | Com custo | Sem slippage | Sem taxa | Sem custo |
+|---|---|---|---|---|
+| BTC/USDT | −6,14% | −4,56% | −3,42% | −1,82% |
+| ETH/USDT | −2,72% | −1,61% | −1,16% | −0,03% |
+| SOL/USDT | −0,97% | −0,54% | +0,11% | +0,54% |
+| LINK/USDT | +1,09% | +1,84% | +2,11% | +2,88% |
+| BCH/USDT | −5,64% | −5,05% | −4,24% | −3,65% |
+| TRX/USDT | −5,36% | −3,01% | −0,00% | +2,39% |
+| XRP/USDT | −0,56% | −0,07% | +0,70% | +1,19% |
+| AVAX/USDT | −0,90% | −0,62% | −0,26% | +0,04% |
+| LTC/USDT | −2,71% | −2,15% | −1,35% | −0,80% |
+| DOT/USDT | −0,62% | −0,36% | +0,04% | +0,30% |
+| ADA/USDT | +0,51% | +0,83% | +1,20% | +1,51% |
+| ATOM/USDT | −0,01% | +0,40% | +1,05% | +1,46% |
+
+**Taxa domina slippage nos 12 de 12 pares, sem exceção.** Removendo só
+o slippage, **3 de 12** pares ficam positivos (LINK, ADA, ATOM) —
+praticamente o mesmo de com custo total (2/12). Removendo só a taxa,
+**6 de 12** ficam positivos (SOL, LINK, XRP, DOT, ADA, ATOM), TRX
+essencialmente no zero. Em todo par, o efeito de remover a taxa é maior
+que o de remover o slippage — em TRX (268 trades, o par de maior giro)
+por uma margem enorme (5,36pp contra 2,35pp), consistente com taxa
+sendo cobrada por operação: mais giro, mais taxa acumulada.
+
+**Fecha a via de execução mais barata como solução — e por um motivo
+específico.** "Sem slippage" é o teto otimista do que `USE_LIMIT_ORDERS`
+entregaria (ordens limit só afetam a ENTRADA em produção, nunca a
+saída/stop, que precisa de execução imediata) — mesmo nesse cenário
+generoso, só 3/12 pares aprovam. E a taxa (`BACKTEST_FEE_RATE`), o
+componente que de fato domina, é cobrada pela corretora sobre o valor
+da ordem — **não muda com o tipo de ordem** neste projeto (não há
+desconto maker/taker modelado). Um método de execução mais barato não
+resolveria H20 mesmo no melhor caso possível.
+
+**Terceira e última atualização desta linha.** H20 termina com o
+mecanismo totalmente diagnosticado: sinal de rótulo real (spec 048) →
+não sobrevive ao backtest real (spec 049) → custo domina a divergência
+(spec 050) → dentro do custo, taxa domina slippage, e nenhuma melhoria
+de execução plausível resolveria (spec 051). Veredito continua
+REPROVADA. Os candidatos #2 (trailing stop) e #3 (amostra por par) de
+spec 049 seguem sem teste, agora com prioridade ainda mais baixa — o
+mecanismo dominante já está totalmente explicado por custo, e dentro
+de custo, por taxa especificamente.
+
+**Reprodução:** `python main.py geometria` ·
+`specs/051-h20-decomposicao-custo/`.
 
 ---
 
