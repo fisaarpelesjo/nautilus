@@ -6,3 +6,7 @@ pre-commit
 # Pesquisa apenas (teste ADF em backtesting/pairs_trading.py).
 # NAO entra em requirements.txt: o bot em producao nao negocia pares.
 statsmodels
+# Pesquisa apenas (copula gaussiana em backtesting/pairs_copula.py, H29).
+# Instalada como dependencia transitiva ate aqui -- declarada explicitamente
+# para nao depender disso continuar sendo verdade.
+scipy

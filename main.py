@@ -1788,6 +1788,70 @@ def cmd_pairs_reselecao():
     )
 
 
+def cmd_pairs_copula():
+    """H29 -- pairs trading via copula gaussiana (spec 066).
+
+    H10 mede a distancia entre os precos via z-score sobre um spread
+    linear -- REPROVADA, profit factor 0.15. Cópula modela a
+    distribuicao conjunta completa dos RETORNOS, capturando dependencia
+    nao-linear que o z-score nao ve. Mesma selecao de pares de H10
+    (selecionar_pares, sem alteracao) -- so o sinal de entrada/saida
+    muda. Precondicao verificada antes de qualquer codigo (research.md
+    D1): os pares de H10 cointegram de verdade, a reprovacao veio do
+    sinal, nao da ausencia de relacao.
+    """
+    from backtesting.pairs_copula import run_pairs_copula_scan
+    from backtesting.pairs_trading import UNIVERSO_AMPLO_HISTORICO_COMPLETO
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]arbitragem estatistica via copula gaussiana (H29)[/]")
+    console.print(f"  [{C_DIM}]mesma selecao de pares de H10 -- so o sinal de entrada/saida muda "
+                  f"de z-score linear para distribuicao condicional da copula (h1|2)[/{C_DIM}]")
+    console.print()
+
+    resultado_treino, resultado_validacao, veredito = run_pairs_copula_scan(
+        pares=list(UNIVERSO_AMPLO_HISTORICO_COMPLETO),
+    )
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+
+    def _linha(rotulo, r):
+        pf = "inf" if r.profit_factor == float("inf") else f"{r.profit_factor:.2f}"
+        console.print(f"  [{C_LABEL}]{rotulo}[/] trades {r.total_trades}   "
+                      f"retorno {r.total_return_pct:+.2f}%   buy&hold {r.buy_hold_return_pct:+.2f}%   "
+                      f"drawdown {r.max_drawdown_pct:.2f}%   profit factor {pf}")
+
+    _linha("treino    ", resultado_treino)
+    _linha("validacao ", resultado_validacao)
+    console.print()
+    console.print(f"  [{C_LABEL}]ja publicado (H10, z-score linear, spec 054)[/] "
+                  f"validacao: 10 trades, PF 0.15, drawdown 16.61%")
+    console.print(f"  [bold]veredito (validacao)[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "pairs_copula",
+        {"n_pares": len(UNIVERSO_AMPLO_HISTORICO_COMPLETO),
+         "pf_h10_publicado": 0.15, "drawdown_h10_publicado": 16.61},
+        {
+            "treino": {"total_trades": resultado_treino.total_trades,
+                       "total_return_pct": resultado_treino.total_return_pct,
+                       "buy_hold_return_pct": resultado_treino.buy_hold_return_pct,
+                       "max_drawdown_pct": resultado_treino.max_drawdown_pct,
+                       "profit_factor": resultado_treino.profit_factor},
+            "validacao": {"total_trades": resultado_validacao.total_trades,
+                          "total_return_pct": resultado_validacao.total_return_pct,
+                          "buy_hold_return_pct": resultado_validacao.buy_hold_return_pct,
+                          "max_drawdown_pct": resultado_validacao.max_drawdown_pct,
+                          "profit_factor": resultado_validacao.profit_factor},
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 def cmd_carteira_ampla():
     """Carteira de H14 sobre universo amplo -- 34 pares (spec 040).
 
@@ -3113,6 +3177,7 @@ COMMANDS = {
     "pairs":         cmd_pairs,
     "pairs_amplo":   cmd_pairs_amplo,
     "pairs_reselecao": cmd_pairs_reselecao,
+    "pairs_copula": cmd_pairs_copula,
     "carteira_ampla": cmd_carteira_ampla,
     "carteira_vol":  cmd_carteira_vol,
     "carteira_corr": cmd_carteira_corr,
