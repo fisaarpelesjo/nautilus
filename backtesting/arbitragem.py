@@ -9,7 +9,9 @@ Nao envia ordem alguma (FR-012) e nao exige chave de API (FR-013) -- so
 consulta fetch_order_book publico, nas seis corretoras declaradas em D1.
 """
 
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Optional
@@ -82,6 +84,7 @@ class LeituraLivro:
 
 
 _exchange_cache: dict[str, "ccxt.Exchange"] = {}
+_exchange_cache_lock = threading.Lock()
 
 
 def _get_exchange_publico(corretora: str) -> "ccxt.Exchange":
@@ -90,13 +93,20 @@ def _get_exchange_publico(corretora: str) -> "ccxt.Exchange":
     Nunca autenticada -- FR-013 nao exige chave de API para nenhuma das seis
     corretoras. Mesmo espirito de data/fetcher.py::get_exchange, mas por id
     de corretora em vez de um unico exchange fixo.
+
+    Lock defensivo (spec 053): `medir_ciclo` chama isto de threads
+    diferentes em paralelo. Na pratica cada thread usa uma chave (corretora)
+    distinta, entao nunca disputam a mesma entrada -- mas escrever no dict
+    sem lock dependeria implicitamente de garantias do GIL do CPython, nao
+    de uma garantia da API do dict.
     """
     if corretora in _exchange_cache:
         return _exchange_cache[corretora]
-    classe = getattr(ccxt, corretora)
-    exchange = classe({"enableRateLimit": True, "timeout": 10000})
-    _exchange_cache[corretora] = exchange
-    return exchange
+    with _exchange_cache_lock:
+        if corretora not in _exchange_cache:
+            classe = getattr(ccxt, corretora)
+            _exchange_cache[corretora] = classe({"enableRateLimit": True, "timeout": 10000})
+    return _exchange_cache[corretora]
 
 
 def reset_exchange_cache() -> None:
@@ -275,8 +285,17 @@ def medir_ciclo(
     fica de fora das combinacoes e aparece na lista de indisponiveis. Par de
     cotacao diferente nunca vira Comparacao (FR-003) -- aparece em
     `pares_recusados` com o motivo, nunca silenciosamente incluido.
+
+    Leitura em PARALELO (spec 053, M15): ler_livro e I/O de rede sincrono
+    que libera o GIL durante a espera -- threads bastam. Sequencial fazia o
+    intervalo entre a primeira e a ultima corretora ultrapassar sozinho o
+    teto de latencia (TETO_LATENCIA_MS) antes mesmo de qualquer comparacao
+    ser calculada -- medido: so 1 das 15 combinacoes possiveis (as
+    adjacentes na ordem fixa de leitura) alguma vez ficava abaixo do teto.
     """
-    leituras = {corretora: ler_livro(corretora, par) for corretora in CORRETORAS}
+    with ThreadPoolExecutor(max_workers=len(CORRETORAS)) as executor:
+        resultados = list(executor.map(lambda c: ler_livro(c, par), CORRETORAS))
+    leituras = dict(zip(CORRETORAS, resultados, strict=True))
     indisponiveis = [corretora for corretora, leitura in leituras.items() if not leitura.sucesso]
     disponiveis = [leitura for leitura in leituras.values() if leitura.sucesso]
 

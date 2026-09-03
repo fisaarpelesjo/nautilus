@@ -206,6 +206,49 @@ def test_medir_ciclo_falha_isolada_nao_aborta(monkeypatch):
     assert pares_recusados == []
 
 
+# ==================================== spec 053 (H15 leitura paralela)
+
+def test_medir_ciclo_le_as_corretoras_em_paralelo(monkeypatch):
+    """M15 (docs/research/registro-de-hipoteses.md S5): leitura sequencial
+    fazia o intervalo entre a primeira e a ultima corretora ultrapassar
+    sozinho o teto de latencia. Com leitura paralela, seis corretoras que
+    demoram ~0,2s cada MUST completar perto de 0,2s no total, nao de 1,2s
+    (6x0,2s) que a versao sequencial levaria."""
+    import time
+
+    ATRASO = 0.2
+
+    def _ler_livro_lento(corretora, par):
+        time.sleep(ATRASO)
+        return _leitura(corretora, ask_preco=100.0, bid_preco=99.9, instante=time.monotonic())
+
+    monkeypatch.setattr(arbitragem, "ler_livro", _ler_livro_lento)
+
+    inicio = time.monotonic()
+    arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+    duracao = time.monotonic() - inicio
+
+    n = len(arbitragem.CORRETORAS)
+    assert duracao < ATRASO * (n / 2)  # bem abaixo do tempo sequencial (n * ATRASO)
+
+
+def test_medir_ciclo_falha_isolada_nao_aborta_sob_paralelismo(monkeypatch):
+    """Regressao de FR-002/FR-011: uma corretora falhando nao pode afetar
+    as demais nem abortar o ciclo, mesmo com a leitura paralela."""
+    def _ler_livro_falso(corretora, par):
+        if corretora == "kraken":
+            return arbitragem.LeituraLivro(corretora=corretora, par=par, instante=0.0, erro="falha simulada")
+        return _leitura(corretora, ask_preco=100.0, bid_preco=99.9, instante=0.0)
+
+    monkeypatch.setattr(arbitragem, "ler_livro", _ler_livro_falso)
+
+    comparacoes, indisponiveis, pares_recusados = arbitragem.medir_ciclo("BTC/USDT", volume_usdt=1000.0)
+
+    assert indisponiveis == ["kraken"]
+    from math import comb
+    assert len(comparacoes) == comb(len(arbitragem.CORRETORAS) - 1, 2)
+
+
 # ---------------------------------------------------------------------------
 # US2: mesma_cotacao (T016, T017)
 # ---------------------------------------------------------------------------
