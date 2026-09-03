@@ -1382,6 +1382,49 @@ ainda não testado nesta carteira) é a hipótese natural seguinte.
 **Reprodução:** `python main.py carteira_vol` ·
 `specs/041-volatilidade-carteira-h14/`.
 
+#### Atualização — gate de correlação, maior melhora medida até aqui (2026-09-03, spec 042)
+
+Quarta variável isolada sobre o drawdown de carteira de H14. Diferente
+das duas tentativas anteriores (universo amplo, indireto, refutado;
+dimensionamento por volatilidade, indireto, ajudou parcialmente), esta
+ataca o mecanismo de frente: bloqueia uma entrada nova especificamente
+quando correlacionada (retornos ≥ 0,7 em 50 candles) com uma posição já
+aberta — o mesmo texto e os mesmos limiares do gate real de produção
+(`risk/correlation.py::check_correlated_exposure`), reimplementado
+ponto-no-tempo (`_correlacionado_com_posicao_aberta`) porque a função de
+produção busca dado ao vivo — inutilizável dentro de um backtest sem
+vazar futuro (`specs/042-gate-correlacao-carteira-h14/research.md`, D1).
+
+**Resultado (`python main.py carteira_corr`, 2026-09-03, mesmos 12 pares de `UNIVERSO_H11`):**
+
+| | Sem overlay (spec 037) | Dimensionamento vol. (spec 041) | Gate de correlação (spec 042) |
+|---|---|---|---|
+| Trades | 931 | 763 | 595 |
+| Retorno | −20,12% | −18,16% | **−16,04%** |
+| **Drawdown agregado** | **28,66%** | **23,04%** | **20,74%** |
+| Profit factor | 0,72 | 0,72 | 0,68 |
+
+**Maior redução de drawdown medida nesta linha de investigação** — 28,66%
+→ 20,74%, quase 8 pontos percentuais, ~28% de redução relativa (contra
+~20% do dimensionamento por volatilidade). Retorno também é o melhor dos
+três (−16,04%). Único recuo: profit factor cai de 0,72 para 0,68 — bloquear
+entradas correlacionadas também bloqueia algumas que teriam dado certo,
+não só as que teriam concentrado risco.
+
+**Ainda reprovado.** Drawdown de 20,74% segue o dobro do teto aceitável
+(10%), e profit factor 0,68 está mais distante de 1,2 que nos outros dois
+testes. O veredito de H14 não muda.
+
+**Confirma o mecanismo de forma mais direta que qualquer teste anterior.**
+Bloquear correlação de verdade (não só reduzir exposição em momentos
+voláteis, spec 041, nem ampliar o universo de candidatos, spec 040
+refutado) produziu o maior efeito — evidência mais forte até agora de que
+posições correlacionadas concorrentes são, de fato, o principal
+mecanismo por trás do drawdown de carteira de H14.
+
+**Reprodução:** `python main.py carteira_corr` ·
+`specs/042-gate-correlacao-carteira-h14/`.
+
 ---
 
 ### 4.16 H20 — Geometria de barreira
