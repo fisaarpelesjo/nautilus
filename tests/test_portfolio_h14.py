@@ -742,3 +742,53 @@ def test_tres_mecanismos_juntos_nao_quebram():
 
     assert r is not None
     assert r.total_trades == 2  # A e C -- B bloqueado por correlacao com os tres ligados
+
+
+# ==================== spec 057 — saida por barreira + gate de correlacao
+
+def test_saida_barreira_e_gate_correlacao_juntos_nao_quebram():
+    """As duas flags ligadas ao mesmo tempo produzem um BacktestResult
+    valido -- cenario com posicao correlacionada (bloqueada pelo gate) na
+    mesma simulacao que usa saida por barreira (nao trailing)."""
+    idx = _idx(30)
+    base_a = _serie(30, semente=1)
+    base_a[-2:] = [base_a[-3], base_a[-3]]
+    preparados = {
+        "A/USDT": _prep(idx, close=base_a),
+        "B/USDT": _prep(idx, close=[c * 1.001 for c in base_a]),
+        "C/USDT": _prep(idx, close=_serie(30, semente=99)),
+    }
+    t1, t2 = idx[-2], idx[-1]
+    previsoes = {
+        "A/USDT": pd.Series([1.0, 0.0], index=[t1, t2]),
+        "B/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+        "C/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+    }
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+        usar_saida_barreira=True, usar_gate_correlacao=True,
+    )
+
+    assert r is not None
+    assert r.total_trades == 2  # A e C -- B ainda bloqueado por correlacao com os dois ligados
+
+
+def test_saida_barreira_com_gate_correlacao_mantem_stop_fixo():
+    """O gate de correlacao nao interfere na mecanica de saida -- o stop
+    continua fixo (sem trailing) mesmo com o gate tambem ligado."""
+    idx = _idx(5)
+    atr = 2.0
+    close = [100.0, 105.0, 101.0, 101.0, 101.0]
+    high = [100.0, 105.0, 101.0, 101.0, 101.0]
+    low = [99.9, 104.9, 100.9, 100.9, 100.9]
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=close, high=high, low=low, atr=atr)}
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+        usar_saida_barreira=True, usar_gate_correlacao=True, limite_velas=100,
+    )
+
+    assert r.total_trades == 1
+    assert r.trades[0].exit_reason == "Fim do periodo"  # nao "Stop Loss" (sem trailing)

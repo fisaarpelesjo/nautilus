@@ -2312,6 +2312,75 @@ def cmd_carteira_barreira():
     )
 
 
+def cmd_carteira_barreira_corr():
+    """H14 -- saida por barreira tripla + gate de correlacao juntos
+    (spec 057).
+
+    Os dois melhores mecanismos medidos isoladamente na linha de
+    investigacao de H14 -- saida por barreira (melhor profit factor,
+    0,78, spec 056) e gate de correlacao (melhor drawdown isolado,
+    20,74%, spec 042) -- nunca testados juntos. Atacam mecanismos
+    diferentes (estrutura de payoff da saida vs. sobreposicao de risco
+    na entrada), diferente das combinacoes anteriores (specs 043/046),
+    onde o gate de correlacao dominava porque os outros mecanismos so
+    filtravam/ajustavam a MESMA decisao de entrada que o gate ja filtra.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H14 -- saida por barreira + gate de correlacao[/]")
+    console.print(f"  [{C_DIM}]os dois melhores mecanismos isolados da linha de investigacao juntos "
+                  f"pela primeira vez -- payoff da saida (PF 0,78 isolado) e sobreposicao de risco "
+                  f"na entrada (drawdown 20,74% isolado)[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(pares=list(UNIVERSO_H11), usar_saida_barreira=True,
+                                  usar_gate_correlacao=True)
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]trades[/] {resultado.total_trades}")
+    console.print(f"  [{C_LABEL}]drawdown agregado[/] {resultado.max_drawdown_pct:.2f}%   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]ja publicado[/] sem overlay 28.66%/931/PF 0.72   "
+                  f"so barreira 22.25%/543/PF 0.78   so correlacao 20.74%/595/PF 0.68")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_barreira_corr",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_sem_overlay_publicado": 28.66, "pf_sem_overlay_publicado": 0.72,
+         "drawdown_so_barreira_publicado": 22.25, "pf_so_barreira_publicado": 0.78,
+         "drawdown_so_correlacao_publicado": 20.74, "pf_so_correlacao_publicado": 0.68},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 def _fracao_custo_consumida(com_custo, sem_custo):
     """Fracao da vantagem bruta que o custo de execucao consome -- mesma
     formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
@@ -2504,6 +2573,7 @@ COMMANDS = {
     "geometria": cmd_geometria,
     "calibracao": cmd_calibracao,
     "carteira_barreira": cmd_carteira_barreira,
+    "carteira_barreira_corr": cmd_carteira_barreira_corr,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
