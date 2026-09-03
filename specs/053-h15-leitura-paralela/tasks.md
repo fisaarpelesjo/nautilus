@@ -27,9 +27,9 @@ description: "Task list for H15 leitura das corretoras em paralelo (spec 053)"
 ### Implementation
 
 - [X] T003 [US1] Trocar a comprehension sequencial por `ThreadPoolExecutor.map` em `medir_ciclo` (`backtesting/arbitragem.py`); adicionar `threading.Lock` em `_get_exchange_publico` ao redor da escrita em `_exchange_cache` (depende de T001-T002)
-- [ ] T004 Rodar `python main.py arbitragem BTC/USDT` contra dados reais (VPS `vps-limulus`/`nautilus-research`) — confirmar `intervalo_ms` bem menor entre a maioria das combinações
-- [ ] T005 Registrar em `docs/research/registro-de-hipoteses.md` §5 (M15) que o instrumento foi corrigido — texto depende do resultado medido em T004, não escrito antes
-- [ ] T006 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T004 Rodar `python main.py arbitragem BTC/USDT` contra dados reais (VPS `vps-limulus`/`nautilus-research`) — confirmar `intervalo_ms` bem menor entre a maioria das combinações: 6 de 15 combinações válidas num único ciclo, contra 1 de 15 em 615 observações antes
+- [X] T005 Registrar em `docs/research/registro-de-hipoteses.md` §5 (M15) e §6.1 (H15) que o instrumento foi corrigido — validado com resultado real de T004
+- [X] T006 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T003 implementação e testes) + (T004-T006 validação real e registro).
 

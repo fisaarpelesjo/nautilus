@@ -2234,7 +2234,7 @@ com base em medições anteriores.
 
 | M13 | Estimativa pontual comparada a um limiar, sem banda de incerteza | A verificação de "a razão de chances supera o empate?" comparava o ponto contra 0,500. Medido em H14: razão de **0,5134** com 536 alvos e 1.044 stops — a checagem devolvia **sim**. Mas sob empate exato esperar-se-iam 526,7 alvos, erro padrão 18,7: a diferença é de **meio erro padrão**, p = 0,318, e o limite inferior do intervalo de confiança dá razão de 0,4696, **abaixo** do empate. A estimativa pontual passava e a evidência não existia | Corrigido (`supera_empate_com_confianca`, limite inferior de Wilson, 2026-09-01) |
 | M14 | `evaluate_approval()` trata amostra abaixo do mínimo como motivo de reprovação, não como categoria própria | Medido em H10 (spec 039, 2026-09-02): validação com 6 trades (abaixo do mínimo de 10) devolveu `"reprovado"` — `"apenas 6 trades... "` listado ao lado de `"profit factor abaixo do mínimo"` como se fossem evidência do mesmo tipo. Confirmado por um segundo caso em H14/circuit breaker (spec 044, 2026-09-03): 6 trades e profit factor 0,36 juntos no mesmo `"reprovado"`. `classificar_avaliacao()` (`backtesting/modelo.py`, usada por H14) já resolve isso: devolve `"inconclusivo"` explicitamente quando `total_trades < EDGE_MIN_TRADES`, **antes** de avaliar profit factor ou drawdown — mas `evaluate_approval()` (`backtesting/approval.py`), compartilhada por `grid`/`carteira`/`leadlag`/`pairs`, não tinha essa distinção | **Corrigido** (2026-09-03) — checagem de amostra movida para antes de qualquer outro critério, retorno antecipado com `"inconclusivo"` e motivo único, mesmo padrão de `classificar_avaliacao()`. Auditoria de vereditos publicados afetados: ver nota abaixo |
-| M15 | Contagem bruta de observações (`N ≥ 30`) tratada como amostra utilizável, sem checar se as observações passaram pelo próprio filtro de qualidade do instrumento | Medido em H15 (campanha real, 2026-09-03): 615 observações, `estado_agregado = "amostra suficiente"` (41 por combinação) — mas 607 (98,7%) vieram `latencia_alta`, porque a leitura das 6 corretoras é sequencial e só uma combinação (as duas adjacentes na ordem de leitura) fica abaixo do teto de 2.000ms. 14 de 15 combinações nunca tiveram uma comparação válida, e nunca teriam, não importa quantos ciclos rodassem — limitação estrutural do instrumento, não de tempo decorrido | **Não corrigido** — exigiria ler as corretoras em paralelo (`asyncio`/threads) em vez de sequencial; fora do escopo desta campanha, registrado para uma spec futura se H15 for retomada |
+| M15 | Contagem bruta de observações (`N ≥ 30`) tratada como amostra utilizável, sem checar se as observações passaram pelo próprio filtro de qualidade do instrumento | Medido em H15 (campanha real, 2026-09-03): 615 observações, `estado_agregado = "amostra suficiente"` (41 por combinação) — mas 607 (98,7%) vieram `latencia_alta`, porque a leitura das 6 corretoras é sequencial e só uma combinação (as duas adjacentes na ordem de leitura) fica abaixo do teto de 2.000ms. 14 de 15 combinações nunca tiveram uma comparação válida, e nunca teriam, não importa quantos ciclos rodassem — limitação estrutural do instrumento, não de tempo decorrido | **Corrigido** (2026-09-03, `specs/053-h15-leitura-paralela/`) — `medir_ciclo` lê as 6 corretoras via `ThreadPoolExecutor` em vez de sequencial. Validado com ciclo real: 6 de 15 combinações válidas (`sem_oportunidade`) num único ciclo, contra 1 de 15 em 615 observações antes da correção. Latência residual entre algumas corretoras específicas (`gate` consistentemente mais lenta) permanece — a correção elimina o viés estrutural da ordem de leitura, não garante latência zero |
 
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
@@ -2396,6 +2396,19 @@ abaixo do custo mínimo de 0,200%). Não é um veredito formal (a spec
 declara que este instrumento nunca produz aprovado/reprovado, FR-010) —
 mas a evidência disponível, ainda que pequena, aponta na mesma direção
 que a medição preliminar já apontava.
+
+**M15 corrigido no mesmo dia (`specs/053-h15-leitura-paralela/`).**
+`medir_ciclo` passou a ler as seis corretoras em paralelo
+(`ThreadPoolExecutor`, I/O de rede libera o GIL, threads bastam sem
+`asyncio`). Validado com um ciclo real: **6 de 15 combinações válidas**
+num único ciclo — antes, só 1 de 15 tinha ficado válida em 615
+observações inteiras. A limitação estrutural (viés da ordem fixa de
+leitura) está corrigida; latência residual específica de algumas
+corretoras (`gate`, consistentemente mais lenta que as demais) persiste
+e é uma característica real da rede, não um defeito de instrumento.
+Uma nova campanha de acumulação (repetir os ~40 ciclos, agora com o
+instrumento corrigido) é o próximo passo natural, ainda não executado
+nesta sessão.
 
 *Diferente de H1–H14/H20: não é retrotestável.* Corretoras não publicam
 histórico de livro de ofertas — o veredito exige uma campanha de amostragem
