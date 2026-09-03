@@ -1,8 +1,9 @@
 # Registro de Hipóteses — Avaliação Sistemática de Estratégias
 
-**Documento vivo.** Última atualização: 2026-09-01
+**Documento vivo.** Última atualização: 2026-09-03
 **Escopo:** todas as hipóteses de geração de retorno avaliadas neste projeto,
 com veredito, evidência e procedência.
+**Status:** busca ativa encerrada por decisão em 2026-09-03 — ver §8.
 
 ---
 
@@ -3281,29 +3282,86 @@ reavaliação pendente de H10 com formação de 500+ candles. Próxima da fila: 
 (dimensionamento por volatilidade), que ataca diretamente o critério de drawdown
 — o único que H10 reprovou em sua melhor janela.
 
-**Condição de parada:** não há. A resposta "nenhuma hipótese testada apresenta
-vantagem" é um estado do registro, não seu encerramento.
+**Condição de parada, declarada em 2026-09-01:** não há por construção
+metodológica — "nenhuma hipótese testada apresenta vantagem" é um estado
+do registro, não seu encerramento automático. Isso permanece verdadeiro:
+o critério nunca impediu, por si, a continuação da busca.
+
+**Encerramento por decisão, 2026-09-03.** Depois de 26 hipóteses
+numeradas (24 efetivamente testadas com evidência real, 0 aprovadas —
+ver §8), o usuário decidiu conscientemente fechar o ciclo ativo de
+busca, tendo visto o padrão estrutural completo (§8). Isto é diferente
+da "condição de parada" acima: não é o critério metodológico que
+encerrou a busca — é uma decisão humana, informada pela evidência
+acumulada, de que o custo esperado de continuar testar dentro das
+categorias já exploradas não compensa o retorno esperado. O ciclo pode
+ser reaberto a qualquer momento (a fila de §6 continua existindo,
+inclusive com itens nunca testados — H16, H19, e qualquer hipótese
+nova de mecanismo genuinamente diferente) — não é uma afirmação de que
+nenhuma vantagem jamais existirá, é o registro de uma escolha sobre
+onde investir esforço a partir de agora.
 
 ---
 
-## 8. Conclusão do estado atual
+## 8. Conclusão do estado atual — encerramento da busca ativa (2026-09-03)
 
-Onze hipóteses avaliadas, nenhuma aprovada. Duas inconclusivas: H10 por poder
-estatístico do seletor, H11 em escala semanal por limitação estrutural de
-histórico. Nove defeitos de instrumentação identificados e corrigidos.
+**26 hipóteses numeradas (H1–H26), 24 efetivamente testadas com evidência
+real, 0 aprovadas.** As duas não testadas (H16 — market making, H19 —
+opções) foram descartadas por raciocínio de infraestrutura, nunca
+medidas empiricamente — permanecem genuinamente desconhecidas, não
+reprovadas. Duas hipóteses ficam inconclusivas por limitação estrutural
+(H11 em escala semanal, H12 por depender de uma estratégia lucrativa
+que não existe). Duas nunca produzem veredito formal por desenho
+(H15, H22 — arbitragem, `FR-010`-style: instrumento de amostragem, não
+aprovação/reprovação), mas acumularam evidência real consistentemente
+negativa (~600 observações combinadas, zero oportunidades). As 20
+restantes: REPROVADA ou equivalente.
 
-O conjunto de resultados é consistente com a literatura, que documenta
-sobrevivência rara de regras técnicas simples em criptoativos após custos de
-transação e validação fora da amostra. As medições deste projeto reproduzem esse
-resultado com rigor metodológico próprio, não o contradizem.
+**O achado mais importante não é "zero aprovadas" — é que a rejeição
+converge de quatro direções metodologicamente independentes:**
 
-O produto mais durável da investigação não é uma estratégia, mas o instrumental:
-`evaluate_approval`, `run_scan` com confirmação fora da amostra, `walk_forward` e
-`ganho_de_timing_pp`. Os dois últimos foram construídos após um falso positivo de
-+29,29pp que o instrumental anterior teria aprovado.
+| Família | Hipóteses | Mecanismo testado | Resultado |
+|---|---|---|---|
+| Direcional (prevê preço) | H1–H7, H11, H13, H14, H20, H21, H25, H26 | Indicadores técnicos, aprendizado supervisionado, geometria de saída, sazonalidade, sinais de crowding | O sinal existe (H14: z=+7,97) mas é **aproximadamente igual** ao obstáculo de custo/geometria — não menor por acidente de amostra, robusto a mudar a geometria (H20) e a ampliar o histórico |
+| Carry delta-neutro (não prevê direção) | H8, H23, H24 | Funding perpétuo, futuros trimestrais, diferencial entre corretoras | Mesma ordem de grandeza nas três variantes (2-5% a.a. bruto) — nenhuma supera o benchmark de custo de oportunidade depois da correção de eficiência de capital |
+| Arbitragem pura (sem previsão, sem carry) | H15, H22 | Duas corretoras, três pernas intra-corretora | Zero oportunidades em ~600 observações reais combinadas, mesmo eliminando a latência de rede (H22) |
+| Estrutural/outras | H9, H10, H17, H18 | Prêmio de rebalanceamento, cointegração, sinal on-chain, grid trading | Cada uma reprovada por um mecanismo diferente (pré-condição não satisfeita, poder estatístico, colinearidade, gestão de cauda tardia) |
 
-A operação em modo paper permanece ativa e constitui a única fonte de evidência
-prospectiva. Estimativa de significância estatística ao ritmo corrente: ~87 dias.
+**Por que isso é evidência forte, não so ausência de sorte.** Se o
+resultado fosse "tentamos pouco" ou "os testes eram fracos", esperar-se-ia
+alguma categoria escapar por acaso — quatro mecanismos genuinamente
+diferentes (previsão, carry, arbitragem, estrutural), medidos com o
+mesmo critério fixo (`evaluate_approval`) e a mesma disciplina de
+confirmação fora da amostra, convergindo para a mesma conclusão é
+exatamente o padrão que a literatura acadêmica descreve para mercados
+líquidos: qualquer vantagem sistemática pequena o bastante para um bot
+de varejo capturar já foi arbitrada por participantes com custo de
+execução, capital e velocidade que este projeto não tem acesso.
+
+**Decisão de encerramento, não veredito de impossibilidade.** O usuário
+decidiu, em 2026-09-03, fechar o ciclo ativo de busca dentro das
+categorias já exploradas (ver §7.2). Isso não afirma que nenhuma
+vantagem jamais existirá — afirma que, dada a evidência acumulada, o
+retorno esperado de testar mais uma variação dentro das mesmas quatro
+famílias é baixo o bastante para não justificar o esforço, e que as
+duas fronteiras nunca medidas (market making, execução de alta
+frequência) exigem investimento de infraestrutura fora do escopo deste
+projeto.
+
+**O produto mais durável da investigação não é uma estratégia, é o
+instrumental de avaliação**: `evaluate_approval`, `run_scan` com
+confirmação fora da amostra, `walk_forward`, `ganho_de_timing_pp`,
+`supera_empate_com_confianca` (Wilson CI contra ponto de empate) — cada
+um construído depois de um falso positivo real que o instrumental
+anterior teria deixado passar (M9, M11, M13, M14, M15, e o
+`ganho_de_timing_pp` depois de +29,29pp que parecia aprovação e não
+era). Esse instrumental permanece reutilizável se a fila de §6 for
+reaberta no futuro — com uma hipótese de mecanismo genuinamente novo,
+não uma variação paramétrica das 26 já fechadas.
+
+A operação em modo paper permanece ativa e constitui a única fonte de
+evidência prospectiva contínua, independente de este ciclo de busca
+estar ativo ou encerrado.
 
 ---
 
