@@ -606,3 +606,34 @@ def test_limite_drawdown_diario_desligado_por_padrao_reproduz_resultado_ja_publi
 
     assert r_sem_flag.total_trades == r_com_flag_false.total_trades == MAX_POSITIONS + 1  # F abre, sem bloqueio
     assert r_sem_flag.total_return_pct == pytest.approx(r_com_flag_false.total_return_pct)
+
+
+# ============================== spec 046 (combinacao correlacao + limite diario)
+
+def test_gate_correlacao_e_limite_drawdown_diario_juntos_nao_quebram():
+    """As duas flags ligadas ao mesmo tempo produzem um BacktestResult
+    valido, sem excecao -- cenario com posicao correlacionada (bloqueada
+    pelo gate) na mesma simulacao onde o limite diario tambem esta ativo
+    (mas nao dispara, janela curta demais para perda > 5%)."""
+    idx = _idx(30)
+    base_a = _serie(30, semente=1)
+    base_a[-2:] = [base_a[-3], base_a[-3]]
+    preparados = {
+        "A/USDT": _prep(idx, close=base_a),
+        "B/USDT": _prep(idx, close=[c * 1.001 for c in base_a]),  # quase identico a A -> corr ~1.0
+        "C/USDT": _prep(idx, close=_serie(30, semente=99)),
+    }
+    t1, t2 = idx[-2], idx[-1]
+    previsoes = {
+        "A/USDT": pd.Series([1.0, 0.0], index=[t1, t2]),
+        "B/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+        "C/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+    }
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+        usar_gate_correlacao=True, usar_limite_drawdown_diario=True,
+    )
+
+    assert r is not None
+    assert r.total_trades == 2  # A e C -- B bloqueado por correlacao
