@@ -393,6 +393,37 @@ def test_candidato_bloqueado_nao_impede_o_proximo_candidato_de_abrir():
     assert r_sem_gate.total_trades == 3  # A, B e C -- sem o gate, todos abrem
 
 
+# ============================================== spec 043 (combinacao vol+correlacao)
+
+def test_dimensionamento_vol_e_gate_correlacao_juntos_nao_quebram():
+    """As duas flags ligadas ao mesmo tempo produzem um BacktestResult
+    valido, sem excecao -- cenario com posicao correlacionada (bloqueada
+    pelo gate) e atr_ratio alto (reduzido pelo dimensionamento) na mesma
+    simulacao."""
+    idx = _idx(30)
+    base_a = _serie(30, semente=1)
+    base_a[-2:] = [base_a[-3], base_a[-3]]
+    preparados = {
+        "A/USDT": _prep(idx, close=base_a, atr_ratio=0.10),
+        "B/USDT": _prep(idx, close=[c * 1.001 for c in base_a], atr_ratio=0.10),
+        "C/USDT": _prep(idx, close=_serie(30, semente=99), atr_ratio=0.10),
+    }
+    t1, t2 = idx[-2], idx[-1]
+    previsoes = {
+        "A/USDT": pd.Series([1.0, 0.0], index=[t1, t2]),
+        "B/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+        "C/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+    }
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+        usar_dimensionamento_vol=True, usar_gate_correlacao=True,
+    )
+
+    assert r is not None
+    assert r.total_trades == 2  # A e C -- B ainda bloqueado por correlacao com os dois ligados
+
+
 def test_fator_nunca_amplia_alem_do_teto_ja_existente():
     """atr_ratio muito baixo (bem abaixo do alvo) nao pode fazer a posicao
     ficar MAIOR que sem dimensionamento -- fator_volatilidade ja tem teto

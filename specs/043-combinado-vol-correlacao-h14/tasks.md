@@ -23,11 +23,11 @@ por natureza (zero mecânica nova).
 
 ### Tests
 
-- [ ] T001 [US1] Teste em `tests/test_portfolio_h14.py`: `_simular_carteira_core` com `usar_dimensionamento_vol=True` e `usar_gate_correlacao=True` simultaneamente produz um `BacktestResult` válido sobre um cenário sintético com posições correlacionadas e `atr_ratio` variável, sem exceção
+- [X] T001 [US1] Teste em `tests/test_portfolio_h14.py`: `_simular_carteira_core` com `usar_dimensionamento_vol=True` e `usar_gate_correlacao=True` simultaneamente produz um `BacktestResult` válido sobre um cenário sintético com posições correlacionadas e `atr_ratio` variável, sem exceção
 
 ### Implementation
 
-- [ ] T002 Criar `cmd_carteira_combo()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_dimensionamento_vol=True, usar_gate_correlacao=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e os três drawdowns já publicados (28,66%/23,04%/20,74%) lado a lado; registrar `"carteira_combo": cmd_carteira_combo` em `COMMANDS`; exportar via `export_report("carteira_combo", ...)` (depende de T001)
+- [X] T002 Criar `cmd_carteira_combo()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_dimensionamento_vol=True, usar_gate_correlacao=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e os três drawdowns já publicados (28,66%/23,04%/20,74%) lado a lado; registrar `"carteira_combo": cmd_carteira_combo` em `COMMANDS`; exportar via `export_report("carteira_combo", ...)` (depende de T001)
 - [ ] T003 Rodar `python main.py carteira_combo` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
 - [ ] T004 Registrar o resultado real de T003 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — comparação explícita contra os três já publicados; texto depende do resultado medido, não escrito antes de T003
 - [ ] T005 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão

@@ -1733,6 +1733,69 @@ def cmd_carteira_corr():
     )
 
 
+def cmd_carteira_combo():
+    """Combinacao dimensionamento por volatilidade + gate de correlacao
+    na carteira de H14 (spec 043).
+
+    Os dois mecanismos que mostraram melhora isolada real (spec 041:
+    28,66%->23,04%; spec 042: 28,66%->20,74%, a maior reducao) ligados
+    ao mesmo tempo -- zero mecanica nova, so mede o efeito combinado.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]combinacao: dimensionamento por volatilidade + gate de correlacao[/]")
+    console.print(f"  [{C_DIM}]os dois mecanismos que ja mostraram melhora isolada, ligados ao "
+                  f"mesmo tempo. Mesmos 12 pares dos tres resultados ja publicados[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(
+        pares=list(UNIVERSO_H11), usar_dimensionamento_vol=True, usar_gate_correlacao=True,
+    )
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%")
+    console.print(f"  [{C_LABEL}]drawdown agregado (combinado)[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]ja publicado[/] sem overlay 28.66%   "
+                  f"so volatilidade 23.04%   so correlacao 20.74%")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_combo",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_sem_overlay_publicado": 28.66, "drawdown_so_vol_publicado": 23.04,
+         "drawdown_so_corr_publicado": 20.74},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
