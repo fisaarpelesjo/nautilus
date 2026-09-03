@@ -1578,6 +1578,56 @@ espacial) e nenhum dos dois, individualmente, colapsou a amostra.
 
 ---
 
+#### Atualização — combinação correlação + limite diário, o gate domina de novo (2026-09-03, spec 046)
+
+Os dois únicos mecanismos com melhora real não-degenerada isolados —
+gate de correlação (spec 042) e limite de drawdown diário (spec 045) —
+ligados ao mesmo tempo, dimensões declaradamente ortogonais
+(sobreposição espacial vs. trajetória temporal da carteira,
+`specs/046-combinado-correlacao-limite-diario-h14/spec.md`).
+
+**Resultado (`python main.py carteira_combo2`, 2026-09-03):**
+
+| | Sem overlay (037) | Só correlação (042) | Limite diário (045) | Combinado corr+diário (046) |
+|---|---|---|---|---|
+| Trades | 931 | 595 | 762 | **594** |
+| Retorno | −20,12% | −16,04% | −16,50% | **−15,63%** |
+| Drawdown | 28,66% | 20,74% | 22,17% | **20,38%** |
+| Profit factor | 0,72 | 0,68 | 0,75 | **0,68** |
+
+**A hipótese de ortogonalidade não se confirmou como esperado — o gate
+de correlação domina de novo, quase da mesma forma que dominou o
+dimensionamento em spec 043.** `total_trades` do combinado (594) é
+praticamente idêntico ao do gate sozinho (595), não ao do limite diário
+(762) nem a algo intermediário. Mecanismo provável: o limite diário só
+dispara depois de uma perda agregada grande num único dia — e boa parte
+dessas perdas agregadas grandes vêm exatamente de várias posições
+correlacionadas quebrando **juntas** no mesmo dia. Com o gate de
+correlação já impedindo essa concentração no instante da entrada, os
+dias de perda severa que disparariam o limite diário ficam raros — o
+limite diário perde a maior parte de suas oportunidades de agir, não
+porque as duas mecânicas competem pela mesma decisão (como
+dimensionamento+correlação), mas porque o gate remove a **causa raiz**
+do padrão de perda que o limite diário existe para conter. Drawdown
+melhora só marginalmente sobre o gate sozinho (20,74% → 20,38%, ~1,7%
+relativo) e retorno melhora um pouco mais (−16,04% → −15,63%, o melhor
+retorno de todos os sete testes) — mas profit factor volta a 0,68,
+perdendo o ganho que o limite diário tinha isolado (0,75).
+
+**Ainda reprovado**, mesmo padrão dos seis testes anteriores. **Segunda
+confirmação da mesma lição estrutural** (depois de spec 043): overlays
+de risco que atacam consequências correlacionadas de um mesmo problema
+subjacente (posições correlacionadas concentrando perda) tendem a se
+sobrepor fortemente quando um deles ataca a causa direto — não importa
+se a dimensão declarada parece ortogonal antes de medir. O gate de
+correlação segue sendo, isoladamente, a intervenção mais eficaz medida
+até aqui nesta linha de investigação.
+
+**Reprodução:** `python main.py carteira_combo2` ·
+`specs/046-combinado-correlacao-limite-diario-h14/`.
+
+---
+
 ### 4.16 H20 — Geometria de barreira
 
 **Origem.** Única hipótese do registro derivada de um **resultado** e não da
