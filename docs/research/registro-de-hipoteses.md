@@ -229,8 +229,9 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66% (5x o maior por par isolado), profit factor 0,72 (spec 037) |
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** | Tese refutada por medição; sinal aterrissa no empate em **duas** geometrias |
+| H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
-**Taxa de aprovação: 0 de 15.** Três inconclusivas (H10; H11 em escala
+**Taxa de aprovação: 0 de 16.** Três inconclusivas (H10; H11 em escala
 semanal; H12 por impossibilidade estrutural de teste — ver 4.13).
 
 ---
@@ -1305,6 +1306,87 @@ no mesmo lugar.
 
 **Reprodução:** `python main.py modelo` com `ParametrosBarreira(tp_mult=2.0)` ·
 spec `028-geometria-de-barreira`.
+
+---
+
+### 4.17 H21 — Lead-lag BTC para altcoins
+
+**Origem.** Primeira hipótese deste registro originada de uma busca
+deliberada por literatura acadêmica real (não intuição interna) — pedido
+explícito do usuário após H14 fechar reprovada em risco de carteira
+(spec 037): "faça deep search na internet e procure novas hipóteses".
+
+**Tese.** O retorno do BTC no mesmo candle de 4h lidera o retorno de
+altcoins menos líquidas — causalidade de Granger unidirecional
+documentada em "Price Transmission from Bitcoin to Altcoins: High-Frequency
+Evidence and Implications for Trading Strategy" (*Asia-Pacific Financial
+Markets*, Springer 2026). Estruturalmente distinta de H7 (momentum do
+próprio par) e do oposto de H10 (aposta em reversão, não continuação).
+
+#### A defasagem foi medida — e um erro de formulação corrigido — antes de qualquer código
+
+`research.md` da spec 038 registrou, sobre 2.000 candles reais de 4h e os
+12 pares de `UNIVERSO_H11`, a correlação entre o retorno defasado do BTC
+e o retorno futuro de cada altcoin, para 7 defasagens × 3 horizontes (21
+combinações). A mais forte e mais consistente: retorno de BTC no mesmo
+candle prevendo o candle seguinte da altcoin — correlação média **0,0445**,
+positiva em **100%** dos 11 pares. Fraca em magnitude (explica bem menos
+de 1% da variância), mas o sinal é robusto entre pares.
+
+A primeira redação da spec descrevia a fórmula do sinal com uma defasagem
+extra por engano (`close[t-1]/close[t-2]` em vez de `close[t]/close[t-1]`)
+— capturado e corrigido em `research.md` (D1) antes de `/speckit-plan`
+prosseguir, com um teste de regressão dedicado (`test_lead_lag.py`,
+T004) para impedir que o erro voltasse silenciosamente.
+
+#### Resultado: 0 de 11 aprovados
+
+Sinal binário (BTC subiu no candle ou não, sem limiar de magnitude — D2),
+saída por take-profit ATR + stop trailing (mesmo mecanismo genérico de
+toda avaliação deste registro), 6.000 candles de 4h, `UNIVERSO_H11` menos
+BTC/USDT:
+
+| | Valor |
+|---|---|
+| Pares avaliados | 11 |
+| Aprovados | **0** |
+| Reprovados | **11** |
+| Profit factor > 1,0 | **0 / 11** |
+| Superam o próprio buy-and-hold | 6 / 11 |
+| Trades por par | 692–743 |
+| Retorno por par | −9,4% a −48,0% |
+
+**O sinal dispara demais para o custo que carrega.** Com ~700 trades por
+par sobre ~1.786 candles de teste, o sinal fica positivo (BTC em alta)
+perto de 40% dos candles — a mesma frequência que a correlação fraca já
+sugeria (0,0445 não filtra quase nada). Profit factor no melhor caso
+(LINK/BCH/TRX, 0,82–0,83) já está abaixo de 1,0 antes de qualquer
+critério de aprovação — o custo de giro (taxa + slippage) sobre centenas
+de trades supera qualquer vantagem que a correlação carregava.
+
+**"Superar o buy-and-hold" aqui não é sinal de força.** Em vários pares
+(DOT −90%, ATOM −87%, AVAX −85%) o buy-and-hold caiu tanto que qualquer
+estratégia com exposição parcial "supera" por perder menos numa queda
+geral — mesmo padrão de leitura já registrado em H11 (4h/333 dias de
+queda inflava a taxa de "supera buy-hold" sem indicar vantagem real).
+
+**Veredito: REPROVADA.** A direção do efeito é real (correlação positiva
+consistente em 100% dos pares, fundamentação acadêmica sólida) — mas na
+frequência em que o sinal binário dispara, o custo de transação consome a
+vantagem antes dela virar retorno. Diferente de H14, aqui não há uma
+"barra estatística que quase se paga" — profit factor abaixo de 1,0 em
+todos os 11 pares é reprovação limpa, não marginal.
+
+**O que isso não decide.** Não é evidência de que o lead-lag BTC→altcoins
+não existe — é evidência de que operá-lo com um sinal binário sem filtro
+de magnitude, entrando a cada candle positivo do BTC, negocia rápido
+demais para o efeito que carrega. Um filtro de magnitude (só entrar
+quando o retorno do BTC excede um limiar, reduzindo a frequência de
+trades) poderia mudar o resultado — mas exigiria sua própria medição
+antes de declarar o limiar (mesmo princípio de D2), e seria uma hipótese
+nova, não um ajuste desta.
+
+**Reprodução:** `python main.py leadlag` · `specs/038-lead-lag-btc-altcoins/`.
 
 ---
 

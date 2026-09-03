@@ -84,10 +84,10 @@ retornos/PF conhecidos, confirmar que a contagem bate exatamente.
 
 ## Phase 4: Polish & Cross-Cutting Concerns
 
-- [ ] T013 Criar `cmd_leadlag()` em `main.py`: chama `run_lead_lag_scan()`, imprime tabela por par (trades, retorno, buy-hold, drawdown, profit factor, veredito) e o resumo de consistência (US2); registrar `"leadlag": cmd_leadlag` em `COMMANDS`; exportar via `export_report("leadlag", ...)`
-- [ ] T014 Rodar `python main.py leadlag` contra dados reais (11 pares, VPS `vps-limulus`/`nautilus-research` se demorar — ver `quickstart.md`) — validação manual do passo 2 do `quickstart.md`, resultado real
-- [ ] T015 Registrar o resultado real de T014 em `docs/research/registro-de-hipoteses.md` como H21 (nova entrada em §4 ou §6, conforme o veredito) — texto depende do resultado medido, não escrito antes de T014
-- [ ] T016 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/`backtesting/approval.py`/`backtesting/modelo.py` (intocados, D4)
+- [X] T013 Criar `cmd_leadlag()` em `main.py`: chama `run_lead_lag_scan()`, imprime tabela por par (trades, retorno, buy-hold, drawdown, profit factor, veredito) e o resumo de consistência (US2); registrar `"leadlag": cmd_leadlag` em `COMMANDS`; exportar via `export_report("leadlag", ...)`
+- [X] T014 Rodar `python main.py leadlag` contra dados reais (11 pares, VPS `vps-limulus`/`nautilus-research` se demorar — ver `quickstart.md`) — validação manual do passo 2 do `quickstart.md`, resultado real
+- [X] T015 Registrar o resultado real de T014 em `docs/research/registro-de-hipoteses.md` como H21 (nova entrada em §4 ou §6, conforme o veredito) — texto depende do resultado medido, não escrito antes de T014
+- [X] T016 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/engine.py`/`backtesting/approval.py`/`backtesting/modelo.py` (intocados, D4)
 
 ---
 
