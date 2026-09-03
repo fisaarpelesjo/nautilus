@@ -2479,9 +2479,34 @@ observações inteiras. A limitação estrutural (viés da ordem fixa de
 leitura) está corrigida; latência residual específica de algumas
 corretoras (`gate`, consistentemente mais lenta que as demais) persiste
 e é uma característica real da rede, não um defeito de instrumento.
-Uma nova campanha de acumulação (repetir os ~40 ciclos, agora com o
-instrumento corrigido) é o próximo passo natural, ainda não executado
-nesta sessão.
+**Segunda campanha (2026-09-03, instrumento corrigido, 40 ciclos, 630
+novas observações).** Salto real na taxa de validade: **42% válidas**
+(266 de 630), contra 1,5% na primeira campanha (instrumento
+sequencial). **6 das 15 combinações já passam de 30 observações
+válidas**: kucoin×okx (43), binance×okx (42), kraken×kucoin (41),
+kraken×okx (39), binance×kucoin (38), binance×kraken (35) — amostra
+suficiente de verdade, não só pela contagem bruta.
+
+**Mas 5 das 15 continuam em zero, mesmo com o instrumento corrigido**:
+todas as que envolvem `gate` (exceto `gate×kraken`, 6 válidas, e
+`bybit×gate`, 8) e `bybit×kucoin`/`bybit×kraken` — 83 tentativas cada,
+zero válidas. Diferente do defeito original (viés estrutural da ORDEM
+de leitura, já corrigido), isto é consistente com uma característica
+real de rede: `gate` responde consistentemente mais devagar que as
+outras cinco corretoras a partir desta VPS, e paralelizar reduz o
+atraso RELATIVO entre corretoras rápidas entre si, mas não resolve uma
+corretora que é lenta em termos absolutos — ela chega tarde não
+importa com quem for comparada.
+
+**Evidência agregada agora bem mais robusta: 268 observações válidas
+no total (9→268), zero oportunidades, zero diferenciais positivos.**
+Diferencial líquido variando de −0,0057% a −0,0018%, média −0,0035% —
+consistentemente negativo em toda a amostra válida acumulada até
+aqui, não mais um punhado de pontos. Ainda não é veredito formal (a
+spec nunca calcula aprovado/reprovado, FR-010) — mas a base de
+evidência real, não mais preliminar, aponta na mesma direção desde o
+início: sem oportunidade de arbitragem líquida nas seis corretoras
+públicas testadas.
 
 *Diferente de H1–H14/H20: não é retrotestável.* Corretoras não publicam
 histórico de livro de ofertas — o veredito exige uma campanha de amostragem
