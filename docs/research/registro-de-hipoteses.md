@@ -2733,7 +2733,68 @@ custo, e sim um **dez vezes maior** que o observado.
 
 </details>
 
+**H22 — Arbitragem triangular intra-corretora** *(adicionada em
+2026-09-03, revisão de literatura durante a revisão de H8)*
+
+- *Fundamentação:* três pernas dentro da MESMA corretora (ex.:
+  `BTC/USDT` → `ETH/BTC` → `ETH/USDT` → volta a `USDT`) em vez de duas
+  pernas em corretoras diferentes (H15). Elimina o obstáculo estrutural
+  que domina H15 — latência de rede entre corretoras e necessidade de
+  capital pré-posicionado em múltiplas contas — porque os três livros de
+  ofertas estão na mesma corretora, executáveis quase simultaneamente
+  (o próprio `medir_ciclo` de H15, spec 053, já mede uma corretora em
+  poucos milissegundos via `ThreadPoolExecutor`; três pernas na mesma
+  corretora deveriam ficar bem dentro do teto de latência que 14 das 15
+  combinações de H15 nunca conseguiram cumprir).
+- *Obstáculo:* ainda compete com bots de alta frequência dentro da
+  própria corretora — se a vantagem existir, é medida em frações de
+  segundo, e o instrumento de medição (polling via API pública) pode ser
+  lento demais para capturá-la mesmo existindo.
+- *Custo:* médio — reusa a lógica de leitura de order book já existente
+  (`execution/liquidity.py`, H15), precisa de três pernas simultâneas em
+  vez de duas e de uma fórmula de detecção de ciclo lucrativo (produto
+  das três taxas de câmbio implícitas vs. 1, líquido de custo).
+
+**H23 — Prêmio de futuros com vencimento fixo (contango) vs. funding perpétuo** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* H8/spec 058 mede o carry de PERPÉTUOS — funding
+  pago a cada 8h, sinal podendo inverter a qualquer momento (23-47% dos
+  pagamentos são negativos, medido). Futuros com vencimento fixo
+  (trimestrais, disponíveis na Binance) convergem **deterministicamente**
+  ao preço à vista no vencimento — se o futuro negocia acima do spot
+  (contango), travar as duas pernas até o vencimento captura esse
+  prêmio sem depender de uma taxa periódica que pode reverter de sinal.
+  Mecanismo estruturalmente diferente do funding: convergência garantida
+  por construção do contrato, não uma taxa que o mercado decide a cada
+  período.
+- *Obstáculo:* mesma exigência de infraestrutura de futuros que H8
+  (permissão de API, gestão de margem, risco de liquidação — ainda sem
+  resolver mesmo que o prêmio exista). Liquidez de futuros trimestrais é
+  menor que a de perpétuos, o que pode inflar o custo de execução.
+- *Custo:* baixo incremental sobre H8 — mesma fonte `ccxt`, mesmo
+  princípio de medição de `data/funding.py`/`backtesting/funding_carry.py`
+  (spec 058), só troca o instrumento de perpétuo por futuro com
+  vencimento.
+
 ### 6.2 Prioridade média
+
+**H24 — Diferencial de funding rate entre corretoras (perp × perp, sem perna a vista)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* em vez de comprar à vista e vender perpétuo (H8, exige
+  2x capital sem alavancagem — spec 058, D3), comprar o perpétuo de um
+  ativo numa corretora e vender o mesmo perpétuo em outra. Sem perna à
+  vista, e explora a DIFERENÇA de funding entre corretoras — muitas
+  vezes maior que o funding absoluto de uma corretora isolada, porque
+  cada corretora tem sua própria base de usuários e viés de
+  posicionamento.
+- *Obstáculo:* risco de base entre duas corretoras diferentes (preços de
+  perpétuos podem divergir mais entre corretoras do que perpétuo-vs-spot
+  na mesma corretora); exige conta, capital e permissão de futuros em
+  duas corretoras simultaneamente — soma a complexidade de H8 (futuros)
+  com a de H15 (múltiplas corretoras).
+- *Custo:* médio-alto — infraestrutura em 2 corretoras (parcialmente
+  reusável de H15, `execution/liquidity.py`) mais gestão de margem em
+  futuros (nova, de H8).
 
 ### 6.3 Prioridade baixa
 
@@ -2826,6 +2887,37 @@ declarada primeiro.
 
 **H19 — Estratégias com opções (covered calls)** — mercado de opções cripto de
 liquidez restrita; fora do escopo spot.
+
+**H25 — Sazonalidade por sessão de negociação (hora do dia)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* H5 testou só dia da semana (reprovada, "só na busca"
+  no melhor caso). Criptomoedas negociam 24/7, mas o volume é
+  historicamente dominado por janelas específicas (sessão asiática,
+  europeia, americana) — testar se restringir entradas a uma janela
+  horária muda o resultado é uma granularidade diferente da já testada,
+  nunca coberta neste registro.
+- *Obstáculo:* mesmo risco que já reprovou H5 — testes múltiplos sobre
+  janelas horárias até uma "passar" por acaso, sem correção. Precisaria
+  da mesma disciplina de confirmação fora da amostra já estabelecida.
+- *Custo:* baixo — reusa toda a infraestrutura de backtest existente, só
+  filtra candles por hora UTC antes de aplicar a estratégia já testada.
+
+**H26 — Reversão contra funding extremo (crowding/liquidação)** *(adicionada em 2026-09-03)*
+
+- *Fundamentação:* diferente do carry contínuo de H8 (aposta a favor do
+  sinal do funding, mantido), aposta CONTRA a posição majoritária quando
+  o funding atinge um extremo — sinal de posicionamento excessivamente
+  comprado ou vendido, historicamente associado a cascatas de liquidação
+  e reversão de curto prazo. Mecanismo de reversão orientado a evento,
+  não carry nem indicador técnico de preço.
+- *Obstáculo:* volta a ser uma aposta DIRECIONAL — a família que já
+  esgotou 21 hipóteses neste registro (§6.3-b), só que orientada por um
+  sinal diferente (funding extremo, não indicador técnico). Evidência
+  prévia contra: nenhuma hipótese direcional deste registro sobreviveu a
+  custo de execução e confirmação fora da amostra.
+- *Custo:* baixo — reusa `data/funding.py` (spec 058) como fonte do
+  sinal (funding extremo) e o motor de backtest existente para o
+  mecanismo de entrada/saída.
 
 ### 6.3-b Padrão acumulado após quinze hipóteses
 
