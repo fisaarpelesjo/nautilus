@@ -2381,6 +2381,88 @@ def cmd_carteira_barreira_corr():
     )
 
 
+def cmd_funding():
+    """H8 -- arbitragem de funding rate (delta-neutro), revisao com
+    universo amplo, taxas atuais e eficiencia de capital corrigida
+    (spec 058).
+
+    A medicao original (2026-09-01) reportou retorno sobre o NOCIONAL
+    (BTC +3,21% a.a. liquido) e testou so 4 pares. Esta revisao corrige
+    dois pontos: (1) uma posicao delta-neutra sem alavancagem exige
+    capital = nocional + margem do perpetuo = 2x o nocional -- o retorno
+    real sobre capital IMPLANTADO e ~metade do reportado; (2) universo
+    ampliado para UNIVERSO_AMPLO (34 pares) intersectado com pares que
+    tem mercado perpetuo ativo. Compara contra um piso conservador de
+    5% a.a. (faixa real de emprestimo de USDT, nao um numero arbitrario).
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.funding_carry import (
+        BENCHMARK_RENDA_FIXA_AA,
+        avaliar_universo,
+    )
+    from backtesting.portfolio_h14 import UNIVERSO_AMPLO
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H8 -- arbitragem de funding rate (revisao)[/]")
+    console.print(f"  [{C_DIM}]retorno sobre capital IMPLANTADO (nocional + margem do perpetuo, "
+                  f"sem alavancagem) = ~metade do retorno sobre nocional. Benchmark: "
+                  f"{BENCHMARK_RENDA_FIXA_AA:.0%} a.a. (piso conservador de emprestimo de "
+                  f"USDT)[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo(list(UNIVERSO_AMPLO))
+    resultados.sort(key=lambda r: r.liquido_aa_capital_implantado, reverse=True)
+
+    if not resultados:
+        console.print(f"  [{C_NEG}]nenhum par do universo tem mercado perpetuo com historico "
+                       f"suficiente[/{C_NEG}]")
+        return
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Par")
+    for col in ("dias", "pagamentos", "% neg.", "bruto a.a.", "liq./nocional", "liq./capital"):
+        t.add_column(col, justify="right")
+    t.add_column("Supera benchmark")
+
+    for r in resultados:
+        cor = C_POS if r.supera_benchmark else C_NEG
+        t.add_row(
+            r.par, str(r.dias_cobertos), str(r.n_pagamentos), f"{r.pct_negativos:.1f}%",
+            f"{r.bruto_aa:+.2%}", f"{r.liquido_aa_nocional:+.2%}",
+            f"{r.liquido_aa_capital_implantado:+.2%}",
+            f"[{cor}]{r.supera_benchmark}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    n_supera = sum(1 for r in resultados if r.supera_benchmark)
+    console.print(f"  [{C_LABEL}]{n_supera} de {len(resultados)}[/] pares superam o benchmark "
+                  f"sobre capital implantado")
+    console.print(f"  [{C_LABEL}]ja publicado (sobre nocional, spec original)[/] "
+                  f"BTC +3.21%   ETH +2.27%   XRP +0.20%   SOL -1.84%")
+
+    export_report(
+        "funding",
+        {"universo": list(UNIVERSO_AMPLO), "benchmark_renda_fixa_aa": BENCHMARK_RENDA_FIXA_AA},
+        {
+            "resultados": [
+                {"par": r.par, "dias_cobertos": r.dias_cobertos, "n_pagamentos": r.n_pagamentos,
+                 "pct_negativos": r.pct_negativos, "bruto_aa": r.bruto_aa,
+                 "liquido_aa_nocional": r.liquido_aa_nocional,
+                 "liquido_aa_capital_implantado": r.liquido_aa_capital_implantado,
+                 "supera_benchmark": r.supera_benchmark}
+                for r in resultados
+            ],
+            "n_supera_benchmark": n_supera,
+            "n_total": len(resultados),
+        },
+    )
+
+
 def _fracao_custo_consumida(com_custo, sem_custo):
     """Fracao da vantagem bruta que o custo de execucao consome -- mesma
     formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
@@ -2574,6 +2656,7 @@ COMMANDS = {
     "calibracao": cmd_calibracao,
     "carteira_barreira": cmd_carteira_barreira,
     "carteira_barreira_corr": cmd_carteira_barreira_corr,
+    "funding": cmd_funding,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
