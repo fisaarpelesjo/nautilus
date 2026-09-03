@@ -228,7 +228,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — ainda reprovado por margem substancial; o problema é o profit factor por trade, não a composição de risco |
-| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, confirmada por backtest real) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados, profit factor 0,42-1,23 (spec 049). Sinal estatístico de rótulo real; não sobrevive a custo de execução/trailing stop |
+| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, mecanismo isolado) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados (spec 049). Custo de execução isolado (spec 050): explicação dominante — sem custo, 8/12 pares positivos e 7/12 batem buy-and-hold; payoff apertado (2:1,5) torna a estratégia sensível a custo |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
 **Taxa de aprovação: 0 de 16.** Três inconclusivas (H10; H11 em escala
@@ -1939,6 +1939,66 @@ conjunto), então testá-las seria uma pergunta nova, não um ajuste desta.
 
 **Reprodução:** `python main.py geometria` ·
 `specs/049-h20-backtest-real/`.
+
+---
+
+#### Atualização — custo de execução isolado: é o mecanismo dominante (2026-09-03, spec 050)
+
+Primeiro dos três candidatos de spec 049 testado — custo de execução —
+reusando o método E6 já usado em H10/H21: reexecutar os mesmos sinais
+com taxa e slippage zerados (`retorno_sem_custo_modelo`, já calculado
+por `avaliar_par` a cada chamada) e comparar contra o resultado com
+custo real de spec 049. Zero backtest novo.
+
+**Resultado (`python main.py geometria`, 2026-09-03, mesmos 12 pares):**
+
+| Par | Com custo | Sem custo | Vira positivo? |
+|---|---|---|---|
+| BTC/USDT | −6,14% | −1,82% | não |
+| ETH/USDT | −2,72% | −0,03% | quase |
+| SOL/USDT | −0,97% | **+0,54%** | **sim** |
+| LINK/USDT | +1,09% | +2,88% | já era |
+| BCH/USDT | −5,64% | −3,65% | não |
+| TRX/USDT | −5,36% | **+2,39%** | **sim** |
+| XRP/USDT | −0,56% | **+1,19%** | **sim** |
+| AVAX/USDT | −0,90% | +0,04% | sim (marginal) |
+| LTC/USDT | −2,71% | −0,80% | não |
+| DOT/USDT | −0,62% | **+0,30%** | **sim** |
+| ADA/USDT | +0,51% | +1,51% | já era |
+| ATOM/USDT | −0,01% | **+1,46%** | **sim** |
+
+**O custo de execução é o mecanismo dominante, não só um dos três
+candidatos.** Sem custo, **8 de 12 pares têm retorno positivo** (contra
+2 de 12 com custo) e **7 de 12 superam o buy-and-hold do próprio par**
+(contra 1 aprovado em `evaluate_approval()` com custo, spec 049). Seis
+pares — SOL, TRX, XRP, AVAX, DOT, ATOM — trocam de sinal (negativo para
+positivo) só ao remover o custo. Os únicos três que continuam negativos
+mesmo sem custo (BTC, BCH, LTC) são exatamente os de maior volume/liquidez
+do universo — consistente com o payoff apertado (`tp=2,0`, 2:1,5) tornando
+a estratégia sensível a custo em qualquer par, mas insuficiente para
+explicar por si só os três que continuam negativos.
+
+**Fecha o candidato #1 (payoff/custo) como explicação primária — não
+descarta os outros dois, mas reduz sua prioridade.** A hipótese de
+spec 049 de que o payoff mais apertado de `tp=2,0` tornaria o custo
+fixo proporcionalmente mais pesado está diretamente confirmada pelos
+números: a mesma estratégia, mesmos sinais, sem custo de execução,
+teria sido lucrativa e batido o buy-and-hold na maioria dos pares. Os
+candidatos #2 (trailing stop divergindo da barreira estática) e #3
+(amostra por par) continuam sem teste, mas com prioridade reduzida —
+a divergência já tem uma explicação dominante medida, não hipotética.
+
+**Não aprova H20 nem reverte o veredito REPROVADA.** `evaluate_approval()`
+mede o resultado com custo real, como deve ser — o bot nunca opera sem
+pagar taxa e slippage. O achado é sobre MECANISMO, não sobre veredito:
+o sinal estatístico de rótulo (spec 048) é real, a estratégia
+resultante teria edge genuíno num mundo sem custo, mas o custo de
+execução real consome a maior parte dessa vantagem antes dela virar
+retorno — o mesmo padrão de H21, agora confirmado por medição direta em
+vez de inferido por analogia.
+
+**Reprodução:** `python main.py geometria` ·
+`specs/050-h20-custo-de-execucao/`.
 
 ---
 
