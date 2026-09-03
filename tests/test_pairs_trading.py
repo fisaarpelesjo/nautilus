@@ -4,6 +4,7 @@ import pytest
 
 from backtesting.pairs_trading import (
     ADF_DISPONIVEL,
+    UNIVERSO_AMPLO_HISTORICO_COMPLETO,
     PairsParams,
     estimar_hedge_ratio,
     meia_vida_reversao,
@@ -317,3 +318,9 @@ def test_selecao_e_monotonica_em_relacao_ao_universo():
     assert frozenset(("A/USDT", "B/USDT")) in achados_base
     assert frozenset(("A/USDT", "B/USDT")) in achados_amplo
     assert achados_base <= achados_amplo  # universo amplo nunca perde o que o pequeno ja achava
+
+
+def test_universo_amplo_historico_completo_tem_22_pares_unicos_usdt():
+    assert len(UNIVERSO_AMPLO_HISTORICO_COMPLETO) == 22
+    assert len(set(UNIVERSO_AMPLO_HISTORICO_COMPLETO)) == 22
+    assert all(p.endswith("/USDT") for p in UNIVERSO_AMPLO_HISTORICO_COMPLETO)

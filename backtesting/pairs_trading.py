@@ -87,6 +87,29 @@ def teste_adf(spread, maxlag: Optional[int] = None) -> float:
         return 1.0
 
 
+# Subconjunto de UNIVERSO_AMPLO (backtesting/portfolio_h14.py, spec 040, medido
+# para LIQUIDEZ) com os 6.000 candles completos de historico -- medido
+# diretamente via fetch_ohlcv, 2026-09-03 (spec 052, D1). UNIVERSO_AMPLO inclui
+# listagens recentes (ex.: SNDKB/USDT, CRCLB/USDT, so 504 candles) que
+# `split_treino_validacao` nao tolera: o indice comum entre pares e uma
+# INTERSECAO de todos os simbolos recebidos, entao o par de historico mais
+# curto do universo inteiro determina a janela comum de todo mundo -- com um
+# par de 504 candles no meio, a janela comum desaba para ~504 e
+# `run_pairs_backtest` devolve 0 trades para TODOS os pares, nao so o curto.
+# `backtesting/portfolio_h14.py` nao sofre disso porque alinha cada par
+# independentemente por candle, nunca exige indice comum entre os 34 de uma
+# vez -- e uma incompatibilidade estrutural entre os dois motores usando a
+# mesma lista, nao um bug em nenhum dos dois. Criterio de corte: quantidade de
+# candles == 6000 (o teto ja medido em spec 036 para UNIVERSO_H11), nao
+# escolhido para produzir resultado favoravel.
+UNIVERSO_AMPLO_HISTORICO_COMPLETO = [
+    "BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "ZEC/USDT", "UNI/USDT",
+    "BNB/USDT", "DOGE/USDT", "SUI/USDT", "ARB/USDT", "LINK/USDT", "AAVE/USDT",
+    "TRX/USDT", "NEAR/USDT", "ADA/USDT", "FIL/USDT", "PROM/USDT", "LTC/USDT",
+    "T/USDT", "PEPE/USDT", "WLD/USDT", "AVAX/USDT",
+]
+
+
 @dataclass
 class PairsParams:
     formacao: int = 250          # candles usados para estimar hedge ratio e z-score

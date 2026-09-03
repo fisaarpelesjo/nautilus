@@ -18,7 +18,7 @@ pytest tests/test_pairs_trading.py -v -k monoton
 python main.py pairs_amplo
 ```
 
-Espera-se: resultado de treino/validação sobre `UNIVERSO_AMPLO` (34
+Espera-se: resultado de treino/validação sobre `UNIVERSO_AMPLO_HISTORICO_COMPLETO` (22
 pares), comparado contra o já publicado (12 pares, spec 039: 6 trades
 na validação, inconclusiva). Foco em `total_trades` da validação —
 atinge `EDGE_MIN_TRADES` (10)?

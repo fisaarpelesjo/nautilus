@@ -1553,25 +1553,27 @@ def cmd_pairs_amplo():
 
     H10 segue inconclusiva (spec 039): so 6 trades na validacao, abaixo
     do minimo de 10 -- universo de 12 pares (66 combinacoes) nao gera
-    amostra suficiente. UNIVERSO_AMPLO (34 pares, ja medido em spec 040)
-    da 561 combinacoes -- mais chance de achar pares cointegrados
-    elegiveis por ciclo de reselecao. Diferente de spec 040 (risco de
-    carteira): aqui a pergunta e tamanho de amostra, PairsParams
-    intocado.
+    amostra suficiente. UNIVERSO_AMPLO_HISTORICO_COMPLETO (22 pares --
+    subconjunto de UNIVERSO_AMPLO, spec 040, com os 6000 candles
+    completos; D1, specs/052-h10-universo-amplo/research.md) da 231
+    combinacoes -- mais chance de achar pares cointegrados elegiveis
+    por ciclo de reselecao. Diferente de spec 040 (risco de carteira):
+    aqui a pergunta e tamanho de amostra, PairsParams intocado.
     """
-    from backtesting.pairs_trading import run_pairs_scan
-    from backtesting.portfolio_h14 import UNIVERSO_AMPLO
+    from backtesting.pairs_trading import UNIVERSO_AMPLO_HISTORICO_COMPLETO, run_pairs_scan
     from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
     from utils.report_export import export_report
 
     header()
     console.print(f"[bold {C_CYAN}]arbitragem estatistica por cointegracao (H10) -- universo amplo[/]")
-    console.print(f"  [{C_DIM}]34 pares candidatos (era 12) -- 561 combinacoes testadas por ciclo "
-                  f"de reselecao (era 66). Mesma formacao (500), mesmos parametros de entrada/"
-                  f"saida/aprovacao ja declarados em spec 039[/{C_DIM}]")
+    console.print(f"  [{C_DIM}]22 pares candidatos de historico completo (era 12) -- 231 combinacoes "
+                  f"testadas por ciclo de reselecao (era 66). Mesma formacao (500), mesmos "
+                  f"parametros de entrada/saida/aprovacao ja declarados em spec 039[/{C_DIM}]")
     console.print()
 
-    resultado_treino, resultado_validacao, veredito = run_pairs_scan(pares=list(UNIVERSO_AMPLO))
+    resultado_treino, resultado_validacao, veredito = run_pairs_scan(
+        pares=list(UNIVERSO_AMPLO_HISTORICO_COMPLETO),
+    )
 
     cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
 
@@ -1591,7 +1593,7 @@ def cmd_pairs_amplo():
 
     export_report(
         "pairs_amplo",
-        {"n_pares": len(UNIVERSO_AMPLO), "trades_validacao_publicado": 6},
+        {"n_pares": len(UNIVERSO_AMPLO_HISTORICO_COMPLETO), "trades_validacao_publicado": 6},
         {
             "treino": {"total_trades": resultado_treino.total_trades,
                        "total_return_pct": resultado_treino.total_return_pct,

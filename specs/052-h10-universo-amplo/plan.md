@@ -50,7 +50,7 @@ spec 039, só o universo candidato muda
 | **IV. Incremental Delivery** | **Conforme.** Teste + comando CLI num tópico; execução real + registro noutro. |
 | **V. Observability Mandatory** | **N/A direto.** Resultado via `export_report`, mesmo padrão dos comandos de pesquisa. |
 | **VI. Idempotency and Reconciliation** | **N/A.** Nenhuma ordem enviada. |
-| **VII. Explain Before Code** | **Conforme.** Por que isto não repete spec 040 (pergunta de amostra, não de risco de carteira) declarado em spec.md/Contexto antes de qualquer código. Sem `research.md` — nada novo a decidir, `UNIVERSO_AMPLO` e `PairsParams` já declarados noutras specs. |
+| **VII. Explain Before Code** | **Conforme.** Por que isto não repete spec 040 (pergunta de amostra, não de risco de carteira) declarado em spec.md/Contexto antes de qualquer código. `research.md` adicionado retroativamente (D1) durante T003: `UNIVERSO_AMPLO` bruto colide com `split_treino_validacao` (interseção de índices) — corrigido para `UNIVERSO_AMPLO_HISTORICO_COMPLETO` (22 pares), critério mecânico declarado, não ajuste até o resultado melhorar. |
 
 Nenhuma violação a justificar.
 

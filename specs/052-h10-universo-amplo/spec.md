@@ -6,6 +6,19 @@
 
 **Status**: Draft
 
+**Correção pós-T003 (2026-09-03).** A primeira execução real contra
+`UNIVERSO_AMPLO` bruto (34 pares) devolveu 0 trades em treino E
+validação — pior que o já publicado. Investigado antes de aceitar como
+resultado: `UNIVERSO_AMPLO` inclui listagens recentes de histórico
+curto (ex.: 504 candles), e `split_treino_validacao` usa a
+**interseção** dos índices de tempo de todos os pares recebidos — o
+mais curto do universo inteiro colapsa a janela comum de todo mundo.
+Ver `research.md` D1. Todas as referências a `UNIVERSO_AMPLO` abaixo
+(texto original, não reescrito para preservar procedência) passam a
+significar `UNIVERSO_AMPLO_HISTORICO_COMPLETO` (22 pares, subconjunto
+de histórico completo) — FR-001 e as referências a "34 pares" foram
+as únicas partes atualizadas.
+
 **Input**: User description: H10 (arbitragem estatística por
 cointegração) segue **inconclusiva** desde spec 039 — o seletor foi
 corrigido (poder de detecção 20%→60%, formação 250→500 candles), mas a
@@ -103,8 +116,11 @@ ampliá-lo).
 
 ### Functional Requirements
 
-- **FR-001**: O sistema MUST chamar `run_pairs_scan(pares=UNIVERSO_AMPLO)`
-  — nenhum parâmetro novo, nenhuma mecânica nova.
+- **FR-001**: O sistema MUST chamar
+  `run_pairs_scan(pares=UNIVERSO_AMPLO_HISTORICO_COMPLETO)` — o
+  subconjunto de `UNIVERSO_AMPLO` com histórico completo (D1,
+  `research.md`) — nenhum parâmetro novo, nenhuma mecânica nova além
+  do filtro mecânico já declarado.
 - **FR-002**: O sistema MUST manter `PairsParams` (formação 500,
   `meia_vida_min`/`max`, `adf_alpha`, `max_pares`, `entrada_z`,
   `saida_z`, `stop_z`) idênticos aos já declarados em spec 039 — só o
