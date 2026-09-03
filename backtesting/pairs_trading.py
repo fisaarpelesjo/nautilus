@@ -418,11 +418,20 @@ def run_pairs_scan(
     pares: Optional[List[str]] = None,
     params: Optional[PairsParams] = None,
     dados: Optional[Dict[str, pd.DataFrame]] = None,
+    reselecionar_a_cada: Optional[int] = None,
 ):
     """Reavalia H10 com o instrumento corrigido (spec 039): formacao=500
     (D1, poder de deteccao medido em 60% contra 20% a 250 candles) sobre
     6.000 candles (spec 036) -- sem mudar criterio de selecao, entrada,
     saida ou aprovacao.
+
+    `reselecionar_a_cada` (spec 054): cadencia de reselecao de pares,
+    desacoplada de `p.formacao` -- `None` preserva o comportamento ja
+    publicado (`= p.formacao`). `selecionar_pares` sempre olha
+    `p.formacao` candles para tras a partir de cada checkpoint,
+    independente da cadencia -- desacoplar nao reduz o poder de deteccao,
+    so aumenta quantas vezes essa janela e reavaliada
+    (`specs/054-h10-reselecao-frequente/research.md`, D2).
 
     `dados` opcional permite teste sem rede (mesmo padrao de
     `avaliar_par(df=...)`, H14)."""
@@ -433,13 +442,14 @@ def run_pairs_scan(
 
     p = params or PairsParams(formacao=500)
     pares = pares if pares is not None else list(UNIVERSO_H11)
+    cadencia = reselecionar_a_cada if reselecionar_a_cada is not None else p.formacao
 
     if dados is None:
         dados = {par: fetch_ohlcv(par, TIMEFRAME, 6000) for par in pares}
     dados_treino, dados_validacao = split_treino_validacao(dados, p.formacao)
 
-    resultado_treino = run_pairs_backtest(dados_treino, p, reselecionar_a_cada=p.formacao)
-    resultado_validacao = run_pairs_backtest(dados_validacao, p, reselecionar_a_cada=p.formacao)
+    resultado_treino = run_pairs_backtest(dados_treino, p, reselecionar_a_cada=cadencia)
+    resultado_validacao = run_pairs_backtest(dados_validacao, p, reselecionar_a_cada=cadencia)
     veredito = evaluate_approval(resultado_validacao)
 
     return resultado_treino, resultado_validacao, veredito

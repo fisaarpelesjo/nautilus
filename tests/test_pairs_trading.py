@@ -273,6 +273,33 @@ def test_run_pairs_scan_usa_formacao_500_por_padrao(monkeypatch):
         assert reselecionar == 500
 
 
+def test_run_pairs_scan_reselecionar_a_cada_explicito_desacopla_da_formacao(monkeypatch):
+    """spec 054: reselecionar_a_cada=None preserva o default ja publicado
+    (= p.formacao, ja coberto pelo teste acima); um valor explicito MUST
+    ser repassado sem ser silenciosamente trocado por p.formacao."""
+    from unittest.mock import MagicMock
+
+    chamadas = []
+
+    def fake_run_pairs_backtest(dados_, params_, **kwargs):
+        chamadas.append((params_.formacao, kwargs.get("reselecionar_a_cada")))
+        return MagicMock()
+
+    import backtesting.pairs_trading as pt
+    monkeypatch.setattr(pt, "run_pairs_backtest", fake_run_pairs_backtest)
+    monkeypatch.setattr("backtesting.approval.evaluate_approval", lambda r: MagicMock())
+
+    a, b = _par_cointegrado(n=1000)
+    dados = {"A/USDT": _df(a, 1000), "B/USDT": _df(b, 1000)}
+
+    pt.run_pairs_scan(pares=["A/USDT", "B/USDT"], dados=dados, reselecionar_a_cada=120)
+
+    assert len(chamadas) == 2
+    for formacao, reselecionar in chamadas:
+        assert formacao == 500  # PairsParams(formacao=500) continua o default
+        assert reselecionar == 120  # nao foi trocado por p.formacao
+
+
 @precisa_adf
 def test_run_pairs_scan_produz_resultado_aceito_por_evaluate_approval():
     from backtesting.approval import evaluate_approval

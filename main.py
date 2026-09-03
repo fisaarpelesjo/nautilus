@@ -1611,6 +1611,71 @@ def cmd_pairs_amplo():
     )
 
 
+def cmd_pairs_reselecao():
+    """H10 -- arbitragem estatistica por cointegracao, reselecao de pares
+    desacoplada da formacao (spec 054).
+
+    Diagnostico direto sobre a validacao real (sem tocar em parametro
+    algum) mediu a causa dos 6 trades: reselecionar_a_cada estava
+    amarrado a formacao (500) -- so 4 ciclos de reselecao em ~2300
+    candles, 6 oportunidades de entrada no total (o mesmo numero de
+    trades). max_pares descartado: 78% dos candles tem slot livre sem
+    nenhuma oportunidade. Reseleciona a cada 120 candles (meia_vida_max,
+    ja existente) em vez de 500 -- formacao continua 500 (mesmo poder
+    de deteccao de spec 039), so a cadencia de checkpoints muda.
+    """
+    from backtesting.pairs_trading import UNIVERSO_AMPLO_HISTORICO_COMPLETO, run_pairs_scan
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]arbitragem estatistica por cointegracao (H10) -- reselecao mais frequente[/]")
+    console.print(f"  [{C_DIM}]reseleciona a cada 120 candles (meia_vida_max, era 500 = formacao) -- "
+                  f"formacao continua 500, mesmo poder de deteccao. Diagnostico: so 4 ciclos e 6 "
+                  f"oportunidades de entrada com a cadencia antiga[/{C_DIM}]")
+    console.print()
+
+    resultado_treino, resultado_validacao, veredito = run_pairs_scan(
+        pares=list(UNIVERSO_AMPLO_HISTORICO_COMPLETO), reselecionar_a_cada=120,
+    )
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+
+    def _linha(rotulo, r):
+        pf = "inf" if r.profit_factor == float("inf") else f"{r.profit_factor:.2f}"
+        console.print(f"  [{C_LABEL}]{rotulo}[/] trades {r.total_trades}   "
+                      f"retorno {r.total_return_pct:+.2f}%   buy&hold {r.buy_hold_return_pct:+.2f}%   "
+                      f"drawdown {r.max_drawdown_pct:.2f}%   profit factor {pf}")
+
+    _linha("treino    ", resultado_treino)
+    _linha("validacao ", resultado_validacao)
+    console.print()
+    console.print(f"  [{C_LABEL}]ja publicado[/] 12 pares (spec 039): 6 trades   "
+                  f"22 pares (spec 052): 6 trades -- ambos inconclusivos")
+    console.print(f"  [bold]veredito (validacao)[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "pairs_reselecao",
+        {"reselecionar_a_cada": 120, "n_pares": len(UNIVERSO_AMPLO_HISTORICO_COMPLETO),
+         "trades_validacao_publicado_12_pares": 6, "trades_validacao_publicado_22_pares": 6},
+        {
+            "treino": {"total_trades": resultado_treino.total_trades,
+                       "total_return_pct": resultado_treino.total_return_pct,
+                       "buy_hold_return_pct": resultado_treino.buy_hold_return_pct,
+                       "max_drawdown_pct": resultado_treino.max_drawdown_pct,
+                       "profit_factor": resultado_treino.profit_factor},
+            "validacao": {"total_trades": resultado_validacao.total_trades,
+                          "total_return_pct": resultado_validacao.total_return_pct,
+                          "buy_hold_return_pct": resultado_validacao.buy_hold_return_pct,
+                          "max_drawdown_pct": resultado_validacao.max_drawdown_pct,
+                          "profit_factor": resultado_validacao.profit_factor},
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 def cmd_carteira_ampla():
     """Carteira de H14 sobre universo amplo -- 34 pares (spec 040).
 
@@ -2311,6 +2376,7 @@ COMMANDS = {
     "leadlag":       cmd_leadlag,
     "pairs":         cmd_pairs,
     "pairs_amplo":   cmd_pairs_amplo,
+    "pairs_reselecao": cmd_pairs_reselecao,
     "carteira_ampla": cmd_carteira_ampla,
     "carteira_vol":  cmd_carteira_vol,
     "carteira_corr": cmd_carteira_corr,
