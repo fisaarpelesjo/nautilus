@@ -1611,6 +1611,57 @@ def cmd_pairs_amplo():
     )
 
 
+def cmd_calibracao():
+    """H14 -- calibracao do classificador (spec 055).
+
+    A linha de investigacao de overlays de risco (specs 040-047) fechou
+    apontando para o classificador de entrada em si ou o mecanismo de
+    saida -- nenhum overlay de QUANDO/QUANTO entrar consertou um profit
+    factor por trade que ja nasce abaixo de 1. Esta spec pergunta se o
+    subconjunto ja decidido em producao (prob > limiar_de_decisao) tem
+    uma cauda de alta confianca explorable: um corte mais estrito
+    concentra qualidade, ou so reduz a amostra sem melhorar a razao?
+    """
+    from backtesting.calibracao_h14 import avaliar_calibracao
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H14 -- calibracao do classificador[/]")
+    console.print(f"  [{C_DIM}]o subconjunto ja decidido (prob > limiar real de producao) tem "
+                  f"razao que sobrevive ao teste de confianca do projeto? Um corte mais estrito "
+                  f"concentra qualidade ou so reduz a amostra?[/{C_DIM}]")
+    console.print()
+
+    resultado = avaliar_calibracao()
+
+    console.print(f"  [{C_LABEL}]limiar real de decisao[/] {resultado.limiar_real:.4f}   "
+                  f"[{C_LABEL}]empate[/] {resultado.empate:.4f}   "
+                  f"[{C_LABEL}]pares[/] {resultado.n_pares}")
+    console.print()
+
+    for f in resultado.faixas:
+        cor = C_POS if f.supera_empate else C_NEG
+        razao_txt = "inf" if f.razao == float("inf") else f"{f.razao:.4f}"
+        console.print(f"  corte>{f.corte:.2f}  n={f.n:5d}  alvo={f.alvo:5d}  stop={f.stop:5d}  "
+                      f"tempo={f.tempo:5d}  razao={razao_txt:>7}  "
+                      f"[{cor}]supera_empate_ci95={f.supera_empate}[/{cor}]")
+
+    export_report(
+        "calibracao",
+        {"n_pares": resultado.n_pares, "cortes": [f.corte for f in resultado.faixas]},
+        {
+            "limiar_real": resultado.limiar_real,
+            "empate": resultado.empate,
+            "faixas": [
+                {"corte": f.corte, "n": f.n, "alvo": f.alvo, "stop": f.stop, "tempo": f.tempo,
+                 "razao": f.razao, "supera_empate": f.supera_empate}
+                for f in resultado.faixas
+            ],
+        },
+    )
+
+
 def cmd_pairs_reselecao():
     """H10 -- arbitragem estatistica por cointegracao, reselecao de pares
     desacoplada da formacao (spec 054).
@@ -2386,6 +2437,7 @@ COMMANDS = {
     "carteira_combo2": cmd_carteira_combo2,
     "carteira_teto": cmd_carteira_teto,
     "geometria": cmd_geometria,
+    "calibracao": cmd_calibracao,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
