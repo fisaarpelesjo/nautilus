@@ -881,6 +881,18 @@ entrar, então não há giro adicional. Diferença atribuível a custo: +0,03pp.
 **Reprodução:** `python main.py volatilidade` · `reports/volatilidade_*.json` ·
 spec `025-dimensionamento-por-volatilidade`.
 
+#### Atualização — mecanismo aplicado a H14 em vez de repetido aqui (2026-09-03, spec 041)
+
+Pedido do usuário de "reabrir H12" redirecionado: `fator_volatilidade()`
+(acima) foi aplicado à carteira de H14 (a única avaliação deste registro
+com sinal real desde spec 036), não às 4 estratégias de regra de novo —
+repetir o teste original teria o mesmo resultado estrutural (nenhuma base
+lucrativa para proteger). Resultado: drawdown de carteira caiu de 28,66%
+para 23,04% (~20% de redução), sem piorar profit factor — primeira
+evidência de que o mecanismo tem efeito real, mesmo insuficiente para
+aprovar H14 sozinho. Ver §4.15, atualização spec 041, para os números
+completos.
+
 ---
 
 ### 4.14 H13 — Barras dirigidas por informação
@@ -1316,6 +1328,59 @@ Testar esse gate seria a hipótese natural seguinte, ainda não coberta.
 
 **Reprodução:** `python main.py carteira_ampla` ·
 `specs/040-carteira-universo-amplo/`.
+
+#### Atualização — dimensionamento por volatilidade, primeira melhora real (2026-09-03, spec 041)
+
+Terceira variável testada isoladamente sobre o drawdown de carteira de
+H14 (depois de universo amplo, refutado em spec 040): dimensionamento
+por volatilidade, reusando `fator_volatilidade()` já implementado e
+medido para H12 (spec 025) sem alteração — reduz o tamanho de cada
+entrada quando `atr_ratio` do candle está acima do alvo (0,02), nunca
+amplia. Motivação: correlação entre ativos de risco tende a subir
+durante quedas amplas, quando `atr_ratio` também sobe — encolher posição
+exatamente nesses momentos ataca o mesmo mecanismo sem precisar de uma
+checagem de correlação explícita.
+
+**Redirecionamento de escopo, não repetição de H12.** O pedido original
+era reabrir H12 — mas §4.13 já concluiu que H12 não é testável sobre
+estratégias sem expectativa positiva, e nenhuma das 4 estratégias de
+regra tinha. H14 é a primeira e única avaliação deste registro com sinal
+real (`supera_empate_com_confianca`, spec 036) — a primeira vantagem
+genuína disponível para o mecanismo de H12 proteger.
+
+**Resultado (`python main.py carteira_vol`, 2026-09-03, mesmos 12 pares de `UNIVERSO_H11`):**
+
+| | Sem dimensionamento (spec 037) | Com dimensionamento (spec 041) |
+|---|---|---|
+| Trades | 931 | 763 |
+| Retorno | −20,12% | **−18,16%** |
+| Buy-and-hold | −41,57% | −42,28% |
+| **Drawdown agregado** | **28,66%** | **23,04%** |
+| Profit factor | 0,72 | 0,72 |
+
+**Primeira melhora real de drawdown medida nesta linha de investigação.**
+Diferente do universo amplo (spec 040, drawdown piorou de 28,66% para
+35,08%), o dimensionamento por volatilidade reduziu o drawdown em quase
+6 pontos percentuais (28,66% → 23,04%, ~20% de redução relativa) e também
+melhorou o retorno (−20,12% → −18,16%) — sem piorar o profit factor
+(0,72 nos dois, idêntico). Consistente com o mecanismo proposto: reduzir
+exposição em candles de alta volatilidade ajudou.
+
+**Ainda reprovado — a melhora não é suficiente.** Drawdown de 23,04%
+segue mais que o dobro do teto aceitável (10%), e profit factor 0,72
+continua abaixo de 1,2. O veredito de H14 não muda.
+
+**O que isso decide.** Diferente da hipótese de universo amplo
+(refutada, §4.15 spec 040), esta não foi refutada — foi confirmada
+parcialmente. É a primeira evidência empírica deste registro de que o
+mecanismo de correlação/volatilidade por trás do drawdown de H14 é, pelo
+menos em parte, real e mitigável — só não o bastante sozinho.
+Combinar dimensionamento por volatilidade com o gate de correlação já
+existente em produção (`risk/correlation.py::check_correlated_exposure`,
+ainda não testado nesta carteira) é a hipótese natural seguinte.
+
+**Reprodução:** `python main.py carteira_vol` ·
+`specs/041-volatilidade-carteira-h14/`.
 
 ---
 
