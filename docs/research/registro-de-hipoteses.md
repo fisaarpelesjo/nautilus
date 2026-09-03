@@ -1470,6 +1470,58 @@ mecanismo de saída).
 
 ---
 
+#### Atualização — circuit breaker de perdas consecutivas, drawdown cai mas a amostra desmorata junto (2026-09-03, spec 044)
+
+Quinto mecanismo de risco isolado sobre a carteira de H14, e o primeiro
+**temporal** em vez de espacial: bloqueia novas entradas depois de
+`MAX_CONSECUTIVE_LOSSES` (3) trades fechados consecutivos com prejuízo,
+reseta no primeiro trade lucrativo — mesma semântica de
+`execution/order_manager.py`, nunca testada na carteira
+(`specs/044-circuit-breaker-carteira-h14/`). Testado isolado (sem
+dimensionamento nem gate de correlação), mesmos 12 pares.
+
+**Resultado (`python main.py carteira_breaker`, 2026-09-03):**
+
+| | Sem overlay (spec 037) | Só correlação (spec 042) | Combinado (spec 043) | Circuit breaker (spec 044) |
+|---|---|---|---|---|
+| Trades | 931 | 595 | 595 | **6** |
+| Retorno | −20,12% | −16,04% | −15,98% | **−0,40%** |
+| Drawdown agregado | 28,66% | 20,74% | 20,24% | **0,57%** |
+| Profit factor | 0,72 | 0,68 | 0,67 | 0,36 |
+
+**O drawdown despenca, mas não é uma vitória — é a amostra desmoronando
+junto.** Com um profit factor de base ~0,7 (mais perdas que ganhos), a
+sequência de 3 perdas seguidas acontece cedo e com frequência; sem o
+cooldown por tempo de produção (decisão D1, `research.md`, deliberada —
+ver justificativa lá), o único jeito de destravar é um trade lucrativo,
+que num regime de baixo win rate demora. Na prática, o breaker passa a
+maior parte dos ~2,7 anos ativo, bloqueando quase toda entrada nova —
+6 trades no total contra 595-931 dos outros testes. Drawdown baixo
+porque **quase não há capital em risco a maior parte do tempo**, não
+porque o mecanismo melhorou a qualidade das entradas que passam.
+
+**Caso real do achado M14 (§5).** `evaluate_approval()` retorna
+`"reprovado"` citando junto "apenas 6 trades na validação (mínimo 10)"
+e "profit factor 0.36 abaixo do mínimo 1.2" — mas 6 trades é abaixo do
+mínimo estatístico para qualquer leitura do profit factor ter
+significado. O veredito correto aqui é `"inconclusivo"` por amostra
+insuficiente, não `"reprovado"` — exatamente o defeito de instrumentação
+catalogado em M14, agora confirmado por um segundo caso além de H10
+(spec 039). Motivou a correção de M14 nesta mesma spec (ver §5).
+
+**Não aprova H14, e o resultado bruto não é comparável aos quatro
+anteriores** — universo de decisão completamente diferente (6 trades vs
+595-931). Não invalida os resultados já publicados dos outros quatro
+mecanismos, só mostra que este mecanismo específico, do jeito declarado
+(sem cooldown por tempo), não é um overlay de risco utilizável isolado
+sobre uma estratégia de profit factor abaixo de 1 — ele não reduz risco
+por trade, reduz risco por parar de operar.
+
+**Reprodução:** `python main.py carteira_breaker` ·
+`specs/044-circuit-breaker-carteira-h14/`.
+
+---
+
 ### 4.16 H20 — Geometria de barreira
 
 **Origem.** Única hipótese do registro derivada de um **resultado** e não da
