@@ -28,9 +28,9 @@ por natureza (zero mecânica nova).
 ### Implementation
 
 - [X] T002 Criar `cmd_carteira_combo()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_dimensionamento_vol=True, usar_gate_correlacao=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e os três drawdowns já publicados (28,66%/23,04%/20,74%) lado a lado; registrar `"carteira_combo": cmd_carteira_combo` em `COMMANDS`; exportar via `export_report("carteira_combo", ...)` (depende de T001)
-- [ ] T003 Rodar `python main.py carteira_combo` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
-- [ ] T004 Registrar o resultado real de T003 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — comparação explícita contra os três já publicados; texto depende do resultado medido, não escrito antes de T003
-- [ ] T005 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T003 Rodar `python main.py carteira_combo` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
+- [X] T004 Registrar o resultado real de T003 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — comparação explícita contra os três já publicados; texto depende do resultado medido, não escrito antes de T003
+- [X] T005 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada num único commit pequeno (T001-T002) + Polish (T003-T005).
 

@@ -1427,6 +1427,49 @@ mecanismo por trás do drawdown de carteira de H14.
 
 ---
 
+#### Atualização — combinação vol. + correlação, os dois efeitos não somam (2026-09-03, spec 043)
+
+Os dois mecanismos que isoladamente melhoraram o drawdown (dimensionamento
+por volatilidade, spec 041; gate de correlação, spec 042) ligados ao mesmo
+tempo, sobre a mesma carteira de `UNIVERSO_H11` — zero mecânica nova,
+`_simular_carteira_core(usar_dimensionamento_vol=True,
+usar_gate_correlacao=True)`, gate roda antes do dimensionamento
+(`specs/043-combinado-vol-correlacao-h14/data-model.md`).
+
+**Resultado (`python main.py carteira_combo`, 2026-09-03, mesmos 12 pares):**
+
+| | Sem overlay (spec 037) | Só volatilidade (spec 041) | Só correlação (spec 042) | Combinado (spec 043) |
+|---|---|---|---|---|
+| Trades | 931 | 763 | 595 | **595** |
+| Retorno | −20,12% | −18,16% | −16,04% | **−15,98%** |
+| Drawdown agregado | 28,66% | 23,04% | 20,74% | **20,24%** |
+| Profit factor | 0,72 | 0,72 | 0,68 | **0,67** |
+
+**Os efeitos não somam — o gate de correlação domina quase inteiramente.**
+`total_trades` do combinado é idêntico ao do gate sozinho (595): o
+dimensionamento por volatilidade não muda quais trades abrem/fecham, só o
+tamanho de cada um, e a maioria dos pares voláteis-e-correlacionados que
+ele reduziria já foi excluída pelo próprio gate antes do dimensionamento
+rodar (ordem declarada em `data-model.md` — gate primeiro, por ser filtro
+binário). O ganho marginal de somar volatilidade por cima do gate é
+pequeno: drawdown 20,74% → 20,24% (~2% de redução relativa, contra ~28%
+do gate sozinho sobre a base sem overlay), retorno quase igual
+(−16,04% → −15,98%), profit factor levemente pior (0,68 → 0,67).
+
+**Ainda reprovado** — mesmo motivo de sempre: drawdown 20,24% segue o
+dobro do teto aceitável (10%), profit factor 0,67 abaixo do mínimo 1,2.
+Combinar os dois melhores mecanismos encontrados até agora não tira H14
+da faixa de reprovação; só confirma que o gate de correlação é, sozinho,
+essencialmente todo o efeito disponível nessa direção — o passo seguinte
+não é mais overlay de risco sobre a mesma decisão de entrada, é atacar
+outra parte do mecanismo (ex.: o próprio classificador de entrada, ou o
+mecanismo de saída).
+
+**Reprodução:** `python main.py carteira_combo` ·
+`specs/043-combinado-vol-correlacao-h14/`.
+
+---
+
 ### 4.16 H20 — Geometria de barreira
 
 **Origem.** Única hipótese do registro derivada de um **resultado** e não da
