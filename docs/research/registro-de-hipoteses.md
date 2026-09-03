@@ -2061,6 +2061,16 @@ de custo, por taxa especificamente.
 **Reprodução:** `python main.py geometria` ·
 `specs/051-h20-decomposicao-custo/`.
 
+**Verificação final — `BACKTEST_FEE_RATE` contra a taxa real (2026-09-03).**
+Confirmado via fee schedule oficial da Binance: contas padrão (VIP0,
+sem pagar taxa em BNB) pagam 0,10% maker e taker no spot — exatamente
+o valor já usado (`BACKTEST_FEE_RATE=0.001`). O desconto de 25% por
+pagar em BNB (→0,075%) exigiria a opção ativada na conta; confirmado
+com o usuário que **não está ativada** na conta real do bot. Nenhuma
+mudança de código — a suposição de custo já era exata, não
+conservadora nem otimista. Fecha definitivamente a hipótese de que o
+valor de `BACKTEST_FEE_RATE` estivesse superestimando o custo real.
+
 ---
 
 ### 4.17 H21 — Lead-lag BTC para altcoins
