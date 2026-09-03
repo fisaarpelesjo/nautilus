@@ -572,3 +572,55 @@ def test_avaliar_par_default_propaga_multiplicadores_de_producao(monkeypatch):
 
     assert capturados
     assert all(tp == ATR_TP_MULTIPLIER and sl == ATR_SL_MULTIPLIER for tp, sl in capturados), capturados
+
+
+# ==================================== spec 051 (H20 decomposicao de custo)
+
+def test_avaliar_par_decompoe_custo_em_taxa_e_slippage(monkeypatch):
+    """Bloco E6 (custo de giro) MUST produzir tres variantes sem custo, cada
+    uma zerando so um parametro por vez -- retorno_sem_custo_modelo (os dois
+    zerados, ja existente), retorno_sem_slippage_modelo (so slippage zerado,
+    taxa real) e retorno_sem_taxa_modelo (so taxa zerada, slippage real)."""
+    import backtesting.engine as engine_mod
+    from backtesting.modelo import avaliar_par
+    from config.settings import BACKTEST_FEE_RATE, BACKTEST_SLIPPAGE_PCT
+    from strategy.barreira_tripla import ParametrosBarreira
+
+    capturados = []
+    original = engine_mod.simulate_backtest
+
+    def _spy(*args, **kwargs):
+        capturados.append((kwargs.get("fee_rate"), kwargs.get("slippage_pct")))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "simulate_backtest", _spy)
+
+    # n=2000/semente=7: mesmo fixture de spec 049 onde a estimacao converge
+    # tambem sob tp=2.0.
+    df = _serie_onchain_regressao(n=2000, semente=7)
+    a = avaliar_par("BTC/USDT", params=ParametrosBarreira(tp_mult=2.0, sl_mult=1.5), df=df)
+
+    assert a.modelo is not None and a.modelo.convergiu
+    assert a.retorno_sem_custo_modelo is not None
+    assert a.retorno_sem_slippage_modelo is not None
+    assert a.retorno_sem_taxa_modelo is not None
+
+    # kwargs.get(...) so enxerga o que foi passado EXPLICITAMENTE -- None
+    # significa que a chamada usou o default real da funcao (fee/slippage de
+    # producao), nao que o valor seja zero.
+    assert (0.0, 0.0) in capturados  # sem_custo: os dois explicitos
+    assert (None, 0.0) in capturados  # sem_slippage: so slippage explicito, taxa no default real
+    assert (0.0, None) in capturados  # sem_taxa: so taxa explicita, slippage no default real
+    assert BACKTEST_FEE_RATE > 0 and BACKTEST_SLIPPAGE_PCT > 0  # confirma que os defaults nao sao zero
+
+
+def test_avaliar_par_default_retorno_sem_custo_modelo_inalterado():
+    """FR-002 -- a decomposicao e aditiva, retorno_sem_custo_modelo continua
+    exatamente como antes (regressao)."""
+    from backtesting.modelo import avaliar_par
+
+    df = _serie_onchain_regressao(n=2000, semente=11)
+    a = avaliar_par("BTC/USDT", df=df)
+
+    if a.modelo is not None and a.modelo.convergiu:
+        assert a.retorno_sem_custo_modelo is not None

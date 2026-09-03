@@ -166,6 +166,8 @@ class AvaliacaoH14:
     validacao_regras: object = None
     retorno_sem_custo_modelo: Optional[float] = None
     retorno_sem_custo_regras: Optional[float] = None
+    retorno_sem_slippage_modelo: Optional[float] = None
+    retorno_sem_taxa_modelo: Optional[float] = None
     n_purgadas: int = 0
     n_embargadas: int = 0
     status: str = "inconclusivo"
@@ -535,17 +537,30 @@ def avaliar_par(
             int(len(treino)), coef,
             atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult))
 
-    # E6 -- custo de giro.
+    # E6 -- custo de giro. Tres variantes (spec 051): sem custo algum (ja
+    # existente), so sem slippage (taxa real) e so sem taxa (slippage real)
+    # -- decompoe qual dos dois componentes domina a recuperacao de retorno,
+    # em vez de misturar os dois num unico numero.
     if a.modelo is not None and a.modelo.convergiu:
         ajuste = estimar(treino[atributos], treino["rotulo"])
         prob = prever(ajuste, teste_deste_par[atributos]) if ajuste else None
         if prob is not None:
+            sinais_modelo = _sinais_do_modelo(prob, prep_teste.index, limiar)
             sc = _simular_com_sinais(
-                prep_teste, estrategia,
-                _sinais_do_modelo(prob, prep_teste.index, limiar),
+                prep_teste, estrategia, sinais_modelo,
                 fee_rate=0.0, slippage_pct=0.0,
                 atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult)
             a.retorno_sem_custo_modelo = sc.total_return_pct if sc else None
+            sc_sem_slip = _simular_com_sinais(
+                prep_teste, estrategia, sinais_modelo,
+                slippage_pct=0.0,
+                atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult)
+            a.retorno_sem_slippage_modelo = sc_sem_slip.total_return_pct if sc_sem_slip else None
+            sc_sem_taxa = _simular_com_sinais(
+                prep_teste, estrategia, sinais_modelo,
+                fee_rate=0.0,
+                atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult)
+            a.retorno_sem_taxa_modelo = sc_sem_taxa.total_return_pct if sc_sem_taxa else None
     sc_reg = _simular(prep_teste, estrategia, fee_rate=0.0, slippage_pct=0.0)
     a.retorno_sem_custo_regras = sc_reg.total_return_pct if sc_reg else None
 

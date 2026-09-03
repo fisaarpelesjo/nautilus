@@ -21,13 +21,13 @@ description: "Task list for H20 decomposicao de custo -- taxa vs slippage (spec 
 
 ### Tests
 
-- [ ] T001 [US1] Teste em `tests/test_modelo.py`: `avaliar_par` popula `retorno_sem_slippage_modelo` (spy confirma `slippage_pct=0.0`, `fee_rate` real) e `retorno_sem_taxa_modelo` (spy confirma `fee_rate=0.0`, `slippage_pct` real) — reusa o fixture de spec 049 (n=2000, semente=7)
-- [ ] T002 [P] [US1] Confirmar que `retorno_sem_custo_modelo` (já existente) permanece inalterado — regressão explícita (FR-002)
+- [X] T001 [US1] Teste em `tests/test_modelo.py`: `avaliar_par` popula `retorno_sem_slippage_modelo` (spy confirma `slippage_pct=0.0`, `fee_rate` real) e `retorno_sem_taxa_modelo` (spy confirma `fee_rate=0.0`, `slippage_pct` real) — reusa o fixture de spec 049 (n=2000, semente=7)
+- [X] T002 [P] [US1] Confirmar que `retorno_sem_custo_modelo` (já existente) permanece inalterado — regressão explícita (FR-002)
 
 ### Implementation
 
-- [ ] T003 [US1] Adicionar `retorno_sem_slippage_modelo`/`retorno_sem_taxa_modelo` (`Optional[float] = None`) a `AvaliacaoH14` e as duas chamadas correspondentes no bloco E6 de `avaliar_par` (`backtesting/modelo.py`) (depende de T001-T002)
-- [ ] T004 [US1] Estender `cmd_geometria()` em `main.py`: imprime os dois novos campos ao lado do já existente (com custo / sem custo) por par; adiciona ao `export_report` (depende de T003)
+- [X] T003 [US1] Adicionar `retorno_sem_slippage_modelo`/`retorno_sem_taxa_modelo` (`Optional[float] = None`) a `AvaliacaoH14` e as duas chamadas correspondentes no bloco E6 de `avaliar_par` (`backtesting/modelo.py`) (depende de T001-T002)
+- [X] T004 [US1] Estender `cmd_geometria()` em `main.py`: imprime os dois novos campos ao lado do já existente (com custo / sem custo) por par; adiciona ao `export_report` (depende de T003)
 - [ ] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
 - [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — qual componente (taxa ou slippage) domina, com a ressalva sobre o teto otimista; texto depende do resultado medido, não escrito antes de T005
 - [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão

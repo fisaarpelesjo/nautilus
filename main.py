@@ -2185,6 +2185,27 @@ def cmd_geometria():
     console.print(f"  [{C_LABEL}]pares cujo retorno sem custo supera o buy-and-hold[/] "
                   f"{pares_aprovariam_sem_custo}/{len(custo_por_par)}")
 
+    # Decomposicao taxa vs slippage (spec 051): "sem slippage" e um teto
+    # otimista do que ordens limit entregariam -- produção so usa
+    # USE_LIMIT_ORDERS na ENTRADA, nunca na saida/stop (precisa de execucao
+    # imediata), entao o real seria algo entre "com custo" e "sem slippage".
+    console.print()
+    console.print(f"  [bold {C_CYAN}]decomposicao do custo (taxa vs. slippage -- 'sem slippage' e teto "
+                  f"otimista, ordens limit so afetam entrada)[/]")
+    decomposicao_por_par = []
+    for a in avaliacoes:
+        bt = a.modelo.backtest if a.modelo else None
+        if bt is None:
+            continue
+        sem_slip = a.retorno_sem_slippage_modelo
+        sem_taxa = a.retorno_sem_taxa_modelo
+        sem_slip_txt = f"{sem_slip:+.2f}%" if sem_slip is not None else "-"
+        sem_taxa_txt = f"{sem_taxa:+.2f}%" if sem_taxa is not None else "-"
+        console.print(f"  {a.par:<10}  sem_slippage={sem_slip_txt}  sem_taxa={sem_taxa_txt}")
+        decomposicao_por_par.append({
+            "par": a.par, "sem_slippage": sem_slip, "sem_taxa": sem_taxa,
+        })
+
     export_report(
         "geometria_estendida",
         {"candles": 6000, "tp_selecionado_publicado": 2.0,
@@ -2199,6 +2220,7 @@ def cmd_geometria():
             "supera_empate_pontual": resumo["supera_empate_pontual"],
             "backtests_por_par": backtests_por_par,
             "custo_por_par": custo_por_par,
+            "decomposicao_por_par": decomposicao_por_par,
         },
     )
 
