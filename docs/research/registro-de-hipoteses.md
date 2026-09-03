@@ -1525,6 +1525,59 @@ por trade, reduz risco por parar de operar.
 
 ---
 
+#### Atualização — limite de drawdown diário, reset por calendário não colapsa a amostra (2026-09-03, spec 045)
+
+Sexto mecanismo de risco isolado sobre a carteira de H14, e o segundo
+temporal: bloqueia novas entradas quando o patrimônio do dia cai abaixo
+de `1 - DAILY_DRAWDOWN_LIMIT` (5%) vezes o saldo de referência do dia,
+resetado **por calendário** (novo dia), não por resultado — diferente
+do circuit breaker de perdas consecutivas (spec 044), que só resetava
+com um trade lucrativo e colapsou a amostra para 6 trades
+(`specs/045-limite-drawdown-diario-h14/`, D1 declara a hipótese antes
+de medir: reset incondicional não pode ficar preso esperando sorte).
+
+**Resultado (`python main.py carteira_dd_diario`, 2026-09-03):**
+
+| | Sem overlay (037) | Só volatilidade (041) | Só correlação (042) | Combinado (043) | Circuit breaker (044) | Limite diário (045) |
+|---|---|---|---|---|---|---|
+| Trades | 931 | 763 | 595 | 595 | 6 | **762** |
+| Retorno | −20,12% | −18,16% | −16,04% | −15,98% | −0,40% | **−16,50%** |
+| Drawdown | 28,66% | 23,04% | 20,74% | 20,24% | 0,57% | **22,17%** |
+| Profit factor | 0,72 | 0,72 | 0,68 | 0,67 | 0,36 | **0,75** |
+
+**Confirma a hipótese: reset por calendário não colapsa a amostra.**
+762 trades — praticamente idêntico ao de "só volatilidade" (763), a
+duas ordens de grandeza acima do circuit breaker (6). O mecanismo
+continuou operando quase normalmente porque o reset diário garante uma
+nova chance a cada ~6 candles de 4h, independente de qualquer trade ter
+fechado bem. Drawdown caiu de 28,66% para 22,17% (∼23% de redução
+relativa) com uma amostra grande o bastante para o número ter
+significado — não é o caso degenerado de spec 044.
+
+**Maior profit factor de todos os seis testes, incluindo o baseline.**
+0,75 contra 0,72 (sem overlay) — o único mecanismo, entre os cinco
+overlays de risco testados até aqui, que melhorou o profit factor em
+vez de piorá-lo ou empatá-lo. Interpretação: pausar por um dia inteiro
+depois de uma perda agregada grande evita reabrir exposição durante o
+resto de um movimento de mercado adverso já em curso — diferente do
+gate de correlação (que filtra por sobreposição espacial no instante da
+entrada) e do dimensionamento (que só encolhe, nunca pausa), este
+mecanismo é o único que reage à trajetória recente do patrimônio da
+carteira inteira.
+
+**Ainda reprovado** — profit factor 0,75 segue abaixo do mínimo 1,2, e
+drawdown 22,17% quase o dobro do teto aceitável (10%). Não aprova H14.
+Mas é o segundo mecanismo (depois do gate de correlação) a produzir uma
+melhora real e não-degenerada, e o único a melhorar profit factor — bom
+candidato a combinar com o gate de correlação numa spec futura, já que
+ambos operam em dimensões diferentes (calendário vs. sobreposição
+espacial) e nenhum dos dois, individualmente, colapsou a amostra.
+
+**Reprodução:** `python main.py carteira_dd_diario` ·
+`specs/045-limite-drawdown-diario-h14/`.
+
+---
+
 ### 4.16 H20 — Geometria de barreira
 
 **Origem.** Única hipótese do registro derivada de um **resultado** e não da
