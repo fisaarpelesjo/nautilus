@@ -2953,6 +2953,50 @@ relevante sem uma oportunidade real para executar.
   (`strategy/ema_rsi.py`) sem modificar nenhum dos dois; só treina um
   modelo novo sobre os eventos de entrada já gerados.
 
+**Atualização — pré-condição testada, não atendida, spec encerrada por desenho (2026-09-03, spec 064).**
+`python main.py meta_labeling`, `UNIVERSO_H11` (12 pares, 6.000 candles):
+os eventos de entrada que o EMA/RSI de produção já geraria
+(`precompute_signals`, `Signal.BUY`), rotulados pela mesma barreira
+tripla de H14, foram comparados ao baseline de todos os candles antes de
+treinar qualquer modelo secundário — exatamente o critério declarado em
+`research.md` D1, decidido antes de rodar qualquer diagnóstico.
+
+**Resultado:**
+
+| | n | alvo | stop | tempo | razão | supera_empate_ci95 |
+|---|---|---|---|---|---|---|
+| Baseline (todos os candles) | 71.412 | 18.706 | 42.683 | 10.023 | 0,4383 | Não |
+| Entrada primária (EMA/RSI) | 740 | 227 | 453 | 60 | 0,5011 | **Não** |
+
+**A pré-condição NÃO é atendida — mas por uma margem informativa, não
+por ruído puro.** A razão de chances dos eventos de entrada (0,5011)
+fica muito mais perto do ponto de empate (0,5000) que o baseline geral
+(0,4383) — o sinal primário claramente desloca a probabilidade na
+direção certa, não é aleatório em relação ao baseline. Mas 0,5011 não
+supera 0,5000 com confiança: com 740 eventos e 453 stops, o intervalo de
+Wilson ainda cruza o empate. A tentação de ler "quase lá" como
+"praticamente atendida" é exatamente o padrão que
+`supera_empate_com_confianca` existe para impedir (mesma lição de M9/M13
+já aplicada a toda avaliação de H14 em diante) — o critério foi
+declarado ANTES de medir, não ajustado depois de ver o número ficar tão
+perto.
+
+**Spec encerrada por desenho, não por falha de execução.** FR-005 já
+declarava que nenhum modelo secundário seria treinado sem a pré-condição
+— o resultado confirma que essa disciplina era necessária: gastar
+esforço treinando um classificador secundário sobre um sinal primário
+sem informação comprovada teria sido medir ruído com uma ferramenta
+mais cara. Mesma categoria de bloqueio por pré-condição de H12 (§6.4).
+
+**O que isso não decide.** Meta-labeling como técnica continua válida —
+se um sinal primário DIFERENTE do EMA/RSI de produção mostrar informação
+real nos próprios eventos, a mesma pré-condição poderia passar. Isso
+seria uma hipótese nova (sinal primário diferente), não uma continuação
+desta.
+
+**Reprodução:** `python main.py meta_labeling` ·
+`specs/064-h27-meta-labeling/`.
+
 **H28 — Gate condicionado por macro externo (DXY, yields, VIX)** *(adicionada em 2026-09-03)*
 
 - *Fundamentação:* todos os filtros de regime já testados neste registro
