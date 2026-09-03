@@ -88,9 +88,10 @@ mesmo motivo já diagnosticado.
 
 ### Functional Requirements
 
-- **FR-001**: O sistema MUST usar `formacao=500` e
-  `reselecionar_a_cada=500` (`PairsParams`) — já medido e declarado em
-  §4.11, não um valor novo escolhido para esta spec.
+- **FR-001**: O sistema MUST usar `formacao=500` (`PairsParams`) e
+  `reselecionar_a_cada=500` (parâmetro próprio de `run_pairs_backtest`) —
+  já medido e declarado em §4.11, não um valor novo escolhido para esta
+  spec.
 - **FR-002**: O sistema MUST buscar 6.000 candles de 4h por par (D1, spec
   036) para os 12 pares de `UNIVERSO_H11` — mesmo teto já usado por
   H11/H14/H17/H37.

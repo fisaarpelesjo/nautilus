@@ -360,3 +360,63 @@ def _resultado_vazio(initial_capital: float) -> BacktestResult:
         total_return_pct=0.0, win_rate=0.0, total_trades=0, max_drawdown_pct=0.0,
         buy_hold_return_pct=0.0, edge_return_pct=0.0, **metrics,
     )
+
+
+def split_treino_validacao(
+    dados: Dict[str, pd.DataFrame], formacao: int, validation_ratio: float = 0.3,
+):
+    """Corte de tempo UNICO, compartilhado entre todos os pares (FR-003) --
+    nunca por linha independente por par, que desalinharia a selecao de
+    pares entre treino e validacao.
+
+    A fatia de validacao recebe os `formacao` candles finais do treino
+    como aquecimento (D2, specs/039-reavaliar-h10-pairs-trading/research.md):
+    `run_pairs_backtest` ja pula os primeiros `p.formacao` candles do
+    `dados` recebido e ancora `period_start` exatamente nesse ponto --
+    passar o aquecimento preposto faz esse warmup interno ja existente
+    alinhar exatamente ao inicio real da validacao, sem duplicar logica.
+    """
+    indice_comum = None
+    for df in dados.values():
+        idx = pd.to_datetime(df.index)
+        indice_comum = idx if indice_comum is None else indice_comum.intersection(idx)
+    indice_comum = indice_comum.sort_values()
+
+    corte = int(len(indice_comum) * (1 - validation_ratio))
+    instante_corte = indice_comum[corte]
+    instante_aquecimento = indice_comum[max(0, corte - formacao)]
+
+    dados_treino = {s: df.loc[pd.to_datetime(df.index) < instante_corte] for s, df in dados.items()}
+    dados_validacao = {s: df.loc[pd.to_datetime(df.index) >= instante_aquecimento] for s, df in dados.items()}
+    return dados_treino, dados_validacao
+
+
+def run_pairs_scan(
+    pares: Optional[List[str]] = None,
+    params: Optional[PairsParams] = None,
+    dados: Optional[Dict[str, pd.DataFrame]] = None,
+):
+    """Reavalia H10 com o instrumento corrigido (spec 039): formacao=500
+    (D1, poder de deteccao medido em 60% contra 20% a 250 candles) sobre
+    6.000 candles (spec 036) -- sem mudar criterio de selecao, entrada,
+    saida ou aprovacao.
+
+    `dados` opcional permite teste sem rede (mesmo padrao de
+    `avaliar_par(df=...)`, H14)."""
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from config.settings import TIMEFRAME
+    from data.fetcher import fetch_ohlcv
+
+    p = params or PairsParams(formacao=500)
+    pares = pares if pares is not None else list(UNIVERSO_H11)
+
+    if dados is None:
+        dados = {par: fetch_ohlcv(par, TIMEFRAME, 6000) for par in pares}
+    dados_treino, dados_validacao = split_treino_validacao(dados, p.formacao)
+
+    resultado_treino = run_pairs_backtest(dados_treino, p, reselecionar_a_cada=p.formacao)
+    resultado_validacao = run_pairs_backtest(dados_validacao, p, reselecionar_a_cada=p.formacao)
+    veredito = evaluate_approval(resultado_validacao)
+
+    return resultado_treino, resultado_validacao, veredito

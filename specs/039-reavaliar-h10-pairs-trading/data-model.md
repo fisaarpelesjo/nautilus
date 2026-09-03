@@ -8,7 +8,7 @@
 | Corte | `split_idx = int(n * 0.7)` sobre o índice comum (interseção de timestamps entre os 12 pares) — mesmo corte para todos (FR-003) |
 | `dados_treino[par]` | `df.iloc[:split_idx]` |
 | `dados_validacao[par]` | `df.iloc[split_idx - formacao : ]` — inclui aquecimento (D2/FR-004) |
-| `resultado_treino` | `run_pairs_backtest(dados_treino, PairsParams(formacao=500, reselecionar_a_cada=500))` — já existente, sem alteração |
+| `resultado_treino` | `run_pairs_backtest(dados_treino, PairsParams(formacao=500), reselecionar_a_cada=500)` — `reselecionar_a_cada` é parâmetro próprio de `run_pairs_backtest`, não campo de `PairsParams`; já existente, sem alteração |
 | `resultado_validacao` | `run_pairs_backtest(dados_validacao, mesmos params)` — `period_start` interno alinha exatamente ao início real da validação (D2) |
 | `veredito` | `evaluate_approval(resultado_validacao)` — sem critério novo (FR-005) |
 

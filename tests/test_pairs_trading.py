@@ -8,7 +8,9 @@ from backtesting.pairs_trading import (
     estimar_hedge_ratio,
     meia_vida_reversao,
     run_pairs_backtest,
+    run_pairs_scan,
     selecionar_pares,
+    split_treino_validacao,
 )
 
 
@@ -209,3 +211,78 @@ def test_historico_menor_que_a_formacao_nao_estoura():
     r = run_pairs_backtest(dados, PairsParams(formacao=250))
 
     assert r.total_trades == 0
+
+
+# ==================================================== spec 039 (reavaliar H10)
+# T001-T004: split treino/validacao com corte de tempo compartilhado e
+# aquecimento causal, e run_pairs_scan com o instrumento corrigido.
+
+def test_split_treino_validacao_usa_corte_de_tempo_compartilhado():
+    a, b = _par_cointegrado(n=1000)
+    dados = {"A/USDT": _df(a, 1000), "B/USDT": _df(b, 1000)}
+
+    treino, validacao = split_treino_validacao(dados, formacao=100, validation_ratio=0.3)
+
+    # corte = int(1000*0.7) = 700; aquecimento comeca em 700-100=600.
+    assert len(treino["A/USDT"]) == 700
+    assert len(validacao["A/USDT"]) == 400  # 100 de aquecimento + 300 reais
+    assert len(treino["B/USDT"]) == len(treino["A/USDT"])
+    assert len(validacao["B/USDT"]) == len(validacao["A/USDT"])
+    # Nenhuma sobreposicao ALEM do aquecimento declarado.
+    assert treino["A/USDT"].index[-1] < validacao["A/USDT"].index[100]
+
+
+@precisa_adf
+def test_aquecimento_nao_conta_no_periodo_reportado_da_validacao():
+    a, b = _par_cointegrado(n=1000, meia_vida=15)
+    dados = {"A/USDT": _df(a, 1000), "B/USDT": _df(b, 1000)}
+    formacao = 100
+
+    _, validacao = split_treino_validacao(dados, formacao=formacao, validation_ratio=0.3)
+    r = run_pairs_backtest(validacao, PairsParams(formacao=formacao), reselecionar_a_cada=formacao)
+
+    # Nenhum trade pode abrir antes do candle 100 da fatia de validacao (o
+    # inicio real, apos os 100 de aquecimento) -- run_pairs_backtest pula
+    # exatamente os primeiros `formacao` candles do `dados` recebido.
+    inicio_real = validacao["A/USDT"].index[formacao]
+    assert all(t.entry_time >= inicio_real for t in r.trades)
+
+
+def test_run_pairs_scan_usa_formacao_500_por_padrao(monkeypatch):
+    from unittest.mock import MagicMock
+
+    chamadas = []
+
+    def fake_run_pairs_backtest(dados_, params_, **kwargs):
+        chamadas.append((params_.formacao, kwargs.get("reselecionar_a_cada")))
+        return MagicMock()
+
+    import backtesting.pairs_trading as pt
+    monkeypatch.setattr(pt, "run_pairs_backtest", fake_run_pairs_backtest)
+    monkeypatch.setattr("backtesting.approval.evaluate_approval", lambda r: MagicMock())
+
+    a, b = _par_cointegrado(n=1000)
+    dados = {"A/USDT": _df(a, 1000), "B/USDT": _df(b, 1000)}
+
+    pt.run_pairs_scan(pares=["A/USDT", "B/USDT"], dados=dados)
+
+    assert len(chamadas) == 2  # treino + validacao
+    for formacao, reselecionar in chamadas:
+        assert formacao == 500
+        assert reselecionar == 500
+
+
+@precisa_adf
+def test_run_pairs_scan_produz_resultado_aceito_por_evaluate_approval():
+    from backtesting.approval import evaluate_approval
+
+    a, b = _par_cointegrado(n=2000, meia_vida=15)
+    dados = {"A/USDT": _df(a, 2000), "B/USDT": _df(b, 2000)}
+
+    _, resultado_validacao, veredito = run_pairs_scan(
+        pares=["A/USDT", "B/USDT"], params=PairsParams(formacao=300), dados=dados,
+    )
+
+    assert veredito is not None
+    assert veredito.status in {"aprovado", "reprovado", "inconclusivo"}
+    assert evaluate_approval(resultado_validacao).status == veredito.status

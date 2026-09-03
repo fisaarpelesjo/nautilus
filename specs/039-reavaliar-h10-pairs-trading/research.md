@@ -10,7 +10,9 @@ estavam declaradas e medidas em `docs/research/registro-de-hipoteses.md`
 
 ## D1 — Formação de 500 candles (já medida)
 
-**Decisão:** `PairsParams(formacao=500, reselecionar_a_cada=500)`, em vez
+**Decisão:** `PairsParams(formacao=500)` com `reselecionar_a_cada=500`
+(parâmetro próprio de `run_pairs_backtest`, não campo de `PairsParams`),
+em vez
 de 250 (valor original).
 
 **Medição já publicada** (§4.11, poder de detecção do seletor sobre par
