@@ -38,14 +38,14 @@ estritamente menor.
 
 ### Tests for User Story 1
 
-- [ ] T001 [P] [US1] Teste em `tests/test_portfolio_h14.py`: `usar_dimensionamento_vol=False` (default) reproduz exatamente os valores de referência já capturados para os testes existentes de `_simular_carteira_core` — regressão explícita (FR-004)
-- [ ] T002 [P] [US1] Teste: com `usar_dimensionamento_vol=True` e `atr_ratio` acima do alvo (0,02) num candle de entrada, o tamanho da posição fica estritamente menor que com a flag desligada, nunca maior (FR-003)
-- [ ] T003 [P] [US1] Teste: com `atr_ratio` ausente/`NaN` no candle de entrada, `usar_dimensionamento_vol=True` não muda o tamanho (fator 1,0, mesma política de falha de `fator_volatilidade`)
-- [ ] T004 [P] [US1] Teste: o fator é aplicado **depois** do teto por ordem e da reserva de caixa — nunca permite que a posição exceda `MAX_ORDER_SIZE_USDT` mesmo com `atr_ratio` muito baixo (D1/FR-002)
+- [X] T001 [P] [US1] Teste em `tests/test_portfolio_h14.py`: `usar_dimensionamento_vol=False` (default) reproduz exatamente os valores de referência já capturados para os testes existentes de `_simular_carteira_core` — regressão explícita (FR-004)
+- [X] T002 [P] [US1] Teste: com `usar_dimensionamento_vol=True` e `atr_ratio` acima do alvo (0,02) num candle de entrada, o tamanho da posição fica estritamente menor que com a flag desligada, nunca maior (FR-003)
+- [X] T003 [P] [US1] Teste: com `atr_ratio` ausente/`NaN` no candle de entrada, `usar_dimensionamento_vol=True` não muda o tamanho (fator 1,0, mesma política de falha de `fator_volatilidade`)
+- [X] T004 [P] [US1] Teste: o fator é aplicado **depois** do teto por ordem e da reserva de caixa — nunca permite que a posição exceda `MAX_ORDER_SIZE_USDT` mesmo com `atr_ratio` muito baixo (D1/FR-002)
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Adicionar `usar_dimensionamento_vol: bool = False` a `_simular_carteira_core`/`simular_carteira` em `backtesting/portfolio_h14.py`: multiplica `order_size` por `fator_volatilidade(row.get("atr_ratio"))` (`backtesting/volatilidade.py`, D1) depois do dimensionamento já existente (depende de T001-T004)
+- [X] T005 [US1] Adicionar `usar_dimensionamento_vol: bool = False` a `_simular_carteira_core`/`simular_carteira` em `backtesting/portfolio_h14.py`: multiplica `order_size` por `fator_volatilidade(row.get("atr_ratio"))` (`backtesting/volatilidade.py`, D1) depois do dimensionamento já existente (depende de T001-T004)
 
 **Checkpoint**: `pytest tests/test_portfolio_h14.py -v` — T001-T004
 passam. MVP completo: dimensionamento por volatilidade disponível na

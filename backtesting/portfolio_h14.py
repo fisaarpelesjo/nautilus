@@ -27,6 +27,7 @@ from backtesting.engine import (
     _stop_price,
     _take_profit_price,
 )
+from backtesting.volatilidade import fator_volatilidade
 from config.settings import (
     ATR_SL_MULTIPLIER,
     ATR_TP_MULTIPLIER,
@@ -90,10 +91,18 @@ def _simular_carteira_core(
     capital_inicial: float = 1000.0,
     fee_rate: float = BACKTEST_FEE_RATE,
     slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
+    usar_dimensionamento_vol: bool = False,
 ) -> Optional[BacktestResult]:
     """Mecanica pura de carteira -- sem rede, sem treino. `previsoes[par]` e
     `preparados[par]` (colunas close/high/low/atr) MUST compartilhar o
     mesmo indice de timestamps (a janela de teste ja alinhada, D3).
+
+    `usar_dimensionamento_vol` (spec 041, H12 redirecionado): reusa
+    `fator_volatilidade` (`backtesting/volatilidade.py`, spec 025) sem
+    alteracao -- aplicado DEPOIS do teto por ordem e da reserva de
+    caixa (D1, specs/041-volatilidade-carteira-h14/research.md), so pode
+    reduzir o tamanho da entrada. Default `False` reproduz o resultado
+    ja publicado (spec 037) byte a byte.
     """
     pares_validos = [p for p in previsoes if len(previsoes[p]) > 0 and p in preparados]
     if not pares_validos:
@@ -164,6 +173,8 @@ def _simular_carteira_core(
             order_size = min(MAX_ORDER_SIZE_USDT, (carteira.caixa / slots_livres) * 0.95)
             if order_size * (1 + fee_rate) > carteira.caixa:
                 order_size = carteira.caixa / (1 + fee_rate)
+            if usar_dimensionamento_vol:
+                order_size *= fator_volatilidade(row.get("atr_ratio"))
             if order_size < 10:
                 continue
             entry_price = row["close"] * (1 + slippage_pct)
@@ -257,7 +268,8 @@ def _simular_carteira_core(
 
 def simular_carteira(pares=None, capital_inicial: float = 1000.0,
                      fee_rate: float = BACKTEST_FEE_RATE,
-                     slippage_pct: float = BACKTEST_SLIPPAGE_PCT) -> Optional[BacktestResult]:
+                     slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
+                     usar_dimensionamento_vol: bool = False) -> Optional[BacktestResult]:
     """Busca dados reais, treina o modelo (`run_modelo_scan`, D2) e simula a
     carteira. Para testes sem rede, usar `_simular_carteira_core`
     diretamente."""
@@ -272,6 +284,7 @@ def simular_carteira(pares=None, capital_inicial: float = 1000.0,
 
     return _simular_carteira_core(
         previsoes, preparados, limiar_de_decisao(), capital_inicial, fee_rate, slippage_pct,
+        usar_dimensionamento_vol,
     )
 
 

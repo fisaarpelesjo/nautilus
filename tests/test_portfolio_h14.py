@@ -6,14 +6,14 @@ from backtesting.portfolio_h14 import UNIVERSO_AMPLO, _simular_carteira_core, co
 LIMIAR = 0.3333
 
 
-def _prep(index, close, high=None, low=None, atr=2.0):
+def _prep(index, close, high=None, low=None, atr=2.0, atr_ratio=None):
     n = len(index)
     high = high if high is not None else [c * 1.001 for c in close]
     low = low if low is not None else [c * 0.999 for c in close]
-    return pd.DataFrame(
-        {"close": close, "high": high, "low": low, "atr": [atr] * n},
-        index=index,
-    )
+    dados = {"close": close, "high": high, "low": low, "atr": [atr] * n}
+    if atr_ratio is not None:
+        dados["atr_ratio"] = atr_ratio if hasattr(atr_ratio, "__len__") else [atr_ratio] * n
+    return pd.DataFrame(dados, index=index)
 
 
 def _idx(n, freq="4h"):
@@ -239,3 +239,67 @@ def test_universo_amplo_tem_34_pares_unicos_usdt():
 def test_universo_amplo_nao_inclui_pegged_excluidos():
     excluidos = {"USD1/USDT", "RLUSD/USDT", "EUR/USDT", "XAUT/USDT", "PAXG/USDT"}
     assert not (excluidos & set(UNIVERSO_AMPLO))
+
+
+# ==================================== spec 041 (dimensionamento por volatilidade)
+
+def test_default_sem_dimensionamento_vol_ignora_atr_ratio():
+    """usar_dimensionamento_vol=False (default) reproduz o mesmo resultado
+    independente de atr_ratio estar presente -- regressao do caminho ja
+    publicado (FR-004)."""
+    idx = _idx(3)
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados_sem = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0])}
+    preparados_com_coluna = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0], atr_ratio=0.10)}
+
+    r_sem = _simular_carteira_core(previsoes, preparados_sem, LIMIAR, capital_inicial=1000.0)
+    r_com_coluna = _simular_carteira_core(previsoes, preparados_com_coluna, LIMIAR, capital_inicial=1000.0)
+
+    assert r_sem.trades[0].quantity == pytest.approx(r_com_coluna.trades[0].quantity)
+    assert r_sem.final_capital == pytest.approx(r_com_coluna.final_capital)
+
+
+def test_atr_ratio_alto_reduz_o_tamanho_da_entrada():
+    idx = _idx(3)
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados_baixo = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0], atr_ratio=0.02)}  # = alvo
+    preparados_alto = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0], atr_ratio=0.10)}  # 5x o alvo
+
+    r_baixo = _simular_carteira_core(
+        previsoes, preparados_baixo, LIMIAR, capital_inicial=1000.0, usar_dimensionamento_vol=True,
+    )
+    r_alto = _simular_carteira_core(
+        previsoes, preparados_alto, LIMIAR, capital_inicial=1000.0, usar_dimensionamento_vol=True,
+    )
+
+    assert r_alto.trades[0].quantity < r_baixo.trades[0].quantity
+
+
+def test_atr_ratio_ausente_nao_muda_o_tamanho():
+    idx = _idx(3)
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0])}  # sem coluna atr_ratio
+
+    r_sem_flag = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0)
+    r_com_flag = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_dimensionamento_vol=True,
+    )
+
+    assert r_sem_flag.trades[0].quantity == pytest.approx(r_com_flag.trades[0].quantity)
+
+
+def test_fator_nunca_amplia_alem_do_teto_ja_existente():
+    """atr_ratio muito baixo (bem abaixo do alvo) nao pode fazer a posicao
+    ficar MAIOR que sem dimensionamento -- fator_volatilidade ja tem teto
+    de 1,0 embutido (D1/FR-003)."""
+    idx = _idx(3)
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados_sem = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0])}
+    preparados_vol_baixa = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0], atr_ratio=0.0001)}
+
+    r_sem = _simular_carteira_core(previsoes, preparados_sem, LIMIAR, capital_inicial=1000.0)
+    r_vol_baixa = _simular_carteira_core(
+        previsoes, preparados_vol_baixa, LIMIAR, capital_inicial=1000.0, usar_dimensionamento_vol=True,
+    )
+
+    assert r_vol_baixa.trades[0].quantity <= r_sem.trades[0].quantity * 1.0001
