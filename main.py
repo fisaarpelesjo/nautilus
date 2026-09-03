@@ -2247,6 +2247,71 @@ def cmd_carteira_teto():
     )
 
 
+def cmd_carteira_barreira():
+    """H14 -- saida por barreira tripla em vez de trailing stop (spec 056).
+
+    A linha de overlays de risco fechou (spec 047) apontando para o
+    classificador em si (spec 055, filtro de confianca refutado) ou o
+    mecanismo de saida -- nunca alterado em nenhuma das nove specs
+    anteriores de H14. A carteira sempre saiu por take-profit ATR + stop
+    TRAILING (mecanismo real de producao), mas o classificador foi
+    TREINADO e MEDIDO contra uma barreira tripla FIXA (mesmos niveis de
+    preco, stop nunca sobe, fecha em 24 velas se nenhum lado tocar).
+    Mede uma estrategia diferente de H14 como publicado -- testa se
+    fechar esse descasamento resolve o profit factor abaixo de 1.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H14 -- saida por barreira tripla (nao trailing)[/]")
+    console.print(f"  [{C_DIM}]stop fixo na entrada, alvo fixo, fecha em 24 velas se nenhum tocar -- "
+                  f"a mesma barreira que rotulou o alvo do classificador, nao o mecanismo real de "
+                  f"producao. Mede se o descasamento explica o profit factor baixo[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(pares=list(UNIVERSO_H11), usar_saida_barreira=True)
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]trades[/] {resultado.total_trades}")
+    console.print(f"  [{C_LABEL}]drawdown agregado[/] {resultado.max_drawdown_pct:.2f}%   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]ja publicado (saida trailing)[/] sem overlay 28.66%/931/PF 0.72")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_barreira",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_trailing_publicado": 28.66, "profit_factor_trailing_publicado": 0.72},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 def _fracao_custo_consumida(com_custo, sem_custo):
     """Fracao da vantagem bruta que o custo de execucao consome -- mesma
     formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
@@ -2438,6 +2503,7 @@ COMMANDS = {
     "carteira_teto": cmd_carteira_teto,
     "geometria": cmd_geometria,
     "calibracao": cmd_calibracao,
+    "carteira_barreira": cmd_carteira_barreira,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

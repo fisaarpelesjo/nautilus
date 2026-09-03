@@ -156,6 +156,81 @@ def test_stop_trailing_sobe_e_dispara_em_nivel_que_o_stop_original_nao_tocaria()
     assert r.trades[0].exit_price == pytest.approx(102.0, abs=0.2)
 
 
+# ============================== spec 056 — saida por barreira (H14)
+
+def test_saida_barreira_fecha_no_limite_de_velas_sem_tocar_stop_ou_alvo():
+    """Preco fica dentro das duas barreiras o tempo todo -- so o limite de
+    tempo fecha a posicao, no candle exato em que velas_decorridas atinge
+    limite_velas."""
+    idx = _idx(5)
+    atr = 2.0
+    close = [100.0] * 5
+    high = [100.0] * 5  # nunca toca alvo (106)
+    low = [99.9] * 5    # nunca toca stop (97)
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=close, high=high, low=low, atr=atr)}
+
+    r = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+                                usar_saida_barreira=True, limite_velas=3)
+
+    assert r.total_trades == 1
+    assert r.trades[0].exit_reason == "Limite de tempo (barreira)"
+    assert r.trades[0].exit_time == idx[3]  # 3 candles decorridos apos a entrada em idx[0]
+
+
+def test_saida_barreira_nao_faz_trailing_stop_fica_fixo_na_entrada():
+    """Mesmo cenario de test_stop_trailing_sobe_e_dispara -- preco sobe e
+    recua para um nivel que dispararia o trailing (102), mas fica acima
+    do stop FIXO original (97). Com usar_saida_barreira, a posicao MUST
+    continuar aberta em vez de fechar por Stop Loss."""
+    idx = _idx(5)
+    atr = 2.0
+    close = [100.0, 105.0, 101.0, 101.0, 101.0]
+    high = [100.0, 105.0, 101.0, 101.0, 101.0]
+    low = [99.9, 104.9, 100.9, 100.9, 100.9]
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=close, high=high, low=low, atr=atr)}
+
+    r = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+                                usar_saida_barreira=True, limite_velas=100)
+
+    assert r.total_trades == 1
+    assert r.trades[0].exit_reason == "Fim do periodo"  # nao "Stop Loss"
+
+
+def test_saida_barreira_ainda_respeita_alvo_e_stop_fixos_antes_do_limite():
+    idx = _idx(3)
+    atr = 2.0
+    close = [100.0, 100.0, 100.0]
+    high = [100.0, 107.0, 107.0]
+    low = [99.9, 99.9, 99.9]
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=close, high=high, low=low, atr=atr)}
+
+    r = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+                                usar_saida_barreira=True, limite_velas=24)
+
+    assert r.total_trades == 1
+    assert r.trades[0].exit_reason == "Take Profit"
+
+
+def test_saida_barreira_desligada_por_padrao_reproduz_trailing():
+    """Sem passar usar_saida_barreira, o mesmo cenario de
+    test_stop_trailing_sobe_e_dispara continua fechando por Stop Loss --
+    o parametro novo nao muda o default."""
+    idx = _idx(3)
+    atr = 2.0
+    close = [100.0, 105.0, 101.0]
+    high = [100.0, 105.0, 101.0]
+    low = [99.9, 104.9, 100.9]
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=close, high=high, low=low, atr=atr)}
+
+    r = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0)
+
+    assert r.trades[0].exit_reason == "Stop Loss"
+
+
 # ================================================== T008 — fim do periodo
 
 def test_posicao_aberta_no_fim_fecha_com_rotulo_proprio():

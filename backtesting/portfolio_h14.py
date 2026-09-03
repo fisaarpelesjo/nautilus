@@ -28,6 +28,7 @@ from backtesting.engine import (
     _take_profit_price,
 )
 from backtesting.volatilidade import fator_volatilidade
+from strategy.barreira_tripla import LIMITE_VELAS_PADRAO
 from config.settings import (
     ATR_SL_MULTIPLIER,
     ATR_TP_MULTIPLIER,
@@ -76,6 +77,7 @@ class PosicaoCarteira:
     stop_price: float
     highest_price: float
     instante_entrada: pd.Timestamp
+    velas_decorridas: int = 0
 
 
 @dataclass
@@ -144,6 +146,8 @@ def _simular_carteira_core(
     usar_gate_correlacao: bool = False,
     usar_circuit_breaker: bool = False,
     usar_limite_drawdown_diario: bool = False,
+    usar_saida_barreira: bool = False,
+    limite_velas: int = LIMITE_VELAS_PADRAO,
 ) -> Optional[BacktestResult]:
     """Mecanica pura de carteira -- sem rede, sem treino. `previsoes[par]` e
     `preparados[par]` (colunas close/high/low/atr) MUST compartilhar o
@@ -176,8 +180,20 @@ def _simular_carteira_core(
     (diferente do circuit breaker acima) -- nunca fica preso esperando
     um trade lucrativo.
 
-    Os quatro default `False` reproduzem o resultado ja publicado
-    (spec 037) byte a byte.
+    `usar_saida_barreira` (spec 056): troca take-profit por ATR + stop
+    TRAILING (D7 de `specs/037-motor-carteira-h14/research.md`, o
+    mecanismo real de producao) pela mesma barreira tripla FIXA que
+    rotulou o alvo do classificador (`strategy/barreira_tripla.py::rotular`)
+    -- stop fixo na entrada (nunca sobe), alvo fixo, e fecha a mercado se
+    nenhum dos dois tocar em `limite_velas` candles. Mede uma estrategia
+    DIFERENTE de H14 como publicado (D7 e explicito sobre isso) -- testa
+    se o descasamento entre o que o classificador foi medido contra e
+    como a carteira realmente sai da posicao explica o profit factor
+    baixo (`docs/research/registro-de-hipoteses.md` S4.15, fechamento da
+    spec 047).
+
+    Os cinco default (`False`/`LIMITE_VELAS_PADRAO`) reproduzem o
+    resultado ja publicado (spec 037) byte a byte.
     """
     pares_validos = [p for p in previsoes if len(previsoes[p]) > 0 and p in preparados]
     if not pares_validos:
@@ -212,6 +228,10 @@ def _simular_carteira_core(
             elif row["high"] >= pos.preco_alvo:
                 exit_reason = "Take Profit"
                 exit_price = pos.preco_alvo * (1 - slippage_pct)
+            elif usar_saida_barreira:
+                pos.velas_decorridas += 1
+                if pos.velas_decorridas >= limite_velas:
+                    exit_reason = "Limite de tempo (barreira)"
 
             if exit_reason:
                 carteira.caixa, trade = _close_trade(
@@ -225,7 +245,7 @@ def _simular_carteira_core(
                     perdas_consecutivas += 1
                 elif trade.pnl > 0:
                     perdas_consecutivas = 0
-            elif row["high"] > pos.highest_price:
+            elif not usar_saida_barreira and row["high"] > pos.highest_price:
                 pos.highest_price = row["high"]
                 new_trail = pos.highest_price - ATR_SL_MULTIPLIER * pos.entry_atr
                 if new_trail > pos.stop_price:
@@ -374,7 +394,9 @@ def simular_carteira(pares=None, capital_inicial: float = 1000.0,
                      usar_dimensionamento_vol: bool = False,
                      usar_gate_correlacao: bool = False,
                      usar_circuit_breaker: bool = False,
-                     usar_limite_drawdown_diario: bool = False) -> Optional[BacktestResult]:
+                     usar_limite_drawdown_diario: bool = False,
+                     usar_saida_barreira: bool = False,
+                     limite_velas: int = LIMITE_VELAS_PADRAO) -> Optional[BacktestResult]:
     """Busca dados reais, treina o modelo (`run_modelo_scan`, D2) e simula a
     carteira. Para testes sem rede, usar `_simular_carteira_core`
     diretamente."""
@@ -390,7 +412,7 @@ def simular_carteira(pares=None, capital_inicial: float = 1000.0,
     return _simular_carteira_core(
         previsoes, preparados, limiar_de_decisao(), capital_inicial, fee_rate, slippage_pct,
         usar_dimensionamento_vol, usar_gate_correlacao, usar_circuit_breaker,
-        usar_limite_drawdown_diario,
+        usar_limite_drawdown_diario, usar_saida_barreira, limite_velas,
     )
 
 
