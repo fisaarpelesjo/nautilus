@@ -1723,6 +1723,63 @@ def cmd_funding_extremo():
     )
 
 
+def cmd_meta_labeling():
+    """H27 -- meta-labeling, pre-condicao sobre o sinal primario (spec 064).
+
+    Arquitetura diferente de H14: em vez de treinar um classificador do
+    zero, meta-labeling treinaria um modelo SECUNDARIO para filtrar/
+    dimensionar apostas de um sinal PRIMARIO ja existente (EMA/RSI,
+    producao). Pre-condicao (D1): o sinal primario precisa carregar
+    alguma informacao real nos proprios eventos de entrada -- se nao,
+    nao ha o que um modelo secundario filtrar. Mesma familia de
+    bloqueio por pre-condicao de H12 (S6.4 do registro).
+    """
+    from backtesting.meta_labeling import avaliar_precondicao
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H27 -- meta-labeling: pre-condicao sobre o sinal primario[/]")
+    console.print(f"  [{C_DIM}]os eventos de entrada do EMA/RSI (producao) superam o empate com "
+                  f"confianca? Se nao, nao ha informacao no sinal primario para um modelo "
+                  f"secundario filtrar[/{C_DIM}]")
+    console.print()
+
+    r = avaliar_precondicao()
+
+    for faixa, rotulo in ((r.baseline, "baseline (todos os candles)"),
+                          (r.entrada_primaria, "entrada primaria (EMA/RSI)")):
+        razao_txt = "inf" if faixa.razao == float("inf") else f"{faixa.razao:.4f}"
+        cor = C_POS if faixa.supera_empate else C_NEG
+        console.print(f"  [{C_LABEL}]{rotulo:<28}[/] n={faixa.n:6d}  alvo={faixa.alvo:6d}  "
+                      f"stop={faixa.stop:6d}  tempo={faixa.tempo:5d}  razao={razao_txt:>7}  "
+                      f"[{cor}]supera_empate_ci95={faixa.supera_empate}[/{cor}]")
+    console.print()
+    console.print(f"  [{C_LABEL}]empate[/] {r.empate:.4f}   [{C_LABEL}]pares[/] {r.n_pares}")
+
+    cor = C_POS if r.precondicao_atendida else C_NEG
+    console.print(f"  [bold]precondicao atendida[/bold] [{cor}]{r.precondicao_atendida}[/{cor}]"
+                  + ("" if r.precondicao_atendida else
+                     " -- meta-labeling nao e testavel: o sinal primario nao carrega "
+                     "informacao suficiente para um modelo secundario filtrar"))
+
+    export_report(
+        "meta_labeling",
+        {"n_pares": r.n_pares},
+        {
+            "empate": r.empate,
+            "baseline": {"n": r.baseline.n, "alvo": r.baseline.alvo, "stop": r.baseline.stop,
+                         "tempo": r.baseline.tempo, "razao": r.baseline.razao,
+                         "supera_empate": r.baseline.supera_empate},
+            "entrada_primaria": {"n": r.entrada_primaria.n, "alvo": r.entrada_primaria.alvo,
+                                  "stop": r.entrada_primaria.stop, "tempo": r.entrada_primaria.tempo,
+                                  "razao": r.entrada_primaria.razao,
+                                  "supera_empate": r.entrada_primaria.supera_empate},
+            "precondicao_atendida": r.precondicao_atendida,
+        },
+    )
+
+
 def cmd_pairs_reselecao():
     """H10 -- arbitragem estatistica por cointegracao, reselecao de pares
     desacoplada da formacao (spec 054).
@@ -3261,6 +3318,7 @@ COMMANDS = {
     "fator_tamanho": cmd_fator_tamanho,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
+    "meta_labeling": cmd_meta_labeling,
     "carteira_barreira": cmd_carteira_barreira,
     "carteira_barreira_corr": cmd_carteira_barreira_corr,
     "funding": cmd_funding,
