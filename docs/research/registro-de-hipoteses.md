@@ -1260,6 +1260,63 @@ nenhuma invalida a anterior.
 **Reprodução:** `python main.py carteira` · `reports/carteira_20260902-195909.json`
 · `specs/037-motor-carteira-h14/`.
 
+#### Atualização — universo amplo, hipótese de correlação refutada (2026-09-03, spec 040)
+
+A seção anterior deixou uma pergunta em aberto: o drawdown de carteira
+5x pior que o isolado por par seria explicado por correlação entre
+poucos pares (12), corrigível ampliando o universo de candidatos? Testado
+— mesmo modelo, mesmas barreiras, mesmo mecanismo de saída,
+`MAX_POSITIONS` fixo no valor de produção, só o universo mudou (12 → 34
+pares, medido via os limiares de liquidez já existentes do projeto, sem
+escolher pares por resultado — `specs/040-carteira-universo-amplo/research.md`,
+D1). Motivação: a estratégia comunitária mais usada do Freqtrade
+(NostalgiaForInfinity) opera sobre 40-80 pares simultâneos — pesquisa
+sobre bots de código aberto pedida nesta sessão.
+
+**Resultado (`python main.py carteira_ampla`, 2026-09-03):**
+
+| | 12 pares (spec 037) | 34 pares (spec 040) |
+|---|---|---|
+| Trades | 931 | 1.121 |
+| Retorno | −20,12% | −28,07% |
+| Buy-and-hold | −41,57% | −33,74% |
+| **Drawdown agregado** | **28,66%** | **35,08%** |
+| Profit factor | 0,72 | 0,82 |
+
+**A hipótese está refutada — o drawdown piorou, não melhorou.** Profit
+factor subiu um pouco e o retorno passou a bater o buy-and-hold (o que
+não acontecia com 12 pares), mas o número que a spec existia para testar
+— drawdown de carteira — foi na direção contrária à prevista.
+
+**Mecanismo provável.** Ampliar o universo por liquidez, sem filtrar por
+correlação, não necessariamente adiciona pares **descorrelacionados** —
+adiciona pares **diferentes**, e boa parte dos 22 pares novos são
+listagens recentes e de maior volatilidade idiossincrática (PUMP,
+MUBARAK, ASTER, TRUMP, HEMI, BMT, SNDKB, CRCLB, TUT, T — vários tokens
+especulativos/memecoin, ausentes de `UNIVERSO_H11`, que é só ativos
+estabelecidos). Se o modelo tende a sinalizar entrada nesses ativos mais
+voláteis com a mesma facilidade que nos estabelecidos, a carteira pode
+ter passado a concentrar em ativos de risco mais alto, não menos
+correlacionado — o oposto do que a hipótese previa. Também é consistente
+com um fenômeno bem documentado em finanças: correlação entre ativos de
+risco tende a **subir**, não descer, durante quedas de mercado amplas —
+exatamente o cenário em que o drawdown de carteira se forma. Mais opções
+de pares não ajuda se, no momento em que mais importa, quase todos se
+movem juntos de qualquer forma.
+
+**O que isso não decide.** Não refuta a ideia de que correlação seja o
+mecanismo do drawdown de H14 — só refuta que **ampliar passivamente o
+universo, sem filtrar por correlação**, seja a correção. A produção já
+tem exatamente o mecanismo ativo que faltou aqui —
+`risk/correlation.py::check_correlated_exposure`, que bloqueia uma
+entrada nova especificamente por já haver posição aberta correlacionada,
+não por escassez de opções — deliberadamente excluído tanto de spec 037
+quanto de spec 040 (FR-007/FR-005 respectivas) para isolar cada variável.
+Testar esse gate seria a hipótese natural seguinte, ainda não coberta.
+
+**Reprodução:** `python main.py carteira_ampla` ·
+`specs/040-carteira-universo-amplo/`.
+
 ---
 
 ### 4.16 H20 — Geometria de barreira
