@@ -1860,6 +1860,73 @@ def cmd_carteira_breaker():
     )
 
 
+def cmd_carteira_dd_diario():
+    """Limite de drawdown diario na carteira de H14, isolado (spec 045).
+
+    Sexto mecanismo de risco testado sobre a carteira, e o segundo
+    temporal -- diferente do circuit breaker de perdas consecutivas
+    (spec 044, drawdown 0,57% mas colapsou para 6 trades porque so
+    reseta com um trade lucrativo), este reseta por CALENDARIO (novo
+    dia), nunca fica preso esperando sorte. Reuso do
+    DAILY_DRAWDOWN_LIMIT ja rodando em producao
+    (execution/order_manager.py), nunca testado na carteira.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]limite de drawdown diario (isolado)[/]")
+    console.print(f"  [{C_DIM}]bloqueia novas entradas quando o patrimonio do dia cai abaixo do "
+                  f"limite, reseta a cada novo dia de calendario -- independente de resultado. "
+                  f"Mesmos 12 pares dos cinco resultados ja publicados[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(pares=list(UNIVERSO_H11), usar_limite_drawdown_diario=True)
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]trades[/] {resultado.total_trades}")
+    console.print(f"  [{C_LABEL}]drawdown agregado (limite diario)[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]ja publicado[/] sem overlay 28.66%/931   so volatilidade 23.04%/763   "
+                  f"so correlacao 20.74%/595   combinado 20.24%/595   circuit breaker 0.57%/6")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_dd_diario",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_sem_overlay_publicado": 28.66, "drawdown_so_vol_publicado": 23.04,
+         "drawdown_so_corr_publicado": 20.74, "drawdown_combinado_publicado": 20.24,
+         "drawdown_circuit_breaker_publicado": 0.57},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1886,6 +1953,7 @@ COMMANDS = {
     "carteira_corr": cmd_carteira_corr,
     "carteira_combo": cmd_carteira_combo,
     "carteira_breaker": cmd_carteira_breaker,
+    "carteira_dd_diario": cmd_carteira_dd_diario,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

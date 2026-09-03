@@ -8,7 +8,7 @@ from backtesting.portfolio_h14 import (
     _simular_carteira_core,
     comparar_drawdown,
 )
-from config.settings import MAX_CONSECUTIVE_LOSSES
+from config.settings import MAX_CONSECUTIVE_LOSSES, MAX_POSITIONS
 
 LIMIAR = 0.3333
 
@@ -524,4 +524,85 @@ def test_circuit_breaker_desligado_por_padrao_reproduz_resultado_ja_publicado():
     )
 
     assert r_sem_flag.total_trades == r_com_flag_false.total_trades == 4  # C abre normalmente, sem bloqueio
+
+
+# ============================== spec 045 (limite de drawdown diario)
+
+CAPITAL_LIMITE_DIARIO = MAX_POSITIONS * 50.0  # $50/slot em media -- bem abaixo do teto
+                                               # MAX_ORDER_SIZE_USDT=100, garante que o cap
+                                               # nao domina e quase todo o capital e deployado
+
+
+def _cenario_limite_diario(dias: int):
+    """`MAX_POSITIONS` pares (todos os slots) abrem juntos no candle 0 e
+    batem stop no candle 1 -- ATR alto o suficiente para o teto
+    MAX_STOP_LOSS_PCT (8%) dominar o calculo do stop
+    (`backtesting/engine.py::_stop_price`). Perda agregada (~8% de quase
+    todo `CAPITAL_LIMITE_DIARIO` deployado) supera 5%
+    (`DAILY_DRAWDOWN_LIMIT`) -- dispara o limite ainda dentro do dia 1.
+    F (par candidato, fora dos slots ocupados) tenta abrir a partir do
+    candle 2 -- so consegue no primeiro candle do dia 2 (candle 6),
+    quando o saldo de referencia reseta, MESMO sem nenhum trade
+    lucrativo ter fechado."""
+    idx = _idx(dias * 6, freq="4h")  # 6 candles de 4h = 1 dia de calendario
+    n = len(idx)
+    atr_alto = 20.0  # stop nao-capado seria 100-1.5*20=70; MAX_STOP_LOSS_PCT (8%) domina
+
+    sinal_perdedor = [0.0] * n
+    sinal_perdedor[0] = 1.0
+    close = [100.0] * n
+    high = [100.0] * n
+    low = [99.9] * n
+    low[1] = 65.0  # dispara o stop (capado a 8%) de todos os pares perdedores no candle 1
+
+    sinal_f = [0.0] * n
+    for t in range(2, n):
+        sinal_f[t] = 1.0
+
+    pares_perdedores = [f"L{i}/USDT" for i in range(MAX_POSITIONS)]
+    previsoes = {par: pd.Series(sinal_perdedor, index=idx) for par in pares_perdedores}
+    preparados = {
+        par: _prep(idx, close=close, high=high, low=low, atr=atr_alto) for par in pares_perdedores
+    }
+    previsoes["F/USDT"] = pd.Series(sinal_f, index=idx)
+    preparados["F/USDT"] = _prep(idx, close=[100.0] * n, high=[100.0] * n, low=[99.9] * n)
+    return previsoes, preparados
+
+
+def test_limite_drawdown_diario_bloqueia_pelo_resto_do_dia():
+    previsoes, preparados = _cenario_limite_diario(dias=1)
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=CAPITAL_LIMITE_DIARIO,
+        usar_limite_drawdown_diario=True,
+    )
+
+    assert r.total_trades == MAX_POSITIONS  # so os perdedores -- F nunca abre dentro do dia 1
+
+
+def test_limite_drawdown_diario_reseta_no_novo_dia_mesmo_sem_trade_lucrativo():
+    previsoes, preparados = _cenario_limite_diario(dias=2)
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=CAPITAL_LIMITE_DIARIO,
+        usar_limite_drawdown_diario=True,
+    )
+
+    # os perdedores (dia 1) + F, destravado no dia 2 sem nenhum trade lucrativo ter
+    # fechado -- distingue do circuit breaker (spec 044), que ficaria preso para sempre aqui.
+    assert r.total_trades == MAX_POSITIONS + 1
+
+
+def test_limite_drawdown_diario_desligado_por_padrao_reproduz_resultado_ja_publicado():
+    previsoes, preparados = _cenario_limite_diario(dias=1)
+
+    r_sem_flag = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=CAPITAL_LIMITE_DIARIO,
+    )
+    r_com_flag_false = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=CAPITAL_LIMITE_DIARIO,
+        usar_limite_drawdown_diario=False,
+    )
+
+    assert r_sem_flag.total_trades == r_com_flag_false.total_trades == MAX_POSITIONS + 1  # F abre, sem bloqueio
     assert r_sem_flag.total_return_pct == pytest.approx(r_com_flag_false.total_return_pct)
