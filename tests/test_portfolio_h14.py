@@ -637,3 +637,33 @@ def test_gate_correlacao_e_limite_drawdown_diario_juntos_nao_quebram():
 
     assert r is not None
     assert r.total_trades == 2  # A e C -- B bloqueado por correlacao
+
+
+# ============================== spec 047 (combinacao total / teto)
+
+def test_tres_mecanismos_juntos_nao_quebram():
+    """Dimensionamento + gate de correlacao + limite de drawdown diario,
+    os tres ligados ao mesmo tempo, produzem um BacktestResult valido,
+    sem excecao."""
+    idx = _idx(30)
+    base_a = _serie(30, semente=1)
+    base_a[-2:] = [base_a[-3], base_a[-3]]
+    preparados = {
+        "A/USDT": _prep(idx, close=base_a, atr_ratio=0.10),
+        "B/USDT": _prep(idx, close=[c * 1.001 for c in base_a], atr_ratio=0.10),
+        "C/USDT": _prep(idx, close=_serie(30, semente=99), atr_ratio=0.10),
+    }
+    t1, t2 = idx[-2], idx[-1]
+    previsoes = {
+        "A/USDT": pd.Series([1.0, 0.0], index=[t1, t2]),
+        "B/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+        "C/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+    }
+
+    r = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0,
+        usar_dimensionamento_vol=True, usar_gate_correlacao=True, usar_limite_drawdown_diario=True,
+    )
+
+    assert r is not None
+    assert r.total_trades == 2  # A e C -- B bloqueado por correlacao com os tres ligados

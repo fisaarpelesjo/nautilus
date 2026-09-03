@@ -1996,6 +1996,77 @@ def cmd_carteira_combo2():
     )
 
 
+def cmd_carteira_teto():
+    """Combinacao total (teto) dos tres mecanismos de risco
+    NAO-degenerados na carteira de H14 (spec 047).
+
+    Dimensionamento (spec 041) + correlacao (spec 042) + limite diario
+    (spec 045) ligados ao mesmo tempo -- exclui o circuit breaker
+    (spec 044, degenerado). Duas combinacoes de pares (specs 043, 046)
+    ja mostraram o gate de correlacao dominando quase inteiramente --
+    expectativa declarada: resultado perto do gate sozinho (20,74%),
+    nao soma aditiva dos tres.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]combinacao total (teto): dimensionamento + correlacao + limite diario[/]")
+    console.print(f"  [{C_DIM}]os tres mecanismos nao-degenerados ligados ao mesmo tempo -- mede o "
+                  f"teto da familia inteira. Mesmos 12 pares dos sete resultados ja publicados[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(
+        pares=list(UNIVERSO_H11), usar_dimensionamento_vol=True,
+        usar_gate_correlacao=True, usar_limite_drawdown_diario=True,
+    )
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]trades[/] {resultado.total_trades}")
+    console.print(f"  [{C_LABEL}]drawdown agregado (teto)[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]ja publicado[/] sem overlay 28.66%/931   so volatilidade 23.04%/763   "
+                  f"so correlacao 20.74%/595   vol+corr 20.24%/595   circuit breaker 0.57%/6   "
+                  f"limite diario 22.17%/762   corr+diario 20.38%/594")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_teto",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_sem_overlay_publicado": 28.66, "drawdown_so_vol_publicado": 23.04,
+         "drawdown_so_corr_publicado": 20.74, "drawdown_vol_corr_publicado": 20.24,
+         "drawdown_circuit_breaker_publicado": 0.57, "drawdown_limite_diario_publicado": 22.17,
+         "drawdown_corr_diario_publicado": 20.38},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -2024,6 +2095,7 @@ COMMANDS = {
     "carteira_breaker": cmd_carteira_breaker,
     "carteira_dd_diario": cmd_carteira_dd_diario,
     "carteira_combo2": cmd_carteira_combo2,
+    "carteira_teto": cmd_carteira_teto,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
