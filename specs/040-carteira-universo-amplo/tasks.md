@@ -52,7 +52,7 @@ passam. MVP completo: universo declarado e pronto para consumo por
 
 ## Phase 3: Polish & Cross-Cutting Concerns
 
-- [ ] T004 Criar `cmd_carteira_ampla()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_AMPLO)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e o drawdown já publicado sobre 12 pares (28,66%, spec 037) lado a lado; registrar `"carteira_ampla": cmd_carteira_ampla` em `COMMANDS`; exportar via `export_report("carteira_ampla", ...)`
+- [X] T004 Criar `cmd_carteira_ampla()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_AMPLO)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e o drawdown já publicado sobre 12 pares (28,66%, spec 037) lado a lado; registrar `"carteira_ampla": cmd_carteira_ampla` em `COMMANDS`; exportar via `export_report("carteira_ampla", ...)`
 - [ ] T005 Rodar `python main.py carteira_ampla` contra dados reais (34 pares, VPS `vps-limulus`/`nautilus-research`) — validação manual do passo 2 do `quickstart.md`, resultado real
 - [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — comparação explícita contra o drawdown de 12 pares já publicado; texto depende do resultado medido, não escrito antes de T005
 - [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/portfolio_h14.py::simular_carteira`/`_simular_carteira_core` (intocados)

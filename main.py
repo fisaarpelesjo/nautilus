@@ -1547,6 +1547,67 @@ def cmd_pairs():
     )
 
 
+def cmd_carteira_ampla():
+    """Carteira de H14 sobre universo amplo -- 34 pares (spec 040).
+
+    Testa se ampliar o universo de pares candidatos (mantendo
+    MAX_POSITIONS fixo) reduz o drawdown de carteira que reprovou H14
+    (28,66% sobre 12 pares, spec 037) -- inspirado em como bots reais de
+    codigo aberto operam (NostalgiaForInfinity/Freqtrade, 40-80 pares).
+    Mesmo modelo, mesmas barreiras, mesmo mecanismo de saida -- so o
+    universo muda.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.portfolio_h14 import UNIVERSO_AMPLO, simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]carteira de H14 sobre universo amplo[/]")
+    console.print(f"  [{C_DIM}]{len(UNIVERSO_AMPLO)} pares (era 12), MAX_POSITIONS fixo -- testa se mais "
+                  f"opcoes de pares reduz a correlacao entre posicoes simultaneas, nao um sinal "
+                  f"novo[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(pares=UNIVERSO_AMPLO)
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%")
+    console.print(f"  [{C_LABEL}]drawdown agregado (34 pares)[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]drawdown agregado ja publicado (12 pares, spec 037)[/] 28.66%")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_ampla",
+        {"universo": list(UNIVERSO_AMPLO), "capital_inicial": resultado.initial_capital,
+         "drawdown_12_pares_publicado": 28.66},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1568,6 +1629,7 @@ COMMANDS = {
     "carteira":      cmd_carteira,
     "leadlag":       cmd_leadlag,
     "pairs":         cmd_pairs,
+    "carteira_ampla": cmd_carteira_ampla,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
