@@ -2876,6 +2876,40 @@ custo, e sim um **dez vezes maior** que o observado.
   vez de duas e de uma fórmula de detecção de ciclo lucrativo (produto
   das três taxas de câmbio implícitas vs. 1, líquido de custo).
 
+**Atualização — campanha real rodada, zero oportunidades (2026-09-03, spec 060).**
+`python main.py triangular`, ciclo BTC/USDT → ETH/BTC → ETH/USDT (e o
+inverso), 40 ciclos reais no VPS, volume de US$ 10.000/perna. Mesmo
+princípio de H15 (`FR-010`): instrumento de amostragem, nunca produz
+veredito de aprovação/reprovação formal.
+
+**Resultado: 80 observações (40 por direção, amostra suficiente pelo
+piso declarado), 100% classificadas `sem_oportunidade`.** Diferencial
+líquido consistentemente negativo nas duas direções — direto: média
+−0,311% (variação estreita, −0,341% a −0,283%); inverso: média
+−0,323% (−0,354% a −0,292%). A variação estreita entre mínimo e máximo
+é, em si, informativa: não é um punhado de ciclos com sorte variável, é
+um padrão estável de custo (as 3 pernas, `CUSTO_3_PERNAS`) superando
+qualquer desalinhamento de preço nos 40 ciclos medidos.
+
+**Confirma a leitura de H15 por um caminho independente.** Mesmo
+eliminando o obstáculo estrutural que domina H15 (latência entre
+corretoras — aqui as três pernas estão na mesma corretora, lidas quase
+simultaneamente), a arbitragem triangular intra-corretora não mostrou
+nenhuma oportunidade líquida em 80 observações reais. Consistente com a
+leitura da fundamentação original: o obstáculo residual (competição com
+bots de alta frequência na escala de milissegundos) domina mesmo depois
+de remover a latência de rede entre corretoras.
+
+**Executabilidade (D6), declarada mesmo sem oportunidade encontrada:**
+inexecutável hoje — as três pernas seriam executadas em sequência sem
+garantia de atomicidade; entre a leitura do livro e o envio da ordem o
+preço pode mover, e nenhuma das três pernas está implementada.
+Documentado por completude, não porque a questão de execução seja
+relevante sem uma oportunidade real para executar.
+
+**Reprodução:** `python main.py triangular` ·
+`specs/060-h22-arbitragem-triangular/`.
+
 **H23 — Prêmio de futuros com vencimento fixo (contango) vs. funding perpétuo** *(adicionada em 2026-09-03)*
 
 - *Fundamentação:* H8/spec 058 mede o carry de PERPÉTUOS — funding
