@@ -2179,6 +2179,7 @@ com base em medições anteriores.
 
 | M13 | Estimativa pontual comparada a um limiar, sem banda de incerteza | A verificação de "a razão de chances supera o empate?" comparava o ponto contra 0,500. Medido em H14: razão de **0,5134** com 536 alvos e 1.044 stops — a checagem devolvia **sim**. Mas sob empate exato esperar-se-iam 526,7 alvos, erro padrão 18,7: a diferença é de **meio erro padrão**, p = 0,318, e o limite inferior do intervalo de confiança dá razão de 0,4696, **abaixo** do empate. A estimativa pontual passava e a evidência não existia | Corrigido (`supera_empate_com_confianca`, limite inferior de Wilson, 2026-09-01) |
 | M14 | `evaluate_approval()` trata amostra abaixo do mínimo como motivo de reprovação, não como categoria própria | Medido em H10 (spec 039, 2026-09-02): validação com 6 trades (abaixo do mínimo de 10) devolveu `"reprovado"` — `"apenas 6 trades... "` listado ao lado de `"profit factor abaixo do mínimo"` como se fossem evidência do mesmo tipo. Confirmado por um segundo caso em H14/circuit breaker (spec 044, 2026-09-03): 6 trades e profit factor 0,36 juntos no mesmo `"reprovado"`. `classificar_avaliacao()` (`backtesting/modelo.py`, usada por H14) já resolve isso: devolve `"inconclusivo"` explicitamente quando `total_trades < EDGE_MIN_TRADES`, **antes** de avaliar profit factor ou drawdown — mas `evaluate_approval()` (`backtesting/approval.py`), compartilhada por `grid`/`carteira`/`leadlag`/`pairs`, não tinha essa distinção | **Corrigido** (2026-09-03) — checagem de amostra movida para antes de qualquer outro critério, retorno antecipado com `"inconclusivo"` e motivo único, mesmo padrão de `classificar_avaliacao()`. Auditoria de vereditos publicados afetados: ver nota abaixo |
+| M15 | Contagem bruta de observações (`N ≥ 30`) tratada como amostra utilizável, sem checar se as observações passaram pelo próprio filtro de qualidade do instrumento | Medido em H15 (campanha real, 2026-09-03): 615 observações, `estado_agregado = "amostra suficiente"` (41 por combinação) — mas 607 (98,7%) vieram `latencia_alta`, porque a leitura das 6 corretoras é sequencial e só uma combinação (as duas adjacentes na ordem de leitura) fica abaixo do teto de 2.000ms. 14 de 15 combinações nunca tiveram uma comparação válida, e nunca teriam, não importa quantos ciclos rodassem — limitação estrutural do instrumento, não de tempo decorrido | **Não corrigido** — exigiria ler as corretoras em paralelo (`asyncio`/threads) em vez de sequencial; fora do escopo desta campanha, registrado para uma spec futura se H15 for retomada |
 
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
@@ -2233,6 +2234,13 @@ escrita para outro propósito — verificar que as janelas cobriam o mesmo perí
 guardas declaradas antes de existir suspeita: elas pegam o que não se pensou em
 procurar.
 
+**M15 é da mesma família de M12** — não veio de comparar resultado contra
+predição, veio de rodar a campanha real e olhar os dados brutos em vez de
+confiar só no rótulo agregado (`estado_agregado`) que o próprio código já
+calculava. A contagem "suficiente" existia; a checagem de que a contagem
+media a coisa certa não. Mesma lição: um número que passa no critério
+declarado ainda merece ser olhado por dentro antes de virar conclusão.
+
 ---
 
 ## 6. Hipóteses não testadas
@@ -2284,8 +2292,51 @@ reprovados, profit factor 0,42-1,23. O sinal de rótulo é real; não sobrevive
 a custo de execução/trailing stop. Trajetória final: reprovada → sinal
 confirmado → reprovada, cada estágio testando uma pergunta diferente.)*
 
-**H15 — Arbitragem entre exchanges** — *instrumento construído, amostra em
-acumulação (`specs/029-arbitragem-entre-corretoras/`, 2026-09-02)*
+**H15 — Arbitragem entre exchanges** — *campanha real rodada, achado de
+instrumento encontrado (`specs/029-arbitragem-entre-corretoras/`,
+2026-09-03)*
+
+**Campanha real (2026-09-03, 14:52–15:32, 40 ciclos, `BTC/USDT`).** 615
+observações, 41 por combinação de corretoras — `estado_agregado` =
+"amostra suficiente" pela contagem bruta. Mas a contagem esconde um
+problema real: **607 de 615 (98,7%) vieram classificadas
+`latencia_alta`** (intervalo entre as duas leituras acima do teto de
+2.000ms — média medida 11.431ms, até 30.324ms no pior caso) — a leitura
+das seis corretoras é **sequencial**, então o intervalo entre ler a
+primeira e a última corretora do ciclo já ultrapassa o teto sozinho.
+Das 15 combinações de corretoras possíveis, **só uma (kucoin×okx)**
+ficou abaixo do teto alguma vez — porque são as únicas duas adjacentes
+na ordem fixa de leitura (`CORRETORAS = (binance, bybit, okx, kucoin,
+gate, kraken)`). As outras 14 combinações nunca tiveram uma única
+comparação válida em 615 tentativas, e **nunca teriam**, não importa
+quantos ciclos rodassem — a limitação é estrutural do instrumento
+(leitura sequencial), não de tempo decorrido.
+
+**Os poucos dados válidos são negativos.** As 2 observações
+`sem_oportunidade` (kucoin×okx, intervalo 1969-1981ms, dentro do teto)
+tiveram diferencial líquido −0,0025% e −0,0024% — negativo, não perto
+do empate. As 6 `profundidade_insuficiente` (kraken×gate, nas duas
+direções) nunca chegaram nem a medir diferencial — o livro de ofertas
+não comporta US$ 10.000 na profundidade necessária. **Zero
+observações, entre as 615, classificaram `oportunidade`.**
+
+**Achado de instrumento (M15, ver §5).** A campanha "completou" pela
+contagem bruta declarada (`N ≥ 30` por combinação), mas 14 de 15
+combinações nunca produziram uma comparação que a própria checagem de
+latência considerasse confiável — o "amostra suficiente" do relatório é
+tecnicamente correto e ao mesmo tempo enganoso, porque a amostra
+utilizável de verdade é muito menor que 615. Corrigir exigiria ler as
+seis corretoras **em paralelo** (ex.: `asyncio`/threads), não mais
+ciclos sequenciais — mudança de instrumento, não mais tempo passando.
+
+**Leitura honesta do que já dá para dizer.** Nos dados que passaram
+pela checagem de latência (9 de 615, 1,5%), nunca houve oportunidade e
+o diferencial foi consistentemente negativo — consistente com a medição
+preliminar de um único ciclo (+0,0203% bruto, uma ordem de grandeza
+abaixo do custo mínimo de 0,200%). Não é um veredito formal (a spec
+declara que este instrumento nunca produz aprovado/reprovado, FR-010) —
+mas a evidência disponível, ainda que pequena, aponta na mesma direção
+que a medição preliminar já apontava.
 
 *Diferente de H1–H14/H20: não é retrotestável.* Corretoras não publicam
 histórico de livro de ofertas — o veredito exige uma campanha de amostragem
