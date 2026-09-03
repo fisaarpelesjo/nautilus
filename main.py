@@ -1662,6 +1662,67 @@ def cmd_calibracao():
     )
 
 
+def cmd_funding_extremo():
+    """H26 -- reversao contra funding extremo (spec 063).
+
+    Diferente de H8/H23/H24 (carry continuo, aposta A FAVOR do sinal e
+    mantida), aposta CONTRA a posicao majoritaria: funding extremamente
+    negativo (shorts crowded) como gatilho de entrada LONG contraria,
+    avaliada pela mesma barreira tripla de H14. Continua na familia
+    DIRECIONAL que ja falhou em 21 avaliacoes anteriores deste registro
+    -- expectativa honesta declarada e REPROVADA, nao aprovacao.
+    """
+    from backtesting.funding_reversao import agregar_pooled, avaliar_universo
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H26 -- reversao contra funding extremo[/]")
+    console.print(f"  [{C_DIM}]funding extremamente negativo (decil mais negativo, calibrado so no "
+                  f"treino) como gatilho de entrada longa contraria -- avaliado pela barreira "
+                  f"tripla de H14. Familia direcional, expectativa honesta: REPROVADA[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo()
+
+    if not resultados:
+        console.print(f"  [{C_NEG}]nenhum par do universo tem mercado perpetuo com historico "
+                       f"suficiente[/{C_NEG}]")
+        return
+
+    for r in resultados:
+        razao_txt = "inf" if r.razao_validacao == float("inf") else f"{r.razao_validacao:.4f}"
+        console.print(f"  [{C_LABEL}]{r.par:<10}[/] limiar={r.limiar_extremo:+.6f}  "
+                      f"eventos_treino={r.n_eventos_treino:4d}  eventos_val={r.n_eventos_validacao:4d}  "
+                      f"alvo={r.alvo_validacao:4d}  stop={r.stop_validacao:4d}  razao={razao_txt:>7}")
+    console.print()
+
+    agregado = agregar_pooled(resultados)
+    razao_txt = "inf" if agregado["razao"] == float("inf") else f"{agregado['razao']:.4f}"
+    cor = C_POS if agregado["supera_empate"] else C_NEG
+
+    console.print(f"  [bold {C_CYAN}]pooled[/] pares={agregado['n_pares']}  "
+                  f"alvo={agregado['n_alvo']}  stop={agregado['n_stop']}  razao={razao_txt}  "
+                  f"empate={agregado['empate']:.4f}")
+    console.print(f"  [bold]supera_empate_ci95[/bold] [{cor}]{agregado['supera_empate']}[/{cor}]")
+
+    export_report(
+        "funding_extremo",
+        {"n_pares_universo": len(resultados)},
+        {
+            "por_par": [
+                {"par": r.par, "limiar_extremo": r.limiar_extremo, "n_treino": r.n_treino,
+                 "n_eventos_treino": r.n_eventos_treino, "n_validacao": r.n_validacao,
+                 "n_eventos_validacao": r.n_eventos_validacao, "alvo_validacao": r.alvo_validacao,
+                 "stop_validacao": r.stop_validacao, "razao_validacao": r.razao_validacao,
+                 "supera_empate_validacao": r.supera_empate_validacao}
+                for r in resultados
+            ],
+            "pooled": agregado,
+        },
+    )
+
+
 def cmd_pairs_reselecao():
     """H10 -- arbitragem estatistica por cointegracao, reselecao de pares
     desacoplada da formacao (spec 054).
@@ -2894,6 +2955,7 @@ COMMANDS = {
     "carteira_teto": cmd_carteira_teto,
     "geometria": cmd_geometria,
     "calibracao": cmd_calibracao,
+    "funding_extremo": cmd_funding_extremo,
     "carteira_barreira": cmd_carteira_barreira,
     "carteira_barreira_corr": cmd_carteira_barreira_corr,
     "funding": cmd_funding,
