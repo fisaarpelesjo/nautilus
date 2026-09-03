@@ -28,9 +28,9 @@ description: "Task list for H20 backtest real -- geometria propaga ao motor de s
 
 - [X] T003 [US1] Adicionar `atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult` às duas chamadas de `_resultado_modelo(...)` E ao bloco de custo de giro em `backtesting/modelo.py::avaliar_par` (depende de T001-T002)
 - [X] T004 [US1] Estender `cmd_geometria()` em `main.py`: roda `avaliar_par` por par sobre `UNIVERSO_H11` com a geometria selecionada, imprime backtest real por par (trades/retorno/drawdown/profit factor), comparado aos números por-par já publicados de H14 onde disponíveis (depende de T003)
-- [ ] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real do backtest por par
-- [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — comparação por par contra H14 (`tp=3,0`); texto depende do resultado medido, não escrito antes de T005
-- [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real do backtest por par
+- [X] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — comparação por par contra H14 (`tp=3,0`); texto depende do resultado medido, não escrito antes de T005
+- [X] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T004 implementação e testes) + (T005-T007 execução real e registro).
 

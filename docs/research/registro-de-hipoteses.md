@@ -228,14 +228,16 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — ainda reprovado por margem substancial; o problema é o profit factor por trade, não a composição de risco |
-| H20 | Geometria de barreira | Geometria de saída | **SINAL CONFIRMADO** (revertido 2026-09-03) | REPROVADA a 2.000 candles (margem no empate); revertido a 6.000 candles (spec 048) — razão/empate 0,997→1,123, z=−0,07→+3,50. Paga a geometria; falta avaliação operacional (backtest real + carteira, mesmo estágio que H14 tinha antes de spec 037) |
+| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, confirmada por backtest real) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados, profit factor 0,42-1,23 (spec 049). Sinal estatístico de rótulo real; não sobrevive a custo de execução/trailing stop |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
 **Taxa de aprovação: 0 de 16.** Três inconclusivas (H10; H11 em escala
 semanal; H12 por impossibilidade estrutural de teste — ver 4.13). H20
-revertida para "sinal confirmado" (2026-09-03, spec 048) — ainda não
-conta como aprovada, mesmo estágio intermediário que H14 teve entre
-spec 036 e spec 037, mas é o caso mais promissor do registro no momento.
+teve uma reversão de dois estágios em 2026-09-03: sinal de rótulo
+confirmado com histórico estendido (spec 048), depois reprovada de
+novo quando testada contra o backtest real (spec 049) — custo de
+execução/trailing stop consomem a margem que o rótulo media. Volta a
+0/16, mas com o mecanismo agora entendido em mais detalhe que antes.
 
 ---
 
@@ -1859,6 +1861,87 @@ testada de ponta a ponta.
 
 ---
 
+#### Atualização — o sinal confirmado não sobrevive ao backtest real: REPROVADA de novo (2026-09-03, spec 049)
+
+Antes de qualquer avaliação operacional, auditoria de código encontrou
+uma lacuna real: `avaliar_par` rotulava e treinava com o `tp_mult`/
+`sl_mult` de `ParametrosBarreira`, mas o backtest simulado
+(`ResultadoModelo.backtest`) nunca recebia esses multiplicadores —
+sempre saía aos fixos de produção (3,0×ATR/1,5×ATR), independente da
+geometria declarada. Invisível para H14 (default coincide com
+produção); real para H20 (`tp=2,0`): o "sinal confirmado" de spec 048
+era sobre rótulos futuros de preço, nunca testado contra uma posição
+simulada que realmente sai a 2×ATR. Corrigido
+(`specs/049-h20-backtest-real/`) — retrocompatível por construção,
+regressão confirma H14/H17 byte a byte inalterados.
+
+**Resultado (`python main.py geometria`, 2026-09-03, backtest real por
+par, `tp=2,0` de fato simulado):**
+
+| Par | Trades | Retorno | Drawdown | Profit factor | Veredito |
+|---|---|---|---|---|---|
+| BTC/USDT | 136 | −6,14% | 7,48% | 0,52 | reprovado |
+| ETH/USDT | 78 | −2,72% | 4,07% | 0,67 | reprovado |
+| SOL/USDT | 54 | −0,97% | 2,57% | 0,85 | reprovado |
+| **LINK/USDT** | 51 | **+1,09%** | 1,96% | **1,23** | **aprovado** |
+| BCH/USDT | 70 | −5,64% | 6,99% | 0,42 | reprovado |
+| TRX/USDT | 268 | −5,36% | 5,56% | 0,61 | reprovado |
+| XRP/USDT | 63 | −0,56% | 2,71% | 0,92 | reprovado |
+| AVAX/USDT | 32 | −0,90% | 3,24% | 0,79 | reprovado |
+| LTC/USDT | 68 | −2,71% | 4,11% | 0,59 | reprovado |
+| DOT/USDT | 33 | −0,62% | 2,79% | 0,86 | reprovado |
+| ADA/USDT | 34 | +0,51% | 1,64% | 1,11 | reprovado |
+| ATOM/USDT | 53 | −0,01% | 1,82% | 1,00 | reprovado |
+
+**11 de 12 pares reprovados; só LINK/USDT aprova.** 940 trades no
+total, profit factor entre 0,42 e 1,23 — a maioria bem abaixo de 1,
+apesar de a razão pooled decidida (0,8421) superar o empate (0,750)
+com folga estatística robusta (z≈+3,50). **A confirmação estatística
+de rótulo e a lucratividade real divergem.**
+
+**Por que divergem — três candidatos, nenhum excludente.** (1) A
+geometria `tp=2,0` tem payoff de 2:1,5 (≈1,33:1) contra 3:1,5 (2:1) de
+`tp=3,0` — o mesmo custo fixo de execução (`BACKTEST_FEE_RATE`/
+`BACKTEST_SLIPPAGE_PCT`) consome uma fração maior de um alvo mais
+próximo. (2) O motor real usa **stop trailing** (sobe a cada novo
+máximo), diferente da barreira estática usada para rotular — um trade
+que "tocaria o alvo" na rotulagem pode ser fechado antes pelo trailing
+no motor real. (3) A confirmação estatística é sobre a amostra
+**pooled** (3.664 eventos); o backtest real roda **por par**, com
+amostras dez vezes menores (32-268 trades) — mais suscetível a ruído
+por par mesmo com o efeito agregado sendo real. Nenhuma das três foi
+isolada nesta spec — ver "O que isto não decide" abaixo.
+
+**Padrão já visto em H21 (lead-lag): sinal direcional real que o custo
+de giro consome antes de virar retorno.** Aqui o mecanismo é análogo,
+mas do lado da geometria de saída, não da frequência de sinal — mais
+uma confirmação de que "há sinal estatístico" e "sobrevive à execução
+real" são perguntas diferentes, e a segunda é a que decide aprovação.
+
+**Veredito: REPROVADA (2ª reversão).** A trajetória completa de H20
+agora tem três estágios: REPROVADA (2.000 candles, margem no empate) →
+sinal confirmado (6.000 candles, spec 048, margem resolvida por
+rótulo) → **REPROVADA de novo** (spec 049, o mesmo sinal não sobrevive
+ao backtest real). Cada estágio testou uma pergunta genuinamente
+diferente e nenhum invalida o anterior — a estatística de rótulo de
+spec 048 continua correta, só não é suficiente para aprovação
+operacional.
+
+**O que isto não decide.** Não isola qual dos três mecanismos
+candidatos (custo, trailing, amostra por par) domina — uma spec futura
+poderia medir o backtest sem custo (`retorno_sem_custo_modelo`, já
+propagado pela mesma correção) para isolar o efeito do custo de
+execução isoladamente, mesmo padrão já usado em H21 (E6, custo de
+giro). Não decide se `tp=2,5`/`tp=3,0` (também elegíveis nesta
+rodada, tabela acima) teriam resultado melhor — a regra de spec 028
+seleciona a menor `tp` elegível por desenho (evita otimizar sobre o
+conjunto), então testá-las seria uma pergunta nova, não um ajuste desta.
+
+**Reprodução:** `python main.py geometria` ·
+`specs/049-h20-backtest-real/`.
+
+---
+
 ### 4.17 H21 — Lead-lag BTC para altcoins
 
 **Origem.** Primeira hipótese deste registro originada de uma busca
@@ -2062,10 +2145,13 @@ Tese refutada por medição; o sinal aterrissava no ponto de empate em duas
 geometrias independentes. Revertida com histórico estendido em 2026-09-03
 (`specs/048-h20-historico-estendido/`): mesma elevação de amostra que já
 havia corrigido H14 (spec 036) — razão pooled decidida 0,7478→0,8421, razão
-sobre empate 0,997→1,123, z=−0,07→+3,50. **Novo status: sinal confirmado
-(paga a barreira)** — ainda falta avaliação operacional (backtest real da
-geometria `tp=2,0` + carteira, o mesmo trabalho que spec 037 fez para H14) antes
-de qualquer veredito de aprovação.)*
+sobre empate 0,997→1,123, z=−0,07→+3,50, sinal de rótulo confirmado. Testada
+contra o backtest real na mesma sessão (`specs/049-h20-backtest-real/`,
+depois de corrigir uma lacuna real onde o backtest simulado nunca recebia a
+geometria usada para rotular): **REPROVADA de novo** — 11/12 pares
+reprovados, profit factor 0,42-1,23. O sinal de rótulo é real; não sobrevive
+a custo de execução/trailing stop. Trajetória final: reprovada → sinal
+confirmado → reprovada, cada estágio testando uma pergunta diferente.)*
 
 **H15 — Arbitragem entre exchanges** — *instrumento construído, amostra em
 acumulação (`specs/029-arbitragem-entre-corretoras/`, 2026-09-02)*
