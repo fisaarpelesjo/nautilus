@@ -2917,6 +2917,44 @@ custo, e sim um **dez vezes maior** que o observado.
   reusável de H15, `execution/liquidity.py`) mais gestão de margem em
   futuros (nova, de H8).
 
+**Atualização — testada, eficiência de capital refutada, mesmo teto (2026-09-03, spec 061).**
+`python main.py funding_cross`, 5 de 6 corretoras de H15 qualificadas
+(Kraken excluído — só oferece perpétuo inverso margeado em BTC/USD, sem
+`BTC/USDT:USDT` linear), 10 pares de corretoras possíveis, BTC/ETH.
+
+**Achado central: a hipótese de entrada estava errada.** A fundamentação
+original supunha que, sem perna à vista, H24 seria mais eficiente em
+capital que H8. Investigado antes de medir (`research.md` D3): não
+existe margem cruzada entre contas de varejo em corretoras diferentes —
+cada perna exige margem própria, dimensionada para o nocional ali. A
+exigência de capital é **igual** a H8 (2x o nocional), não menor — com
+um risco adicional que H8 não tem: capital pré-posicionado em duas
+contas independentes, sujeito a risco de base sem correção automática
+se uma corretora tiver um evento de liquidação e a outra não.
+
+**Resultado (`python main.py funding_cross`, 2026-09-03):**
+
+| Par | Corretoras | Dias | Bruto a.a. | Líq./nocional | Líq./capital | Supera benchmark |
+|---|---|---|---|---|---|---|
+| BTC/USDT | binance/gate | 94 | +1,78% | +1,00% | +0,50% | Não |
+| ETH/USDT | binance/gate | 94 | +1,22% | +0,44% | +0,22% | Não |
+| BTC/USDT | binance/okx | 92 | +1,18% | +0,39% | +0,19% | Não |
+| ETH/USDT | binance/okx | 92 | +0,78% | −0,01% | −0,00% | Não |
+| BTC/USDT | okx/gate | 92 | +0,69% | −0,11% | −0,05% | Não |
+| ETH/USDT | okx/gate | 92 | +0,53% | −0,27% | −0,13% | Não |
+
+**0 de 6 pares de corretoras superam o benchmark.** Melhor caso
+(BTC binance/gate, +0,50% sobre capital implantado) fica bem abaixo
+mesmo do resultado isolado de H8 para BTC (+1,54%, mesma corretora,
+spot×perp) — a diferença de funding ENTRE corretoras, ao contrário da
+hipótese de fundamentação, não é sistematicamente maior que o funding
+absoluto de uma corretora isolada; nesta amostra, é menor. Mesmo teto
+de H8/H23: retorno pequeno, agora confirmado sem a vantagem de capital
+que motivou testar esta variante.
+
+**Reprodução:** `python main.py funding_cross` ·
+`specs/061-h24-funding-cross-exchange/`.
+
 ### 6.3 Prioridade baixa
 
 **H16 — Market making (captura de spread)** — exige infraestrutura de baixa
@@ -3067,6 +3105,35 @@ nova — não mais um ajuste dos limites das mesmas três janelas.
 - *Custo:* baixo — reusa `data/funding.py` (spec 058) como fonte do
   sinal (funding extremo) e o motor de backtest existente para o
   mecanismo de entrada/saída.
+
+**Atualização — testada e reprovada, confirma a expectativa honesta declarada (2026-09-03, spec 063).**
+`python main.py funding_extremo`, `UNIVERSO_H11` (12 pares): funding
+extremamente negativo (decil mais negativo, calibrado só no treino,
+nunca na validação) como gatilho de entrada longa contrária —
+posicionamento vendido excessivo, aposta em reversão. Avaliado pela
+mesma barreira tripla de H14 (`strategy/barreira_tripla.py::rotular`),
+mesmo split treino/validação.
+
+**Resultado: pooled sobre 12 pares, razão 0,4213 contra empate de
+0,5000 — `supera_empate_com_confianca` = False.** Alvo=83, stop=197 na
+validação. Só três pares individuais mostram razão isolada acima de
+1,0 (AVAX 1,0000, DOT inf com apenas 2 eventos, ATOM 1,3333) — todos
+com amostra pequena demais (2 a 10 eventos) para qualquer leitura ter
+significado, o mesmo padrão de M9/M13 que motivou checar confiança em
+vez de razão pontual em toda medição desta sessão. TRX, o par com mais
+amostra (137 eventos de validação), fica em 0,8871 — perto de 1,0 mas
+ainda abaixo do empate.
+
+**Confirma a expectativa declarada antes de medir, não uma surpresa.**
+`research.md`/a entrada da fila já citavam a base rate de 21 hipóteses
+direcionais reprovadas neste registro (§6.3-b) como razão para não
+esperar um resultado diferente aqui — o sinal de entrada mudou (funding
+extremo em vez de indicador técnico), mas a família continua a mesma, e
+o resultado também. **22ª hipótese direcional consecutiva sem
+sobreviver a confirmação de confiança.**
+
+**Reprodução:** `python main.py funding_extremo` ·
+`specs/063-h26-reversao-funding-extremo/`.
 
 ### 6.3-b Padrão acumulado após quinze hipóteses
 
