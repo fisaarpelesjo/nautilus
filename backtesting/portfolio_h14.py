@@ -33,7 +33,9 @@ from config.settings import (
     ATR_TP_MULTIPLIER,
     BACKTEST_FEE_RATE,
     BACKTEST_SLIPPAGE_PCT,
+    CORRELATION_LOOKBACK,
     MAX_ORDER_SIZE_USDT,
+    MAX_POSITION_CORRELATION,
     MAX_POSITIONS,
     STOP_LOSS_PCT,
     TAKE_PROFIT_PCT,
@@ -84,6 +86,51 @@ class CarteiraH14:
     curva_capital: List[tuple] = field(default_factory=list)
 
 
+def _correlacionado_com_posicao_aberta(
+    par_candidato: str,
+    preparados: Dict[str, pd.DataFrame],
+    posicoes_abertas,
+    t,
+    lookback: int = CORRELATION_LOOKBACK,
+    limiar: float = MAX_POSITION_CORRELATION,
+) -> Optional[str]:
+    """Checagem de correlacao PONTO-NO-TEMPO (spec 042, D1) -- mesma
+    semantica e mesmos limiares de
+    `risk/correlation.py::check_correlated_exposure`, mas sobre dados ja
+    carregados em memoria e fatiados ate `t` (nunca busca dado novo,
+    nunca ve candle futuro). A funcao de producao busca ao vivo, o que
+    dentro de um backtest historico vazaria futuro e custaria uma
+    chamada de rede por candidato por candle -- inviavel.
+
+    Falha aberta por comparacao individual (FR-004): amostra insuficiente
+    do candidato ou de UMA posicao aberta especifica nao bloqueia a
+    checagem contra as demais.
+    """
+    outros = [p for p in posicoes_abertas if p != par_candidato]
+    if not outros:
+        return None
+
+    serie_candidato = preparados[par_candidato]["close"].loc[:t].pct_change().dropna().tail(lookback)
+    if len(serie_candidato) < lookback // 2:
+        return None
+
+    for outro_par in outros:
+        if outro_par not in preparados:
+            continue
+        serie_outro = preparados[outro_par]["close"].loc[:t].pct_change().dropna().tail(lookback)
+        tamanho_comum = min(len(serie_candidato), len(serie_outro))
+        if tamanho_comum < lookback // 2:
+            continue
+
+        corr = serie_candidato.tail(tamanho_comum).reset_index(drop=True).corr(
+            serie_outro.tail(tamanho_comum).reset_index(drop=True)
+        )
+        if corr is not None and corr >= limiar:
+            return outro_par
+
+    return None
+
+
 def _simular_carteira_core(
     previsoes: Dict[str, pd.Series],
     preparados: Dict[str, pd.DataFrame],
@@ -92,6 +139,7 @@ def _simular_carteira_core(
     fee_rate: float = BACKTEST_FEE_RATE,
     slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
     usar_dimensionamento_vol: bool = False,
+    usar_gate_correlacao: bool = False,
 ) -> Optional[BacktestResult]:
     """Mecanica pura de carteira -- sem rede, sem treino. `previsoes[par]` e
     `preparados[par]` (colunas close/high/low/atr) MUST compartilhar o
@@ -101,8 +149,14 @@ def _simular_carteira_core(
     `fator_volatilidade` (`backtesting/volatilidade.py`, spec 025) sem
     alteracao -- aplicado DEPOIS do teto por ordem e da reserva de
     caixa (D1, specs/041-volatilidade-carteira-h14/research.md), so pode
-    reduzir o tamanho da entrada. Default `False` reproduz o resultado
-    ja publicado (spec 037) byte a byte.
+    reduzir o tamanho da entrada.
+
+    `usar_gate_correlacao` (spec 042): pula um candidato correlacionado
+    (`_correlacionado_com_posicao_aberta`, mesmos limiares do gate de
+    producao) com qualquer posicao ja aberta, antes de dimensionar.
+
+    Ambos default `False` reproduzem o resultado ja publicado (spec 037)
+    byte a byte.
     """
     pares_validos = [p for p in previsoes if len(previsoes[p]) > 0 and p in preparados]
     if not pares_validos:
@@ -169,6 +223,10 @@ def _simular_carteira_core(
                 break
             if carteira.caixa < 10:
                 break
+            if usar_gate_correlacao and _correlacionado_com_posicao_aberta(
+                par, preparados, carteira.posicoes.keys(), t,
+            ):
+                continue
             row = preparados[par].loc[t]
             order_size = min(MAX_ORDER_SIZE_USDT, (carteira.caixa / slots_livres) * 0.95)
             if order_size * (1 + fee_rate) > carteira.caixa:
@@ -269,7 +327,8 @@ def _simular_carteira_core(
 def simular_carteira(pares=None, capital_inicial: float = 1000.0,
                      fee_rate: float = BACKTEST_FEE_RATE,
                      slippage_pct: float = BACKTEST_SLIPPAGE_PCT,
-                     usar_dimensionamento_vol: bool = False) -> Optional[BacktestResult]:
+                     usar_dimensionamento_vol: bool = False,
+                     usar_gate_correlacao: bool = False) -> Optional[BacktestResult]:
     """Busca dados reais, treina o modelo (`run_modelo_scan`, D2) e simula a
     carteira. Para testes sem rede, usar `_simular_carteira_core`
     diretamente."""
@@ -284,7 +343,7 @@ def simular_carteira(pares=None, capital_inicial: float = 1000.0,
 
     return _simular_carteira_core(
         previsoes, preparados, limiar_de_decisao(), capital_inicial, fee_rate, slippage_pct,
-        usar_dimensionamento_vol,
+        usar_dimensionamento_vol, usar_gate_correlacao,
     )
 
 
@@ -328,6 +387,7 @@ __all__ = [
     "CarteiraH14",
     "PosicaoCarteira",
     "UNIVERSO_AMPLO",
+    "_correlacionado_com_posicao_aberta",
     "_dados_da_carteira",
     "_simular_carteira_core",
     "comparar_drawdown",

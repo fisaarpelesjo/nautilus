@@ -39,17 +39,17 @@ seletivo.
 
 ### Tests for User Story 1
 
-- [ ] T001 [P] [US1] Teste em `tests/test_portfolio_h14.py`: com uma posição aberta e um candidato de retornos quase idênticos (correlação ≥ 0,7) na janela de 50 candles, `_correlacionado_com_posicao_aberta` devolve o símbolo da posição aberta (FR-003)
-- [ ] T002 [P] [US1] Teste: candidato com retornos descorrelacionados nunca é bloqueado, mesmo com posições abertas (FR-003)
-- [ ] T003 [P] [US1] Teste: sem posições abertas, `_correlacionado_com_posicao_aberta` sempre devolve `None` (FR-004)
-- [ ] T004 [P] [US1] Teste: candidato ou posição aberta com menos de `lookback // 2` candles de histórico falha aberta (não bloqueia por dado insuficiente, FR-004)
-- [ ] T005 [P] [US1] Teste: `usar_gate_correlacao=False` (default) reproduz exatamente os valores de referência já capturados para os testes existentes de `_simular_carteira_core` — regressão explícita (FR-005)
-- [ ] T006 [P] [US1] Teste: com `usar_gate_correlacao=True`, um candidato bloqueado por correlação nunca abre posição, mas o próximo candidato da fila (não correlacionado) pode abrir no mesmo candle
+- [X] T001 [P] [US1] Teste em `tests/test_portfolio_h14.py`: com uma posição aberta e um candidato de retornos quase idênticos (correlação ≥ 0,7) na janela de 50 candles, `_correlacionado_com_posicao_aberta` devolve o símbolo da posição aberta (FR-003)
+- [X] T002 [P] [US1] Teste: candidato com retornos descorrelacionados nunca é bloqueado, mesmo com posições abertas (FR-003)
+- [X] T003 [P] [US1] Teste: sem posições abertas, `_correlacionado_com_posicao_aberta` sempre devolve `None` (FR-004)
+- [X] T004 [P] [US1] Teste: candidato ou posição aberta com menos de `lookback // 2` candles de histórico falha aberta (não bloqueia por dado insuficiente, FR-004)
+- [X] T005 [P] [US1] Teste: `usar_gate_correlacao=False` (default) reproduz exatamente os valores de referência já capturados para os testes existentes de `_simular_carteira_core` — regressão explícita (FR-005)
+- [X] T006 [P] [US1] Teste: com `usar_gate_correlacao=True`, um candidato bloqueado por correlação nunca abre posição, mas o próximo candidato da fila (não correlacionado) pode abrir no mesmo candle
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Implementar `_correlacionado_com_posicao_aberta(par, preparados, posicoes_abertas, t, lookback=CORRELATION_LOOKBACK, limiar=MAX_POSITION_CORRELATION)` em `backtesting/portfolio_h14.py` (D1, `data-model.md`) (depende de T001-T004)
-- [ ] T008 [US1] Adicionar `usar_gate_correlacao: bool = False` a `_simular_carteira_core`/`simular_carteira`: pula candidato correlacionado antes de dimensionar (depende de T005-T007)
+- [X] T007 [US1] Implementar `_correlacionado_com_posicao_aberta(par, preparados, posicoes_abertas, t, lookback=CORRELATION_LOOKBACK, limiar=MAX_POSITION_CORRELATION)` em `backtesting/portfolio_h14.py` (D1, `data-model.md`) (depende de T001-T004)
+- [X] T008 [US1] Adicionar `usar_gate_correlacao: bool = False` a `_simular_carteira_core`/`simular_carteira`: pula candidato correlacionado antes de dimensionar (depende de T005-T007)
 
 **Checkpoint**: `pytest tests/test_portfolio_h14.py -v` — T001-T006
 passam. MVP completo: gate de correlação disponível na carteira de H14,

@@ -1,7 +1,13 @@
+import numpy as np
 import pandas as pd
 import pytest
 
-from backtesting.portfolio_h14 import UNIVERSO_AMPLO, _simular_carteira_core, comparar_drawdown
+from backtesting.portfolio_h14 import (
+    UNIVERSO_AMPLO,
+    _correlacionado_com_posicao_aberta,
+    _simular_carteira_core,
+    comparar_drawdown,
+)
 
 LIMIAR = 0.3333
 
@@ -18,6 +24,11 @@ def _prep(index, close, high=None, low=None, atr=2.0, atr_ratio=None):
 
 def _idx(n, freq="4h"):
     return pd.date_range("2026-01-01", periods=n, freq=freq)
+
+
+def _serie(n, semente=1, sigma=0.01):
+    rng = np.random.default_rng(semente)
+    return list(100 * np.exp(np.cumsum(rng.normal(0, sigma, n))))
 
 
 # ============================================================ T004 — caixa
@@ -286,6 +297,100 @@ def test_atr_ratio_ausente_nao_muda_o_tamanho():
     )
 
     assert r_sem_flag.trades[0].quantity == pytest.approx(r_com_flag.trades[0].quantity)
+
+
+# ==================================================== spec 042 (gate de correlacao)
+
+def test_bloqueia_candidato_correlacionado_com_posicao_aberta():
+    idx = _idx(30)
+    base = _serie(30, semente=1)
+    quase_igual = [c * 1.001 for c in base]  # retornos praticamente identicos -> corr ~1.0
+    preparados = {
+        "A/USDT": _prep(idx, close=base),
+        "B/USDT": _prep(idx, close=quase_igual),
+    }
+
+    bloqueado_por = _correlacionado_com_posicao_aberta(
+        "B/USDT", preparados, ["A/USDT"], idx[-1], lookback=10,
+    )
+
+    assert bloqueado_por == "A/USDT"
+
+
+def test_nao_bloqueia_candidato_descorrelacionado():
+    idx = _idx(30)
+    preparados = {
+        "A/USDT": _prep(idx, close=_serie(30, semente=1)),
+        "C/USDT": _prep(idx, close=_serie(30, semente=99)),
+    }
+
+    bloqueado_por = _correlacionado_com_posicao_aberta(
+        "C/USDT", preparados, ["A/USDT"], idx[-1], lookback=10,
+    )
+
+    assert bloqueado_por is None
+
+
+def test_sem_posicoes_abertas_nunca_bloqueia():
+    idx = _idx(10)
+    preparados = {"A/USDT": _prep(idx, close=_serie(10))}
+
+    assert _correlacionado_com_posicao_aberta("A/USDT", preparados, [], idx[-1]) is None
+
+
+def test_amostra_insuficiente_falha_aberta():
+    idx = _idx(3)  # bem menor que lookback padrao (50) // 2
+    preparados = {
+        "A/USDT": _prep(idx, close=[100.0, 101.0, 102.0]),
+        "B/USDT": _prep(idx, close=[100.0, 101.0, 102.0]),
+    }
+
+    assert _correlacionado_com_posicao_aberta("B/USDT", preparados, ["A/USDT"], idx[-1]) is None
+
+
+def test_gate_correlacao_desligado_por_padrao_reproduz_resultado_ja_publicado():
+    idx = _idx(3)
+    previsoes = {"A/USDT": pd.Series([1.0, 0.0, 0.0], index=idx)}
+    preparados = {"A/USDT": _prep(idx, close=[100.0, 101.0, 102.0])}
+
+    r_sem_flag = _simular_carteira_core(previsoes, preparados, LIMIAR, capital_inicial=1000.0)
+    r_com_flag_false = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_gate_correlacao=False,
+    )
+
+    assert r_sem_flag.total_return_pct == pytest.approx(r_com_flag_false.total_return_pct)
+    assert r_sem_flag.max_drawdown_pct == pytest.approx(r_com_flag_false.max_drawdown_pct)
+
+
+def test_candidato_bloqueado_nao_impede_o_proximo_candidato_de_abrir():
+    """A abre no candle t1. No candle seguinte t2, B (correlacionado com
+    A) e C (descorrelacionado) sinalizam -- com o gate ligado, B fica de
+    fora e so A e C terminam como trades (2, nunca 3); sem o gate, os
+    tres abrem (3)."""
+    idx = _idx(30)
+    base_a = _serie(30, semente=1)
+    base_a[-2:] = [base_a[-3], base_a[-3]]  # preco estavel no fim: A nao bate stop/TP entre t1 e t2
+    preparados = {
+        "A/USDT": _prep(idx, close=base_a),
+        "B/USDT": _prep(idx, close=[c * 1.001 for c in base_a]),  # quase identico a A -> corr ~1.0
+        "C/USDT": _prep(idx, close=_serie(30, semente=99)),  # descorrelacionado
+    }
+    t1, t2 = idx[-2], idx[-1]
+    previsoes = {
+        "A/USDT": pd.Series([1.0, 0.0], index=[t1, t2]),
+        "B/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+        "C/USDT": pd.Series([0.0, 1.0], index=[t1, t2]),
+    }
+
+    r_com_gate = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_gate_correlacao=True,
+    )
+    r_sem_gate = _simular_carteira_core(
+        previsoes, preparados, LIMIAR, capital_inicial=1000.0, usar_gate_correlacao=False,
+    )
+
+    assert r_com_gate.total_trades == 2  # A e C -- B bloqueado por correlacao
+    assert r_sem_gate.total_trades == 3  # A, B e C -- sem o gate, todos abrem
 
 
 def test_fator_nunca_amplia_alem_do_teto_ja_existente():
