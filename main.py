@@ -2067,6 +2067,79 @@ def cmd_carteira_teto():
     )
 
 
+def cmd_geometria():
+    """H20 -- geometria de barreira, reavaliada com historico estendido
+    (spec 048).
+
+    Mede os perfis de geometria (spec 028) sobre 6.000 candles (era
+    2.000) -- mesmo teto ja aplicado a H14/H11/H17 por spec 036, nunca
+    antes aplicado aqui (D2 de spec 036 excluiu este modulo). Regra de
+    selecao e procedimento estatistico de avaliacao intocados.
+    """
+    from backtesting.geometria import run_geometria_scan
+    from backtesting.modelo import resumo_agregado, run_modelo_scan
+    from strategy.barreira_tripla import ParametrosBarreira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H20 -- geometria de barreira (historico estendido, 6.000 candles)[/]")
+    console.print(f"  [{C_DIM}]mesma regra de selecao e mesmo teste estatistico de spec 028 -- "
+                  f"so a amostra muda (era 2.000 candles)[/{C_DIM}]")
+    console.print()
+
+    relatorio = run_geometria_scan()
+
+    for p in relatorio.perfis:
+        cor = C_POS if p.elegivel else C_DIM
+        razao = "inf" if p.razao_base == float("inf") else f"{p.razao_base:.4f}" if p.razao_base is not None else "-"
+        console.print(f"  [{cor}]tp={p.tp_mult:.1f}[/{cor}]  empate={p.empate:.3f}  razao_base={razao}  "
+                      f"desfechos={p.n_desfechos}  {'elegivel' if p.elegivel else ', '.join(p.motivos_inelegibilidade)}")
+
+    console.print()
+    if relatorio.selecionada is None:
+        console.print(f"  [{C_NEG}]nenhuma geometria elegivel[/{C_NEG}]")
+        export_report("geometria_estendida", {"candles": 6000},
+                       {"selecionada": None, "perfis": len(relatorio.perfis)})
+        return
+
+    sel = relatorio.selecionada
+    params = ParametrosBarreira(sl_mult=sel.sl_mult, tp_mult=sel.tp_mult, limite_velas=sel.limite_velas)
+    avaliacoes = run_modelo_scan(params=params)
+    resumo = resumo_agregado(avaliacoes, params)
+
+    razao_pooled = resumo["modelo"]["razao"]
+    razao_txt = "inf" if razao_pooled == float("inf") else f"{razao_pooled:.4f}" if razao_pooled is not None else "-"
+    cor_supera = C_POS if resumo["supera_empate"] else C_NEG
+
+    console.print(f"  [{C_LABEL}]geometria selecionada[/] tp={sel.tp_mult:.1f}  "
+                  f"empate={resumo['razao_empate']:.3f}")
+    console.print(f"  [{C_LABEL}]subconjunto decidido[/] alvo={resumo['modelo']['alvo']}  "
+                  f"stop={resumo['modelo']['stop']}  razao={razao_txt}")
+    console.print(f"  [{C_LABEL}]supera o empate (banda de incerteza)[/] "
+                  f"[{cor_supera}]{resumo['supera_empate']}[/{cor_supera}]   "
+                  f"[{C_LABEL}]supera por ponto unico[/] {resumo['supera_empate_pontual']}")
+    console.print()
+    console.print(f"  [{C_LABEL}]ja publicado (2.000 candles, spec 028)[/] tp=2,0 selecionada  "
+                  f"razao base 0,6223   razao pooled decidida 0,7478   "
+                  f"supera empate = nao (z=-0,07, p=0,535)")
+
+    export_report(
+        "geometria_estendida",
+        {"candles": 6000, "tp_selecionado_publicado": 2.0,
+         "razao_pooled_publicada": 0.7478, "supera_empate_publicado": False},
+        {
+            "tp_selecionado": sel.tp_mult,
+            "razao_pooled": None if razao_pooled == float("inf") else razao_pooled,
+            "alvo_decidido": resumo["modelo"]["alvo"],
+            "stop_decidido": resumo["modelo"]["stop"],
+            "razao_empate": resumo["razao_empate"],
+            "supera_empate": resumo["supera_empate"],
+            "supera_empate_pontual": resumo["supera_empate_pontual"],
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -2096,6 +2169,7 @@ COMMANDS = {
     "carteira_dd_diario": cmd_carteira_dd_diario,
     "carteira_combo2": cmd_carteira_combo2,
     "carteira_teto": cmd_carteira_teto,
+    "geometria": cmd_geometria,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

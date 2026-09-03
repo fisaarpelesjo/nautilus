@@ -11,6 +11,7 @@ from backtesting.geometria import (
     PerfilGeometria,
     medir_perfis,
     regra_declarada,
+    run_geometria_scan,
     selecionar,
 )
 
@@ -181,6 +182,35 @@ def test_medicao_cobre_todas_as_candidatas():
 
     assert [p.tp_mult for p in perfis] == list(TPS_CANDIDATOS)
     assert all(p.n_total > 0 for p in perfis)
+
+
+# ==================================== spec 048 (historico estendido)
+
+def test_run_geometria_scan_pede_6000_candles(monkeypatch):
+    """D1, specs/048-h20-historico-estendido/research.md -- mesmo teto ja
+    aplicado a modelo.py/onchain_hipotese.py/horizonte.py por spec 036."""
+    import numpy as np
+    import pandas as pd
+
+    chamadas = []
+
+    def _fake_fetch(par, timeframe, limit):
+        chamadas.append(limit)
+        rng = np.random.default_rng(3)
+        p = 100 * np.exp(np.cumsum(rng.normal(0.0004, 0.01, 400)))
+        return pd.DataFrame({
+            "open": p, "close": p, "high": p * 1.01, "low": p * 0.99,
+            "volume": rng.uniform(1e4, 1e6, 400),
+        }, index=pd.date_range("2026-01-01", periods=400, freq="4h"))
+
+    # run_geometria_scan importa fetch_ohlcv localmente (`from data.fetcher
+    # import fetch_ohlcv` dentro da funcao) -- monkeypatch no modulo de origem.
+    import data.fetcher as fetcher_mod
+    monkeypatch.setattr(fetcher_mod, "fetch_ohlcv", _fake_fetch)
+
+    run_geometria_scan(pares=["X/USDT"])
+
+    assert chamadas == [6000]
 
 
 def test_alvo_mais_distante_reduz_a_razao_de_chances():

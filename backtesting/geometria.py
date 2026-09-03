@@ -201,7 +201,7 @@ def run_geometria_scan(pares=None, tps=TPS_CANDIDATOS) -> RelatorioGeometria:
     preparados = {}
     for par in pares:
         try:
-            prep = preparar(fetch_ohlcv(par, TIMEFRAME, 2000), estrategia)
+            prep = preparar(fetch_ohlcv(par, TIMEFRAME, 6000), estrategia)  # D1, specs/036-historico-estendido/research.md
         except Exception as exc:
             log.warning(f"{par}: {type(exc).__name__}: {str(exc)[:60]}")
             continue
