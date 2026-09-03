@@ -2994,6 +2994,53 @@ relevante sem uma oportunidade real para executar.
   uma regra de entrada/saída baseada em probabilidade condicional em vez
   de z-score.
 
+**Atualização — testada, melhora parcial no profit factor, ainda reprovada (2026-09-03, spec 066).**
+`python main.py pairs_copula`, mesma seleção de pares de H10
+(`selecionar_pares`, sem alteração) — precondição verificada com dado
+real antes do código: `UNIVERSO_AMPLO_HISTORICO_COMPLETO` tem 3 pares
+genuinamente cointegrados hoje (SOL-AVAX meia-vida 9,6, ETH-AVAX 13,5,
+BNB-AVAX 15,7, ADF p < 0,02) — H10 foi reprovada pelo sinal, não pela
+ausência de relação. Cópula gaussiana, método "return-based" (Tadi &
+Witzany 2025), declarada antes de medir — corte de entrada h1|2 ≤ 0,05,
+saída ≥ 0,5, stop ≤ 0,01.
+
+**Resultado (validação):**
+
+| | H10, z-score (spec 054) | H29, cópula (spec 066) |
+|---|---|---|
+| Trades | 10 | **160** |
+| Retorno | — | −20,09% |
+| Drawdown | 16,61% | **21,87%** |
+| Profit factor | 0,15 | **0,49** |
+
+**Melhora parcial e real no profit factor (0,15 → 0,49), mas não muda
+o veredito.** A cópula produziu um sinal genuinamente diferente do
+z-score — o profit factor mais que triplicou — mas 0,49 continua bem
+abaixo do mínimo de aprovação (1,2), e o drawdown piorou (16,61% →
+21,87%). **Ainda REPROVADA.**
+
+**Achado não previsto: 16x mais trades que H10 (10 → 160).** O corte de
+entrada (h1|2 ≤ 0,05) deveria disparar em ~5% dos candles monitorados
+sob especificação correta da cópula — mesma ordem de grandeza teórica
+do corte de z-score de H10 (`entrada_z=2,0`, ~2,3% de cauda unilateral
+sob normalidade) — mas na prática dispara com frequência muito maior.
+Não investigado a fundo nesta spec (calibração da cópula fora do
+escopo declarado); registrado como limitação, não escondido. Os dois
+números (10 vs. 160 trades) não são diretamente comparáveis como
+"mesma amostra, sinal diferente" — são amostras de tamanhos muito
+diferentes, o que preserva a leitura qualitativa (nenhum dos dois
+aprova) mas pede cautela em comparar os profit factors ponto a ponto.
+
+**O que isso decide.** Confirma parcialmente a hipótese alternativa
+declarada: o sinal muda (e muda o profit factor de forma real, não
+desprezível), mas não o suficiente para reverter a leitura acumulada do
+registro (§8) — o obstáculo de custo/geometria de saída continua
+dominando, mesmo com uma ferramenta estatística mais rica sobre a
+entrada.
+
+**Reprodução:** `python main.py pairs_copula` ·
+`specs/066-h29-pairs-copula/`.
+
 **H30 — Fator de tamanho/iliquidez (cross-sectional, sem timing)** *(adicionada em 2026-09-03)*
 
 - *Fundamentação:* literatura de factor investing em cripto (Liu-Tsyvinski-Wu,

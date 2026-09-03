@@ -33,9 +33,9 @@ description: "Task list for H29 pairs trading via copula (spec 066)"
 - [X] T007 [US1] Criar `backtesting/pairs_copula.py`: `ajustar_copula_gaussiana`, `h_condicional`, `run_pairs_copula_backtest`, `run_pairs_copula_scan` — reusa `selecionar_pares`/`PairsParams`/`split_treino_validacao` de H10 sem alteração (depende de T001-T005, T006)
 - [X] T008 [US1] Adicionar `scipy` a `requirements-dev.txt` (pesquisa apenas, mesmo padrão de `statsmodels`)
 - [X] T009 [US1] Criar `cmd_pairs_copula()` em `main.py`: roda sobre `UNIVERSO_AMPLO_HISTORICO_COMPLETO`, imprime treino/validação ao lado do já publicado de H10, exporta via `export_report`; registrar `"pairs_copula": cmd_pairs_copula` em `COMMANDS` (depende de T007)
-- [ ] T010 Rodar `python main.py pairs_copula` contra dados reais
-- [ ] T011 Registrar o resultado real de T010 em `docs/research/registro-de-hipoteses.md` §6.1 (H29) — comparação explícita com o número já publicado de H10
-- [ ] T012 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T010 Rodar `python main.py pairs_copula` contra dados reais
+- [X] T011 Registrar o resultado real de T010 em `docs/research/registro-de-hipoteses.md` §6.1 (H29) — comparação explícita com o número já publicado de H10
+- [X] T012 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T009 implementação e testes) + (T010-T012 execução real e registro).
 
