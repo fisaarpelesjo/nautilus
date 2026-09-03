@@ -228,11 +228,14 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
 | H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — ainda reprovado por margem substancial; o problema é o profit factor por trade, não a composição de risco |
-| H20 | Geometria de barreira | Geometria de saída | **REPROVADA** | Tese refutada por medição; sinal aterrissa no empate em **duas** geometrias |
+| H20 | Geometria de barreira | Geometria de saída | **SINAL CONFIRMADO** (revertido 2026-09-03) | REPROVADA a 2.000 candles (margem no empate); revertido a 6.000 candles (spec 048) — razão/empate 0,997→1,123, z=−0,07→+3,50. Paga a geometria; falta avaliação operacional (backtest real + carteira, mesmo estágio que H14 tinha antes de spec 037) |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
 **Taxa de aprovação: 0 de 16.** Três inconclusivas (H10; H11 em escala
-semanal; H12 por impossibilidade estrutural de teste — ver 4.13).
+semanal; H12 por impossibilidade estrutural de teste — ver 4.13). H20
+revertida para "sinal confirmado" (2026-09-03, spec 048) — ainda não
+conta como aprovada, mesmo estágio intermediário que H14 teve entre
+spec 036 e spec 037, mas é o caso mais promissor do registro no momento.
 
 ---
 
@@ -1791,6 +1794,71 @@ spec `028-geometria-de-barreira`.
 
 ---
 
+#### Atualização — histórico estendido reverte o veredito: a margem paga (2026-09-03, spec 048)
+
+Questão em aberto desde `specs/036-historico-estendido/` (D2 excluiu
+`geometria.py` do escopo daquela spec, deliberadamente, não por
+esquecimento): a margem medida em H20 aterrissava a **menos de 3% do
+empate**, estreita o bastante para ser plausivelmente um artefato de
+amostra pequena — o mesmo padrão que produziu o veredito original
+errado de H14. `run_geometria_scan` migrado de 2.000 para 6.000 candles
+(mesmo teto de spec 036), mesma regra de seleção, mesmo procedimento de
+avaliação (`run_modelo_scan`/`resumo_agregado`,
+`specs/048-h20-historico-estendido/`).
+
+**Resultado (`python main.py geometria`, 2026-09-03, mesmos 12 pares):**
+
+| | 2.000 candles (spec 028) | 6.000 candles (spec 048) |
+|---|---|---|
+| Geometria selecionada | tp=2,0 | tp=2,0 (mesma) |
+| Razão base (todos os eventos) | 0,6223 | 0,6992 |
+| Subconjunto decidido — alvo / stop | 333 (não reportado por par) | **1.675 / 1.989** |
+| Razão pooled decidida | 0,7478 | **0,8421** |
+| Ponto de empate | 0,750 | 0,750 |
+| Razão / empate | 0,997 (abaixo) | **1,123 (acima)** |
+| Supera o empate (banda de incerteza) | **Não** (z=−0,07, p=0,535) | **Sim** (z≈+3,50, p<0,001) |
+
+**A margem não era invariante — era pequena demais para medir.** Com
+3.664 desfechos (mais que o dobro dos 2.232 de spec 028), a razão
+pooled subiu de 0,7478 para 0,8421 — **não caiu em direção ao empate,
+subiu para além dele**, com um z-score que passou de essencialmente
+zero (−0,07, exatamente no limiar) para +3,50 (p<0,001), um resultado
+estatisticamente robusto, não mais borderline. A razão base (antes do
+modelo decidir) também subiu, de 0,6223 para 0,6992 — o próprio sinal
+subjacente ficou mais forte com mais dados, não só o subconjunto
+decidido pelo modelo.
+
+**Veredito revertido: a geometria PAGA o empate.** "Há sinal?" já era
+sim (z=+4,48 em spec 028, presumivelmente mais forte ainda aqui — não
+recomputado nesta spec, fora do escopo declarado). "Paga a geometria?"
+muda de **Não** para **Sim**. Isto reverte o achado central de H20 —
+"o sinal aterrissa no empate em duas geometrias independentes" não se
+sustentou à mesma elevação de amostra que já havia corrigido H14.
+
+**Não é aprovação operacional — é o mesmo estágio que H14 alcançou em
+spec 036, antes do motor de carteira de spec 037.** Este resultado
+confirma o sinal estatístico da geometria `tp=2,0`, exatamente como
+spec 036 confirmou o sinal estatístico de H14 (`tp=3,0`) sem ainda
+testar backtest real, custo de execução ou risco de carteira. Uma
+avaliação operacional completa desta geometria — backtest real com
+`ATR_TP_MULTIPLIER=2.0`, depois carteira com capital compartilhado
+(mesmo padrão de spec 037) — é o próximo passo natural, não decidido
+aqui.
+
+**Reabre a linha de investigação da geometria de saída, fechada em
+spec 047 do lado do risco de carteira.** A conclusão que fechou os
+overlays de risco de H14 (§4.15, atualização spec 047) foi que o
+gargalo é o profit factor por trade, e apontou o mecanismo de saída
+como a próxima frente, não mais parâmetros de risco. Esta reversão é
+exatamente essa frente — e ao contrário dos overlays de risco (oito
+testes, ceiling medido, fechado), esta é uma pergunta nova, ainda não
+testada de ponta a ponta.
+
+**Reprodução:** `python main.py geometria` ·
+`specs/048-h20-historico-estendido/`.
+
+---
+
 ### 4.17 H21 — Lead-lag BTC para altcoins
 
 **Origem.** Primeira hipótese deste registro originada de uma busca
@@ -1989,9 +2057,15 @@ factor 0,68, ainda reprovado por margem substancial. Linha fechada: o
 problema é o profit factor por trade, não a composição de risco — ver
 §4.15, atualização spec 047.)*
 
-*(H20 avaliada em 2026-09-01 — ver seção 4.16. Status: **reprovada**. Tese
-refutada por medição; o sinal aterrissa no ponto de empate em duas geometrias
-independentes.)*
+*(H20 avaliada em 2026-09-01 — ver seção 4.16. Status original: **reprovada**.
+Tese refutada por medição; o sinal aterrissava no ponto de empate em duas
+geometrias independentes. Revertida com histórico estendido em 2026-09-03
+(`specs/048-h20-historico-estendido/`): mesma elevação de amostra que já
+havia corrigido H14 (spec 036) — razão pooled decidida 0,7478→0,8421, razão
+sobre empate 0,997→1,123, z=−0,07→+3,50. **Novo status: sinal confirmado
+(paga a barreira)** — ainda falta avaliação operacional (backtest real da
+geometria `tp=2,0` + carteira, o mesmo trabalho que spec 037 fez para H14) antes
+de qualquer veredito de aprovação.)*
 
 **H15 — Arbitragem entre exchanges** — *instrumento construído, amostra em
 acumulação (`specs/029-arbitragem-entre-corretoras/`, 2026-09-02)*

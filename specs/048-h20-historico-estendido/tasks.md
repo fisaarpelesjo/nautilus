@@ -29,9 +29,9 @@ description: "Task list for H20 reavaliada com historico estendido (spec 048)"
 
 - [X] T003 [US1] Mudar `fetch_ohlcv(par, TIMEFRAME, 2000)` para `6000` em `backtesting/geometria.py::run_geometria_scan` (linha 204), comentário referenciando `specs/036-historico-estendido/research.md` D1 (depende de T001-T002)
 - [X] T004 [US1] Criar `cmd_geometria()` em `main.py` (H20 nunca teve comando CLI): `run_geometria_scan()` + `run_modelo_scan`/`resumo_agregado` sobre a geometria selecionada, imprime perfis, razão pooled, `supera_empate` e comparação contra os números de 2.000 candles já publicados; registrar `"geometria": cmd_geometria` em `COMMANDS`; exportar via `export_report("geometria_estendida", ...)` (depende de T003)
-- [ ] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
-- [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — comparação explícita contra o já publicado (2.000 candles); atualizar §4.1 (quadro-resumo) e §6.1 (fila) se o veredito mudar; texto depende do resultado medido, não escrito antes de T005
-- [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real
+- [X] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — comparação explícita contra o já publicado (2.000 candles); atualizar §4.1 (quadro-resumo) e §6.1 (fila) se o veredito mudar; texto depende do resultado medido, não escrito antes de T005
+- [X] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T004 implementação e testes) + (T005-T007 execução real e registro).
 
