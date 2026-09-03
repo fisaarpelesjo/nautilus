@@ -1490,6 +1490,63 @@ def cmd_leadlag():
     )
 
 
+def cmd_pairs():
+    """H10 -- arbitragem estatistica por cointegracao, reavaliada com
+    historico estendido (spec 039).
+
+    O seletor de pares tinha so 20% de poder de deteccao com a formacao
+    de 250 candles usada ate aqui (docs/research/registro-de-hipoteses.md
+    secao 4.11) -- corrigido para 500 (60% de deteccao, ja medido) sobre
+    6000 candles (spec 036). Mesmo criterio de selecao/entrada/saida/
+    aprovacao, so o instrumento de amostragem muda.
+    """
+    from backtesting.pairs_trading import run_pairs_scan
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]arbitragem estatistica por cointegracao (H10)[/]")
+    console.print(f"  [{C_DIM}]formacao de 500 candles (era 250, 20% de poder de deteccao) "
+                  f"sobre 6000 candles de historico -- mesmo criterio de selecao/entrada/"
+                  f"saida ja declarado[/{C_DIM}]")
+    console.print()
+
+    resultado_treino, resultado_validacao, veredito = run_pairs_scan()
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+
+    def _linha(rotulo, r):
+        pf = "inf" if r.profit_factor == float("inf") else f"{r.profit_factor:.2f}"
+        console.print(f"  [{C_LABEL}]{rotulo}[/] trades {r.total_trades}   "
+                      f"retorno {r.total_return_pct:+.2f}%   buy&hold {r.buy_hold_return_pct:+.2f}%   "
+                      f"drawdown {r.max_drawdown_pct:.2f}%   profit factor {pf}")
+
+    _linha("treino    ", resultado_treino)
+    _linha("validacao ", resultado_validacao)
+    console.print()
+    console.print(f"  [bold]veredito (validacao)[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "pairs",
+        {},
+        {
+            "treino": {"total_trades": resultado_treino.total_trades,
+                       "total_return_pct": resultado_treino.total_return_pct,
+                       "buy_hold_return_pct": resultado_treino.buy_hold_return_pct,
+                       "max_drawdown_pct": resultado_treino.max_drawdown_pct,
+                       "profit_factor": resultado_treino.profit_factor},
+            "validacao": {"total_trades": resultado_validacao.total_trades,
+                          "total_return_pct": resultado_validacao.total_return_pct,
+                          "buy_hold_return_pct": resultado_validacao.buy_hold_return_pct,
+                          "max_drawdown_pct": resultado_validacao.max_drawdown_pct,
+                          "profit_factor": resultado_validacao.profit_factor},
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1510,6 +1567,7 @@ COMMANDS = {
     "grid":          cmd_grid,
     "carteira":      cmd_carteira,
     "leadlag":       cmd_leadlag,
+    "pairs":         cmd_pairs,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
