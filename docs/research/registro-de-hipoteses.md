@@ -2803,6 +2803,12 @@ evidência real, não mais preliminar, aponta na mesma direção desde o
 início: sem oportunidade de arbitragem líquida nas seis corretoras
 públicas testadas.
 
+**Terceira campanha (2026-09-03, 40 ciclos): amostra quase dobra, leitura
+não muda.** 517 observações válidas no total (268→517), zero
+oportunidades, diferencial líquido médio −0,0035% — idêntico à leitura
+da segunda campanha. A estabilidade da média com o dobro da amostra é,
+em si, evidência de que o padrão não é ruído de amostra pequena.
+
 *Diferente de H1–H14/H20: não é retrotestável.* Corretoras não publicam
 histórico de livro de ofertas — o veredito exige uma campanha de amostragem
 ao vivo, não uma única execução. `python main.py arbitragem [PAR]` mede um
