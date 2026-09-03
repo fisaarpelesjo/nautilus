@@ -29,9 +29,9 @@ description: "Task list for H8 funding rate revisao (spec 058)"
 - [X] T003 [US1] Criar `data/funding.py`: `perp_symbol`, `fetch_funding_rate_history` (paginado, exchange futures separada, `BadSymbol` → vazio) (depende de T001)
 - [X] T004 [US1] Criar `backtesting/funding_carry.py`: `avaliar_par`/`avaliar_universo` com D1-D5 declarados no docstring (depende de T002, T003)
 - [X] T005 [US1] Criar `cmd_funding()` em `main.py`: roda sobre `UNIVERSO_AMPLO`, imprime tabela ordenada por capital implantado, exporta via `export_report`; registrar `"funding": cmd_funding` em `COMMANDS`; sincronizar `CLAUDE.md`/`AGENTS.md` (depende de T004)
-- [ ] T006 Rodar `python main.py funding` contra dados reais (VPS `vps-limulus`/`nautilus-research`)
-- [ ] T007 Registrar o resultado real de T006 em `docs/research/registro-de-hipoteses.md` §4.9 (H8) — nova "Atualização" após a medição original de 2026-09-01
-- [ ] T008 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T006 Rodar `python main.py funding` contra dados reais (VPS `vps-limulus`/`nautilus-research`)
+- [X] T007 Registrar o resultado real de T006 em `docs/research/registro-de-hipoteses.md` §4.9 (H8) — nova "Atualização" após a medição original de 2026-09-01
+- [X] T008 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T005 implementação e testes) + (T006-T008 execução real e registro).
 

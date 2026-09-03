@@ -221,7 +221,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H5 | Filtro de dia da semana | Filtro sobre H1 | **REPROVADA** | "só na busca" no melhor caso |
 | H6 | Supressão da saída por SELL | Filtro sobre H1 | **REPROVADA** | 0/8 confirmadas |
 | H7 | Momentum transversal | Direcional, carteira | **REPROVADA** | Ganho de timing médio −1,37pp |
-| H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** | +3,21% a.a. (BTC), abaixo do custo de oportunidade |
+| H8 | Arbitragem de funding rate | Neutra, estrutural | **REPROVADA** (2026-09-01, revisada 2026-09-03) | +3,21% a.a. (BTC) sobre nocional, abaixo do custo de oportunidade. Revisão com universo amplo (34 pares) e eficiência de capital (retorno real é metade sobre capital implantado, sem alavancagem): 1 de 30 pares supera o benchmark (ASTER +5,09%), margem fina sem checagem de confiança — não reverte o veredito. H23 (futuros trimestrais, mecanismo diferente): 0 de 4 contratos superam, mesmo teto |
 | H9 | Prêmio de rebalanceamento | Não-direcional, aritmética | **REPROVADA** | Pré-condição de correlação não atendida |
 | H10 | Arbitragem estatística por cointegração (long-only) | Reversão relativa, par | **REPROVADA** (2026-09-03) | Universo amplo refutado (spec 052), reseleção mais frequente (a cada 120, não 500 candles) resolveu a fome de amostra (spec 054): validação foi de 6 para 10 trades, primeiro veredito não bloqueado por amostra insuficiente — PF 0,15, drawdown 16,61%, reprovada por ampla margem |
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
@@ -503,6 +503,68 @@ pelos limites de drawdown nem pelo circuit breaker vigentes.
 
 **Veredito: REPROVADA.** Retorno inferior a renda fixa, com risco de liquidação,
 execução e contraparte adicionados.
+
+#### Atualização — revisão com universo amplo e eficiência de capital (2026-09-03, spec 058)
+
+A medição original (4 pares, custo de 0,04%/perna, retorno reportado
+sobre o NOCIONAL) tinha duas lacunas: universo pequeno e nenhuma
+correção para o fato de que uma posição delta-neutra sem alavancagem
+exige **2x capital** (nocional da perna spot + margem da perna
+perpétua) — o retorno real sobre capital implantado é metade do
+reportado. `specs/058-h8-funding-rate-revisao/research.md` declara
+antes de medir: taxas atuais (spot 0,10%, futuros 0,05%, verificadas
+2026-09-03, substituindo os 0,04% originais), universo ampliado
+(`UNIVERSO_AMPLO`, 34 pares) intersectado com pares que têm perpétuo
+ativo, e o mesmo benchmark de 5% a.a.
+
+**Resultado (`python main.py funding`, 2026-09-03, 30 de 34 pares com
+perpétuo e ≥90 dias de histórico):**
+
+| Par | Bruto a.a. | Líq./nocional | Líq./capital | Supera benchmark |
+|---|---|---|---|---|
+| ASTER/USDT | +10,49% | +10,18% | **+5,09%** | **Sim** |
+| MUBARAK/USDT | +6,71% | +6,41% | +3,21% | Não |
+| PUMP/USDT | +5,89% | +5,59% | +2,79% | Não |
+| BTC/USDT | +3,38% | +3,08% | +1,54% | Não |
+| ETH/USDT | +2,45% | +2,15% | +1,07% | Não |
+| ... (25 outros pares) | | | −32,22% a +2,19% | Não |
+
+**1 de 30 pares supera o benchmark — mas por margem fina demais para
+tratar como achado robusto sem checagem de confiança.** ASTER/USDT
+cruza 5,09% contra o piso de 5,00% — 0,09 ponto percentual acima,
+dentro do que a variância natural do funding ao longo do ano
+plausivelmente explica sozinha. Nenhum teste de significância foi
+aplicado a essa margem (diferente de `supera_empate_com_confianca` em
+H14) — declarado aqui como limitação, não escondido atrás de uma coluna
+"True" que pareça mais decisiva do que é.
+
+**A correção de capital eficiência muda a leitura qualitativa.** Sobre
+nocional puro (sem a correção desta spec), MUBARAK (+6,41%) e PUMP
+(+5,59%) também pareceriam superar o benchmark — a correção de capital
+implantado (metade, por exigir 2x capital sem alavancagem) derruba os
+dois para 3,21%/2,79%, abaixo do piso. Sem essa correção, a leitura
+seria "3 de 30 pares aprovam"; com ela, apenas 1, e por margem que não
+sobrevive a uma checagem de confiança básica.
+
+**Padrão real, mesmo que não decisivo: ativos de maior volatilidade
+idiossincrática têm funding mais alto e mais consistentemente
+positivo.** ASTER (18,0% pagamentos negativos), MUBARAK (10,6%) e PUMP
+(20,7%) — todos listagens recentes/especulativas — têm taxa de
+pagamento negativo muito menor que BTC (23,7%) ou os pares mais
+extremos (XRP 44,7%, SOL 46,8%, TRX 54,8%). Consistente com a hipótese
+alternativa declarada em `research.md` D4 (viés de posição comprada do
+varejo em ativos mais especulativos) — mas um padrão qualitativo, não
+uma aprovação estatística.
+
+**Não muda o veredito de H8: continua REPROVADA para a esmagadora
+maioria do universo.** 29 de 30 pares ficam abaixo do benchmark, muitos
+por margem grande (T/USDT −32,22%, PROM/USDT −15,43%, TRUMP/USDT
+−12,20%). O único caso acima do piso é marginal e não confirmado por
+teste de confiança — não justifica, sozinho, investir na infraestrutura
+de futuros que H8 exigiria (permissão de API, gestão de margem,
+liquidação).
+
+**Reprodução:** `python main.py funding` · `specs/058-h8-funding-rate-revisao/`.
 
 #### Atualização — H23, prêmio de futuros trimestrais (contango), mesmo teto (2026-09-03, spec 059)
 
