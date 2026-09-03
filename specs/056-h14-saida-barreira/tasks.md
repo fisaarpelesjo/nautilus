@@ -31,9 +31,9 @@ description: "Task list for H14 saida por barreira tripla (spec 056)"
 - [X] T005 [US1] `PosicaoCarteira` ganha `velas_decorridas: int = 0` (`backtesting/portfolio_h14.py`, depende de T001-T004)
 - [X] T006 [US1] `_simular_carteira_core`/`simular_carteira` ganham `usar_saida_barreira: bool = False` + `limite_velas: int = LIMITE_VELAS_PADRAO`; laço de fechamento pula trailing e fecha por tempo sob o novo modo (depende de T005)
 - [X] T007 [US1] Criar `cmd_carteira_barreira()` em `main.py`: chama `simular_carteira(usar_saida_barreira=True)` sobre `UNIVERSO_H11`, imprime resultado ao lado do já publicado (spec 037), exporta via `export_report`; registrar `"carteira_barreira": cmd_carteira_barreira` em `COMMANDS` (depende de T006)
-- [ ] T008 Rodar `python main.py carteira_barreira` contra dados reais (VPS `vps-limulus`/`nautilus-research`)
-- [ ] T009 Registrar o resultado real de T008 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — nova "Atualização" após spec 055, confirma ou refuta o descasamento de saída
-- [ ] T010 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T008 Rodar `python main.py carteira_barreira` contra dados reais (VPS `vps-limulus`/`nautilus-research`)
+- [X] T009 Registrar o resultado real de T008 em `docs/research/registro-de-hipoteses.md` §4.15 (H14) — nova "Atualização" após spec 055, confirma ou refuta o descasamento de saída
+- [X] T010 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T007 implementação e testes) + (T008-T010 execução real e registro).
 

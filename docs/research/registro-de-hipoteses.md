@@ -227,7 +227,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
-| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — ainda reprovado por margem substancial; o problema é o profit factor por trade, não a composição de risco |
+| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03, classificador e saída testados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — o problema é o profit factor por trade, não a composição de risco. Filtro de confiança no classificador refutado, sem cauda de alta confiança explorável (spec 055). Saída por barreira tripla (em vez de trailing) produz o melhor PF de toda a linha (0,78, spec 056) mas ainda reprova — descasamento de saída é causa real, não a única |
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, mecanismo totalmente diagnosticado) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados (spec 049). Custo domina (spec 050); dentro do custo, taxa domina slippage em 12/12 pares (spec 051) — nem execução mais barata (ordens limit) resolveria, taxa não muda com tipo de ordem neste projeto |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
@@ -1867,6 +1867,69 @@ não de código do projeto.
 
 **Reprodução:** `python main.py calibracao` ·
 `specs/055-h14-calibracao-classificador/`.
+
+---
+
+#### Atualização — saída por barreira tripla, melhor profit factor da linha, ainda reprovado (2026-09-03, spec 056)
+
+A frente do classificador (spec 055) refutou o filtro de confiança —
+sobrou o mecanismo de saída, nunca alterado em nenhuma das nove specs
+anteriores de H14. A carteira sempre saiu por take-profit ATR + stop
+**trailing** (decisão deliberada de spec 037/D7, para medir H14 "tal
+como publicado"), mas o classificador foi **treinado e medido** contra
+uma barreira tripla **fixa** (mesmos níveis em ATR, stop nunca sobe,
+fecha em 24 velas se nenhum lado tocar). Sob essa barreira própria, a
+expectativa do subconjunto decidido é **+0,337 ATR/trade**
+(`0,3894×3 − 0,5543×1,5`, spec 055) — positiva, e nada marginal. Esta
+spec testa se fechar esse descasamento — usar a mesma barreira que
+definiu o alvo do classificador como mecanismo de saída real, isolado
+(sem dimensionamento, correlação ou limites de perda) — muda o profit
+factor.
+
+**Resultado (`python main.py carteira_barreira`, 2026-09-03, `UNIVERSO_H11`):**
+
+| | Sem overlay, trailing (037) | Saída por barreira (056) |
+|---|---|---|
+| Trades | 931 | **543** |
+| Retorno | −20,12% | **−15,96%** |
+| Buy-and-hold | −41,57% | −40,99% |
+| Drawdown agregado | 28,66% | **22,25%** |
+| Profit factor | 0,72 | **0,78** |
+
+**Confirma parcialmente a hipótese — o melhor profit factor de toda a
+linha de investigação de H14, mas não o suficiente.** 0,78 supera não só
+o baseline (0,72) como os cinco overlays de risco testados nas specs
+041-047 (melhor anterior: 0,75, limite diário sozinho, spec 045) —
+alcançado sem nenhum overlay de risco, só corrigindo o mecanismo de
+saída. Drawdown também melhora (28,66% → 22,25%, ~22% de redução
+relativa) — próximo do que o gate de correlação sozinho entrega
+(20,74%, spec 042), mas por um mecanismo completamente diferente
+(estrutura de payoff, não filtro de entrada). Trades caem de 931 para
+543: o limite de 24 velas fecha posições mais cedo que o trailing
+esperaria, o que já era esperado — barreira fixa é, por construção,
+mais impaciente que um stop que só sobe.
+
+**Ainda reprovado, mesmo critério de sempre**: drawdown 22,25% segue
+mais que o dobro do teto aceitável (10%), profit factor 0,78 abaixo do
+mínimo 1,2. **A hipótese alternativa também não se confirma
+inteiramente** — o descasamento de saída não era todo o problema (senão
+o PF teria chegado muito mais perto de 1,0, dado o +0,337 ATR/trade
+esperado), mas também não era irrelevante (senão o PF não teria subido
+em relação a nenhuma configuração testada). O resultado fica no meio:
+**o mecanismo de saída é uma causa real e mensurável, não a causa
+única.**
+
+**O que isso decide.** Fecha a comparação isolada trailing-vs-barreira
+com uma resposta clara: a barreira ajuda, mas não resolve. Como este
+mecanismo nunca foi combinado com nenhum overlay de risco (testado
+isolado, mesma disciplina das specs 040-047), combinar saída por
+barreira com o gate de correlação (a intervenção mais eficaz já medida,
+spec 042) é a hipótese natural seguinte — dois mecanismos que atacam
+partes diferentes do problema (payoff da saída vs. sobreposição de
+risco na entrada) nunca testados juntos.
+
+**Reprodução:** `python main.py carteira_barreira` ·
+`specs/056-h14-saida-barreira/`.
 
 ---
 
