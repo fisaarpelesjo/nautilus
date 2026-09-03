@@ -1547,6 +1547,68 @@ def cmd_pairs():
     )
 
 
+def cmd_pairs_amplo():
+    """H10 -- arbitragem estatistica por cointegracao, universo amplo de
+    pares candidatos (spec 052).
+
+    H10 segue inconclusiva (spec 039): so 6 trades na validacao, abaixo
+    do minimo de 10 -- universo de 12 pares (66 combinacoes) nao gera
+    amostra suficiente. UNIVERSO_AMPLO (34 pares, ja medido em spec 040)
+    da 561 combinacoes -- mais chance de achar pares cointegrados
+    elegiveis por ciclo de reselecao. Diferente de spec 040 (risco de
+    carteira): aqui a pergunta e tamanho de amostra, PairsParams
+    intocado.
+    """
+    from backtesting.pairs_trading import run_pairs_scan
+    from backtesting.portfolio_h14 import UNIVERSO_AMPLO
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]arbitragem estatistica por cointegracao (H10) -- universo amplo[/]")
+    console.print(f"  [{C_DIM}]34 pares candidatos (era 12) -- 561 combinacoes testadas por ciclo "
+                  f"de reselecao (era 66). Mesma formacao (500), mesmos parametros de entrada/"
+                  f"saida/aprovacao ja declarados em spec 039[/{C_DIM}]")
+    console.print()
+
+    resultado_treino, resultado_validacao, veredito = run_pairs_scan(pares=list(UNIVERSO_AMPLO))
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+
+    def _linha(rotulo, r):
+        pf = "inf" if r.profit_factor == float("inf") else f"{r.profit_factor:.2f}"
+        console.print(f"  [{C_LABEL}]{rotulo}[/] trades {r.total_trades}   "
+                      f"retorno {r.total_return_pct:+.2f}%   buy&hold {r.buy_hold_return_pct:+.2f}%   "
+                      f"drawdown {r.max_drawdown_pct:.2f}%   profit factor {pf}")
+
+    _linha("treino    ", resultado_treino)
+    _linha("validacao ", resultado_validacao)
+    console.print()
+    console.print(f"  [{C_LABEL}]ja publicado (12 pares, spec 039)[/] validacao: trades 6, "
+                  f"abaixo do minimo de 10 -- inconclusiva")
+    console.print(f"  [bold]veredito (validacao)[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "pairs_amplo",
+        {"n_pares": len(UNIVERSO_AMPLO), "trades_validacao_publicado": 6},
+        {
+            "treino": {"total_trades": resultado_treino.total_trades,
+                       "total_return_pct": resultado_treino.total_return_pct,
+                       "buy_hold_return_pct": resultado_treino.buy_hold_return_pct,
+                       "max_drawdown_pct": resultado_treino.max_drawdown_pct,
+                       "profit_factor": resultado_treino.profit_factor},
+            "validacao": {"total_trades": resultado_validacao.total_trades,
+                          "total_return_pct": resultado_validacao.total_return_pct,
+                          "buy_hold_return_pct": resultado_validacao.buy_hold_return_pct,
+                          "max_drawdown_pct": resultado_validacao.max_drawdown_pct,
+                          "profit_factor": resultado_validacao.profit_factor},
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 def cmd_carteira_ampla():
     """Carteira de H14 sobre universo amplo -- 34 pares (spec 040).
 
@@ -2246,6 +2308,7 @@ COMMANDS = {
     "carteira":      cmd_carteira,
     "leadlag":       cmd_leadlag,
     "pairs":         cmd_pairs,
+    "pairs_amplo":   cmd_pairs_amplo,
     "carteira_ampla": cmd_carteira_ampla,
     "carteira_vol":  cmd_carteira_vol,
     "carteira_corr": cmd_carteira_corr,

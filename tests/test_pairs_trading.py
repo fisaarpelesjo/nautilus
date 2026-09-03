@@ -286,3 +286,34 @@ def test_run_pairs_scan_produz_resultado_aceito_por_evaluate_approval():
     assert veredito is not None
     assert veredito.status in {"aprovado", "reprovado", "inconclusivo"}
     assert evaluate_approval(resultado_validacao).status == veredito.status
+
+
+# ==================================== spec 052 (H10 universo amplo)
+
+@precisa_adf
+def test_selecao_e_monotonica_em_relacao_ao_universo():
+    """Mais candidatos nunca pode reduzir o conjunto elegivel -- cada
+    combinacao e avaliada de forma independente (`combinations(colunas, 2)`),
+    entao um par que passa no universo pequeno continua passando quando mais
+    colunas de ruido sao adicionadas; nada nas colunas novas pode fazer A-B
+    parar de passar."""
+    a, b = _par_cointegrado(meia_vida=5)
+    ruido_base = _passeio(1500, 99)
+    precos_base = pd.DataFrame({"A/USDT": a, "B/USDT": b, "C/USDT": ruido_base})
+
+    ruido_extra = {f"{c}/USDT": _passeio(1500, 100 + i) for i, c in enumerate("DEFGHIJ")}
+    precos_amplo = precos_base.assign(**ruido_extra)
+
+    # max_pares alto o suficiente para nao truncar -- o invariante testado e
+    # elegibilidade (cada combinacao e avaliada de forma independente), nao
+    # ranking sob mais concorrencia (isso spec 052 nao depende).
+    p = PairsParams(formacao=250, max_pares=100)
+    pares_base = selecionar_pares(precos_base, p)
+    pares_amplo = selecionar_pares(precos_amplo, p)
+
+    achados_base = {frozenset((par.a, par.b)) for par in pares_base}
+    achados_amplo = {frozenset((par.a, par.b)) for par in pares_amplo}
+
+    assert frozenset(("A/USDT", "B/USDT")) in achados_base
+    assert frozenset(("A/USDT", "B/USDT")) in achados_amplo
+    assert achados_base <= achados_amplo  # universo amplo nunca perde o que o pequeno ja achava
