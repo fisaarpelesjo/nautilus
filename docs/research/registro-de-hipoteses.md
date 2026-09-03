@@ -504,6 +504,59 @@ pelos limites de drawdown nem pelo circuit breaker vigentes.
 **Veredito: REPROVADA.** Retorno inferior a renda fixa, com risco de liquidação,
 execução e contraparte adicionados.
 
+#### Atualização — H23, prêmio de futuros trimestrais (contango), mesmo teto (2026-09-03, spec 059)
+
+Hipótese irmã de H8, adicionada à fila junto com H22/H24/H25/H26
+(revisão de literatura, 2026-09-03): em vez do funding de perpétuos
+(taxa periódica variável, 23-47% dos pagamentos negativos), futuros com
+vencimento fixo (trimestrais) convergem **deterministicamente** ao spot
+no vencimento — mecanismo estruturalmente diferente, prêmio travado no
+momento da entrada em vez de depender de 1.095 pagamentos incertos.
+Reusa a mesma fórmula de custo/capital de H8 (`CUSTO_ABERTURA_FECHAMENTO`,
+`BENCHMARK_RENDA_FIXA_AA`) sem duplicar.
+
+**Universo real: só BTC/USDT e ETH/USDT** têm contrato futuro trimestral
+USDT-margined na Binance (verificado 2026-09-03) — 4 contratos no total
+(2 bases × 2 vencimentos, Set/2026 e Dez/2026).
+
+**Resultado (`python main.py basis`, 2026-09-03):**
+
+| Contrato | Vencimento | Dias | Prêmio bruto a.a. | Líq./nocional | Líq./capital | Supera benchmark |
+|---|---|---|---|---|---|---|
+| BTC/USDT-260925 | 2026-09-25 | 22 | +3,97% | **-1,11%** | **-0,56%** | Não |
+| ETH/USDT-260925 | 2026-09-25 | 22 | +4,25% | **-0,84%** | **-0,42%** | Não |
+| BTC/USDT-261225 | 2026-12-25 | 113 | +4,35% | +3,38% | +1,69% | Não |
+| ETH/USDT-261225 | 2026-12-25 | 113 | +3,07% | +2,10% | +1,05% | Não |
+
+**0 de 4 contratos superam o benchmark.** Achado não intuitivo: os dois
+contratos de curto prazo (22 dias) ficam **líquidos NEGATIVOS**, apesar
+do prêmio bruto positivo (~4% a.a.) — o custo fixo de
+abertura+fechamento, anualizado sobre um prazo curto
+(`custo × 365/dias`), supera o prêmio bruto quando `dias` é pequeno. O
+custo não escala para baixo com o prazo, então um contrato perto do
+vencimento paga proporcionalmente mais caro por ano equivalente que um
+distante. Os dois contratos de Dez/2026 (113 dias) ficam positivos sobre
+nocional (+3,38%/+2,10%) mas caem para metade sobre capital implantado
+(+1,69%/+1,05%) — mesma correção de eficiência de capital de H8 — bem
+abaixo do benchmark de 5%.
+
+**Mesmo teto de H8, mecanismo diferente, resultado equivalente.** A
+convergência determinística não resolveu o problema de magnitude — o
+prêmio de futuros trimestrais está na mesma ordem de grandeza do
+funding de perpétuos (3-4,5% bruto a.a. nos dois casos), e a correção
+de capital implantado (metade, sem alavancagem) é decisiva nos dois:
+divide o retorno líquido ao meio antes mesmo de comparar contra
+qualquer benchmark.
+
+**Limitação declarada.** Retrato instantâneo (preço de hoje para os
+contratos hoje listados), não série histórica de 1 ano como H8 — um
+contrato vencido não tem preço consultável depois. Não muda a leitura
+qualitativa (mesma ordem de grandeza medida agora deveria se repetir em
+outros momentos, já que o mecanismo é o mesmo), mas é uma amostra menor
+por construção, não por escolha.
+
+**Reprodução:** `python main.py basis` · `specs/059-h23-futuros-trimestrais/`.
+
 ---
 
 ### 4.10 H9 — Prêmio de rebalanceamento (demônio de Shannon)
