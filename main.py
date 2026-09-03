@@ -3153,6 +3153,77 @@ def cmd_geometria():
     )
 
 
+def cmd_fator_tamanho():
+    """H30 -- fator de tamanho/iliquidez, cross-sectional sem timing
+    (spec 067).
+
+    Cesta igualmente ponderada dos 7 pares de MENOR volume medio (~1/3
+    de 22) vs. os 7 de MAIOR volume, rebalanceadas a cada 30 dias, sem
+    nenhum sinal de entrada/saida -- literatura de factor investing em
+    cripto (Liu-Tsyvinski-Wu) documenta tamanho/iliquidez como o fator
+    de maior retorno cumulativo no cross-section. Testado em treino e
+    validacao, sob 3 multiplicadores de slippage (custo real de book
+    historico nao existe -- sensibilidade declarada em vez de um numero
+    unico otimista).
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.fator_tamanho import (
+        MULTIPLICADORES_SLIPPAGE,
+        N_CESTA,
+        REBALANCE_A_CADA,
+        avaliar_fator_tamanho,
+    )
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H30 -- fator de tamanho/iliquidez[/]")
+    console.print(f"  [{C_DIM}]cesta de {N_CESTA} pares de menor volume vs. {N_CESTA} de maior "
+                  f"volume, igualmente ponderada, rebalanceada a cada {REBALANCE_A_CADA} candles "
+                  f"(~30 dias) -- sem timing, sem previsao[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_fator_tamanho()
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Fatia")
+    t.add_column("Criterio")
+    t.add_column("Slip.", justify="right")
+    for col in ("retorno %", "drawdown %", "custo turnover"):
+        t.add_column(col, justify="right")
+
+    for (fatia, criterio, mult), r in resultados.items():
+        t.add_row(fatia, criterio.replace("_", " "), f"{mult:.0f}x",
+                   f"{r.retorno_pct:+.2f}", f"{r.drawdown_max_pct:.2f}",
+                   f"${r.custo_total_turnover:,.2f}")
+    console.print(t)
+    console.print()
+
+    for fatia in ("treino", "validacao"):
+        iliq = resultados[(fatia, "menor_volume", 1.0)]
+        liq = resultados[(fatia, "maior_volume", 1.0)]
+        excesso = iliq.retorno_pct - liq.retorno_pct
+        cor = C_POS if excesso > 0 else C_NEG
+        console.print(f"  [{C_LABEL}]{fatia}[/] excesso iliquida-liquida (1x slippage): "
+                      f"[{cor}]{excesso:+.2f}pp[/{cor}]")
+
+    export_report(
+        "fator_tamanho",
+        {"n_cesta": N_CESTA, "rebalance_a_cada": REBALANCE_A_CADA,
+         "multiplicadores_slippage": list(MULTIPLICADORES_SLIPPAGE)},
+        {
+            f"{fatia}_{criterio}_{mult:.0f}x": {
+                "pares": r.pares, "n_rebalanceamentos": r.n_rebalanceamentos,
+                "retorno_pct": r.retorno_pct, "drawdown_max_pct": r.drawdown_max_pct,
+                "custo_total_turnover": r.custo_total_turnover,
+            }
+            for (fatia, criterio, mult), r in resultados.items()
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3187,6 +3258,7 @@ COMMANDS = {
     "carteira_combo2": cmd_carteira_combo2,
     "carteira_teto": cmd_carteira_teto,
     "geometria": cmd_geometria,
+    "fator_tamanho": cmd_fator_tamanho,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "carteira_barreira": cmd_carteira_barreira,

@@ -75,6 +75,7 @@ python main.py funding_cross         # H24 -- cross-exchange funding differentia
 python main.py triangular [ETH] [BTC] [USDT]  # H22 -- triangular arbitrage within a single exchange (spec 060)
 python main.py sazonalidade          # H25 -- trading-session seasonality, hour of day UTC (spec 062)
 python main.py funding_extremo       # H26 -- reversal against extreme funding, directional family (spec 063)
+python main.py fator_tamanho         # H30 -- size/illiquidity factor, cross-sectional no timing (spec 067)
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal
