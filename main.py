@@ -2067,6 +2067,16 @@ def cmd_carteira_teto():
     )
 
 
+def _fracao_custo_consumida(com_custo, sem_custo):
+    """Fracao da vantagem bruta que o custo de execucao consome -- mesma
+    formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
+    `None` quando a vantagem bruta (sem custo) nao e positiva -- dividir por
+    uma vantagem negativa ou zero inverteria/indefiniria o sinal."""
+    if sem_custo is None or com_custo is None or sem_custo <= 0:
+        return None
+    return (sem_custo - com_custo) / sem_custo
+
+
 def cmd_geometria():
     """H20 -- geometria de barreira, reavaliada com historico estendido
     (spec 048).
@@ -2148,6 +2158,33 @@ def cmd_geometria():
             "profit_factor": bt.profit_factor, "status": veredito.status,
         })
 
+    # Custo de execucao isolado (spec 050, mesmo metodo E6 de H10/H21):
+    # retorno_sem_custo_modelo ja e calculado por avaliar_par a cada chamada
+    # -- nenhum backtest novo, so expoe o campo ja existente.
+    console.print()
+    console.print(f"  [bold {C_CYAN}]custo de execucao isolado (E6 -- com custo vs. sem custo)[/]")
+    custo_por_par = []
+    pares_aprovariam_sem_custo = 0
+    for a in avaliacoes:
+        bt = a.modelo.backtest if a.modelo else None
+        if bt is None:
+            continue
+        com_custo = bt.total_return_pct
+        sem_custo = a.retorno_sem_custo_modelo
+        fracao = _fracao_custo_consumida(com_custo, sem_custo)
+        fracao_txt = f"{fracao * 100:.0f}%" if fracao is not None else "-"
+        sem_custo_txt = f"{sem_custo:+.2f}%" if sem_custo is not None else "-"
+        console.print(f"  {a.par:<10}  com_custo={com_custo:+.2f}%  sem_custo={sem_custo_txt}  "
+                      f"custo_consome={fracao_txt}")
+        if sem_custo is not None and sem_custo > 0 and sem_custo > bt.buy_hold_return_pct:
+            pares_aprovariam_sem_custo += 1
+        custo_por_par.append({
+            "par": a.par, "com_custo": com_custo, "sem_custo": sem_custo, "fracao_consumida": fracao,
+        })
+    console.print()
+    console.print(f"  [{C_LABEL}]pares cujo retorno sem custo supera o buy-and-hold[/] "
+                  f"{pares_aprovariam_sem_custo}/{len(custo_por_par)}")
+
     export_report(
         "geometria_estendida",
         {"candles": 6000, "tp_selecionado_publicado": 2.0,
@@ -2161,6 +2198,7 @@ def cmd_geometria():
             "supera_empate": resumo["supera_empate"],
             "supera_empate_pontual": resumo["supera_empate_pontual"],
             "backtests_por_par": backtests_por_par,
+            "custo_por_par": custo_por_par,
         },
     )
 
