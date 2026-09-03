@@ -2633,6 +2633,76 @@ def cmd_triangular():
     )
 
 
+def cmd_sazonalidade():
+    """H25 -- sazonalidade por sessao de negociacao, hora do dia UTC
+    (spec 062).
+
+    Diferente de H5 (dia da semana, REPROVADA por "so na busca"),
+    restringe novas entradas a uma janela de 8h (asia/europa/eua),
+    nunca bloqueia saida. Tres janelas x UNIVERSO_H11 (12 pares) = 36
+    combinacoes, TODAS reportadas (pre-registradas, sem selecao
+    post-hoc) e cada uma passa pela mesma bateria de confirmacao fora
+    da amostra que H10/H14/H20 ja usam (backtesting.multimarket.classify)
+    -- so "confirmado" conta como evidencia real.
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.sazonalidade import JANELAS, avaliar_sazonalidade
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H25 -- sazonalidade por sessao de negociacao[/]")
+    console.print(f"  [{C_DIM}]tres janelas UTC pre-registradas (asia 0-8h, europa 8-16h, eua "
+                  f"16-24h) -- restringe novas entradas, nunca bloqueia saida. So \"confirmado\" "
+                  f"(aprovado na busca E na validacao) conta como evidencia[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_sazonalidade()
+
+    cores = {"confirmado": C_POS, "defensivo": C_CYAN, "so_na_busca": C_DIM,
+             "reprovado": C_NEG, "inconclusivo": C_DIM, "erro": C_NEG}
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Janela")
+    t.add_column("Par")
+    for col in ("PF base", "PF filtrado"):
+        t.add_column(col, justify="right")
+    t.add_column("Status")
+
+    for r in resultados:
+        cor = cores.get(r.status, C_DIM)
+        pf_base = f"{r.pf_busca_base:.2f}" if r.pf_busca_base is not None else "-"
+        pf_filtrado = f"{r.pf_busca_filtrado:.2f}" if r.pf_busca_filtrado is not None else "-"
+        t.add_row(r.janela_nome, r.par, pf_base, pf_filtrado, f"[{cor}]{r.status}[/{cor}]")
+    console.print(t)
+    console.print()
+
+    contagem = {}
+    for r in resultados:
+        contagem[r.status] = contagem.get(r.status, 0) + 1
+    resumo = "  ".join(f"{k}={v}" for k, v in sorted(contagem.items()))
+    console.print(f"  [{C_LABEL}]resumo ({len(resultados)} combinacoes)[/] {resumo}")
+    n_confirmado = contagem.get("confirmado", 0)
+    cor_final = C_POS if n_confirmado > 0 else C_NEG
+    console.print(f"  [bold]evidencia real (confirmado)[/bold] [{cor_final}]{n_confirmado}[/{cor_final}]"
+                  f" de {len(resultados)}")
+
+    export_report(
+        "sazonalidade",
+        {"universo": "UNIVERSO_H11", "janelas": {k: list(v) for k, v in JANELAS.items()}},
+        {
+            "resultados": [
+                {"janela": r.janela_nome, "par": r.par, "pf_busca_base": r.pf_busca_base,
+                 "pf_busca_filtrado": r.pf_busca_filtrado, "status": r.status, "erro": r.erro}
+                for r in resultados
+            ],
+            "resumo": contagem,
+        },
+    )
+
+
 def _fracao_custo_consumida(com_custo, sem_custo):
     """Fracao da vantagem bruta que o custo de execucao consome -- mesma
     formula ja usada em H10/H21 (E6): `(sem_custo - com_custo) / sem_custo`.
@@ -2829,6 +2899,7 @@ COMMANDS = {
     "funding": cmd_funding,
     "basis": cmd_basis,
     "triangular": cmd_triangular,
+    "sazonalidade": cmd_sazonalidade,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,
