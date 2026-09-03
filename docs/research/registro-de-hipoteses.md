@@ -3147,6 +3147,43 @@ foi construído).
   checagem de fonte gratuita; a infraestrutura de teste (colinearidade,
   medição isolada BTC-only) já existe e é reusável de H17.
 
+**Atualização — viabilidade checada, atributo testado, não ajudou (2026-09-03, spec 069).**
+Checagem real (`research.md` D1, chamadas de API reais): `mvrv`,
+`nvt` e `exchange-net-flow` — as métricas de posicionamento mais
+citadas na literatura de whale-tracking — **não existem** na API
+gratuita já integrada (`api.blockchain.info`, 404 nas três) — confirma
+a parte do obstáculo já esperada, precisam de provedor pago. Mas
+`estimated-transaction-volume-usd` (valor movimentado on-chain, em USD)
+**é gratuita, na mesma fonte, e mede magnitude de valor em vez de
+contagem de endereços** — categoricamente diferente do atributo único
+que H17 testou.
+
+**Resultado (`python main.py onchain_volume`, 2026-09-03, BTC/USDT):**
+
+| | Sem atributo | Com `onchain_txn_volume_growth_7d` |
+|---|---|---|
+| Razão de chances (geral) | 0,403 | 0,403 |
+| Razão de chances (decidido) | **0,381** | **0,325** |
+| Estado | `sem_sinal` | `insuficiente` |
+
+**Colinearidade não bloqueou** (máxima correlação 0,452 com
+`onchain_addr_growth_7d`, abaixo do limiar de 0,80) — mas o atributo
+**piorou** a razão de chances do subconjunto decidido (0,381 → 0,325),
+não melhorou. Mesma leitura qualitativa de H17 ("o atributo não mudou
+o resultado em nenhuma direção" lá; aqui mudou, para pior) — o segundo
+atributo on-chain testado neste registro também não ajuda o
+classificador de H14.
+
+**O que isso não decide.** Continua não sendo veredito sobre "sinais
+on-chain" em geral — dois atributos específicos testados
+(`onchain_addr_growth_7d`, H17; `onchain_txn_volume_growth_7d`, H32),
+nenhum ajudou. Atributos que exigem provedor pago (mvrv, nvt,
+exchange-net-flow) permanecem genuinamente não testados, não
+reprovados.
+
+**Reprodução:** `python main.py onchain_volume` ·
+`specs/069-h32-onchain-rico/`.
+
 **H33 — Arbitragem DEX↔CEX (e MEV-adjacent)** *(adicionada em 2026-09-03)*
 
 - *Fundamentação:* infraestrutura categoricamente diferente de H15/H22
