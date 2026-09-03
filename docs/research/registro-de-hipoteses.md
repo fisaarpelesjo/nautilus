@@ -227,7 +227,7 @@ nao alterou a conclusao de indistinguibilidade estatistica.
 | H11 | Horizonte temporal superior (diário/semanal) | Escala temporal | **REPROVADA** (4h, 1d) · **INCONCLUSIVA** (1w) | 144 combinações, 0 confirmadas fora da amostra; confirmado com 3x histórico em 2026-09-02, inconclusivas caem de 27% para 2-8% e veredito se mantém |
 | H12 | Dimensionamento por volatilidade | Gestão de risco, não-direcional | **INCONCLUSIVA** | 48 combinações, 0 melhoras; apenas 2 interpretáveis, ambas negativas |
 | H13 | Barras dirigidas por informação | Esquema de amostragem | **REPROVADA** | 96 combinações, 1 melhora — **abaixo** do que o acaso produziria |
-| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03, classificador e saída testados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto medido de 5 mecanismos de risco + combinações (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68 — o problema é o profit factor por trade, não a composição de risco. Filtro de confiança no classificador refutado, sem cauda de alta confiança explorável (spec 055). Saída por barreira tripla (em vez de trailing) produz o melhor PF de toda a linha (0,78, spec 056) mas ainda reprova — descasamento de saída é causa real, não a única |
+| H14 | Aprendizado supervisionado (barreira tripla) | Direcional, aprendizado | **REPROVADA** (2026-09-02, overlays de risco esgotados 2026-09-03, classificador e saída testados 2026-09-03) | Sinal estatístico robusto (z = +7,97, spec 036) que não sobrevive a capital compartilhado: drawdown de carteira 28,66%, profit factor 0,72 (spec 037). Teto de 5 mecanismos de risco sobre a entrada (specs 040-047): melhor caso 19,88% de drawdown, PF 0,68. Filtro de confiança no classificador refutado (spec 055). Saída por barreira tripla (em vez de trailing) produz o melhor PF de toda a linha (0,78, spec 056); combinada com o gate de correlação (spec 057), produz o melhor resultado de toda a investigação — drawdown 18,37% (primeiro abaixo de 20%), PF 0,78 — aditividade real entre payoff de saída e filtro de entrada, ainda reprovado mas a margem encolheu |
 | H20 | Geometria de barreira | Geometria de saída | **REPROVADA** (2026-09-03, mecanismo totalmente diagnosticado) | Rótulo confirma a margem com 6.000 candles (spec 048, z=+3,50) mas o backtest real não sustenta — 11/12 pares reprovados (spec 049). Custo domina (spec 050); dentro do custo, taxa domina slippage em 12/12 pares (spec 051) — nem execução mais barata (ordens limit) resolveria, taxa não muda com tipo de ordem neste projeto |
 | H21 | Lead-lag BTC para altcoins | Direcional, cross-asset | **REPROVADA** | Correlação real (100% dos pares, spec 038) mas sinal binário dispara demais — 0/11 profit factor acima de 1,0, custo de giro consome a vantagem |
 
@@ -1930,6 +1930,63 @@ risco na entrada) nunca testados juntos.
 
 **Reprodução:** `python main.py carteira_barreira` ·
 `specs/056-h14-saida-barreira/`.
+
+---
+
+#### Atualização — barreira + correlação combinados, aditividade confirmada, melhor resultado da linha (2026-09-03, spec 057)
+
+Os dois melhores mecanismos isolados da linha inteira — saída por
+barreira (melhor PF, 0,78, spec 056) e gate de correlação (melhor
+drawdown entre overlays de risco, 20,74%, spec 042) — nunca tinham sido
+testados juntos. Diferente das duas combinações anteriores (spec 043:
+dimensionamento+correlação; spec 046: correlação+limite diário), onde o
+gate dominou porque o segundo mecanismo só reajustava a MESMA decisão
+de entrada que o gate já filtra, saída por barreira ataca uma fase
+diferente do ciclo de vida da posição (como fecha, não quando/quanto
+abre) — hipótese de aditividade declarada antes de medir
+(`specs/057-h14-barreira-correlacao/research.md` D1-D2).
+
+**Resultado (`python main.py carteira_barreira_corr`, 2026-09-03, `UNIVERSO_H11`):**
+
+| | Sem overlay (037) | Só barreira (056) | Só correlação (042) | Combinado (057) |
+|---|---|---|---|---|
+| Trades | 931 | 543 | 595 | **416** |
+| Retorno | −20,12% | −15,96% | −16,04% | **−11,08%** |
+| Buy-and-hold | −41,57% | −40,99% | — | −41,03% |
+| Drawdown agregado | 28,66% | 22,25% | 20,74% | **18,37%** |
+| Profit factor | 0,72 | 0,78 | 0,68 | **0,78** |
+
+**A hipótese de aditividade se confirma — o melhor resultado de toda a
+linha de investigação de H14.** `total_trades` do combinado (416) fica
+abaixo dos dois isolados (543 e 595), não perto de nenhum — diferente
+do padrão de dominância das duas combinações anteriores. Drawdown cai
+para **18,37%, o primeiro resultado de toda a investigação abaixo de
+20%** (o anterior melhor era 19,88%, spec 047, que precisou de TRÊS
+mecanismos — este consegue mais com dois). Profit factor se mantém no
+melhor nível já medido (0,78, igual ao de barreira sozinha) — o gate de
+correlação não custou profit factor aqui, diferente de quando combinado
+com dimensionamento/limite diário (specs 043/046, onde o PF caía
+levemente).
+
+**Ainda reprovado, mas a margem encolheu de forma real.** Drawdown
+18,37% ainda é quase o dobro do teto aceitável (10%), profit factor
+0,78 ainda abaixo do mínimo 1,2 — mas a distância até aprovação é a
+menor já medida em qualquer configuração de H14. A trajetória de
+drawdown ao longo de toda a linha: 28,66% (037) → 22,25%/20,74%
+(mecanismos isolados) → 19,88% (037+041+042+045, três mecanismos) →
+**18,37%** (057, dois mecanismos, melhor resultado com menos peças).
+
+**O que isso decide.** Confirma que saída por payoff (barreira) e
+filtro de entrada (correlação) são mecanismos genuinamente
+complementares, não versões redundantes do mesmo efeito — a primeira
+evidência clara de aditividade real nesta linha de investigação.
+Combinar barreira com os outros dois mecanismos não-degenerados
+(dimensionamento, spec 041; limite diário, spec 045) — o "teto" da
+família inteira agora incluindo a saída por barreira — é a hipótese
+natural seguinte.
+
+**Reprodução:** `python main.py carteira_barreira_corr` ·
+`specs/057-h14-barreira-correlacao/`.
 
 ---
 
