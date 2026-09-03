@@ -79,13 +79,13 @@ def test_evaluate_approval_ignores_buy_hold_when_flag_disabled():
 
 
 def test_evaluate_approval_still_rejects_other_criteria_when_buy_hold_ignored():
-    result = _result(total_trades=5, total_return_pct=4.0, buy_hold_return_pct=50.0,
-                      profit_factor=1.5, max_drawdown_pct=8.0)
+    result = _result(total_trades=15, total_return_pct=4.0, buy_hold_return_pct=50.0,
+                      profit_factor=1.5, max_drawdown_pct=15.0)
 
     verdict = evaluate_approval(result, require_beat_buy_hold=False)
 
     assert verdict.status == "reprovado"
-    assert any("trades" in r for r in verdict.reasons)
+    assert any("drawdown" in r for r in verdict.reasons)
     assert not any("buy-and-hold" in r for r in verdict.reasons)
 
 
@@ -99,14 +99,32 @@ def test_evaluate_approval_rejects_when_drawdown_too_high():
     assert any("drawdown" in r for r in verdict.reasons)
 
 
-def test_evaluate_approval_rejects_when_too_few_trades():
+def test_evaluate_approval_is_inconclusive_when_too_few_trades():
+    # M14 (docs/research/registro-de-hipoteses.md S5): amostra insuficiente e
+    # "inconclusivo", nao "reprovado" -- nada foi provado sobre a estrategia,
+    # mesmo padrao ja usado por backtesting/modelo.py::classificar_avaliacao.
     result = _result(total_trades=3, total_return_pct=20.0, buy_hold_return_pct=5.0,
                       profit_factor=1.5, max_drawdown_pct=8.0)
 
     verdict = evaluate_approval(result)
 
-    assert verdict.status == "reprovado"
+    assert verdict.status == "inconclusivo"
     assert any("trades" in r for r in verdict.reasons)
+
+
+def test_evaluate_approval_is_inconclusive_even_with_other_failing_criteria():
+    # Caso real: spec 044 (circuit breaker isolado na carteira de H14) mediu
+    # 6 trades E profit factor abaixo do minimo ao mesmo tempo. O veredito
+    # correto e "inconclusivo" por amostra insuficiente, sem misturar com o
+    # motivo do profit factor -- nao "reprovado" citando os dois juntos.
+    result = _result(total_trades=6, total_return_pct=-0.4, buy_hold_return_pct=-42.76,
+                      profit_factor=0.36, max_drawdown_pct=0.57)
+
+    verdict = evaluate_approval(result)
+
+    assert verdict.status == "inconclusivo"
+    assert len(verdict.reasons) == 1
+    assert "trades" in verdict.reasons[0]
 
 
 def test_evaluate_approval_is_inconclusive_when_result_missing():

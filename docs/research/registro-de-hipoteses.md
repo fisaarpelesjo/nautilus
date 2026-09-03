@@ -1500,14 +1500,17 @@ maior parte dos ~2,7 anos ativo, bloqueando quase toda entrada nova —
 porque **quase não há capital em risco a maior parte do tempo**, não
 porque o mecanismo melhorou a qualidade das entradas que passam.
 
-**Caso real do achado M14 (§5).** `evaluate_approval()` retorna
-`"reprovado"` citando junto "apenas 6 trades na validação (mínimo 10)"
-e "profit factor 0.36 abaixo do mínimo 1.2" — mas 6 trades é abaixo do
-mínimo estatístico para qualquer leitura do profit factor ter
-significado. O veredito correto aqui é `"inconclusivo"` por amostra
-insuficiente, não `"reprovado"` — exatamente o defeito de instrumentação
-catalogado em M14, agora confirmado por um segundo caso além de H10
-(spec 039). Motivou a correção de M14 nesta mesma spec (ver §5).
+**Caso real do achado M14 (§5).** No momento da execução,
+`evaluate_approval()` retornou `"reprovado"` citando junto "apenas 6
+trades na validação (mínimo 10)" e "profit factor 0.36 abaixo do mínimo
+1.2" — mas 6 trades é abaixo do mínimo estatístico para qualquer
+leitura do profit factor ter significado. Confirmou, por um segundo
+caso além de H10 (spec 039), o defeito de instrumentação catalogado em
+M14 — motivou a correção da função (§5, 2026-09-03, mesmo dia). Com a
+correção aplicada, este mesmo resultado agora devolve `"inconclusivo"`,
+motivo único ("apenas 6 trades na validação") — o veredito correto:
+nada foi provado sobre a qualidade das entradas que passam, só que
+quase nenhuma passou.
 
 **Não aprova H14, e o resultado bruto não é comparável aos quatro
 anteriores** — universo de decisão completamente diferente (6 trades vs
@@ -1736,7 +1739,7 @@ com base em medições anteriores.
 | M12 | Duas convenções de índice convivendo ao comparar amostragens | `pandas.resample` rotula a barra pela borda **esquerda** (abertura) enquanto a construção de barras dirigidas rotulava pelo último candle do grupo. O mesmo instante passava a ter preços de fechamento diferentes em cada versão — medido: 111.169,92 contra 110.422,10 — e o buy-and-hold de cada amostragem media um trecho ligeiramente distinto, desancorando a comparação. A guarda de ancoragem reprovava **todas** as combinações, corretamente. Correção: rotular pelo instante em que a barra **termina**, nas duas versões, o que faz `close` ser função apenas do rótulo e torna a âncora exata (divergência 0,00000000pp) | Corrigido (`data/bars.py`, `backtesting/barras.py`, 2026-09-01) |
 
 | M13 | Estimativa pontual comparada a um limiar, sem banda de incerteza | A verificação de "a razão de chances supera o empate?" comparava o ponto contra 0,500. Medido em H14: razão de **0,5134** com 536 alvos e 1.044 stops — a checagem devolvia **sim**. Mas sob empate exato esperar-se-iam 526,7 alvos, erro padrão 18,7: a diferença é de **meio erro padrão**, p = 0,318, e o limite inferior do intervalo de confiança dá razão de 0,4696, **abaixo** do empate. A estimativa pontual passava e a evidência não existia | Corrigido (`supera_empate_com_confianca`, limite inferior de Wilson, 2026-09-01) |
-| M14 | `evaluate_approval()` trata amostra abaixo do mínimo como motivo de reprovação, não como categoria própria | Medido em H10 (spec 039, 2026-09-02): validação com 6 trades (abaixo do mínimo de 10) devolveu `"reprovado"` — `"apenas 6 trades... "` listado ao lado de `"profit factor abaixo do mínimo"` como se fossem evidência do mesmo tipo. `classificar_avaliacao()` (`backtesting/modelo.py`, usada por H14) já resolve isso: devolve `"inconclusivo"` explicitamente quando `total_trades < EDGE_MIN_TRADES`, **antes** de avaliar profit factor ou drawdown — mas `evaluate_approval()` (`backtesting/approval.py`), compartilhada por `grid`/`carteira`/`leadlag`/`pairs`, não tem essa distinção | **Não corrigido** — fora do escopo de spec 039 (só a janela de formação de H10); afeta todo veredito já produzido por `evaluate_approval()` com amostra pequena, exige revisão própria antes de mudar a função compartilhada |
+| M14 | `evaluate_approval()` trata amostra abaixo do mínimo como motivo de reprovação, não como categoria própria | Medido em H10 (spec 039, 2026-09-02): validação com 6 trades (abaixo do mínimo de 10) devolveu `"reprovado"` — `"apenas 6 trades... "` listado ao lado de `"profit factor abaixo do mínimo"` como se fossem evidência do mesmo tipo. Confirmado por um segundo caso em H14/circuit breaker (spec 044, 2026-09-03): 6 trades e profit factor 0,36 juntos no mesmo `"reprovado"`. `classificar_avaliacao()` (`backtesting/modelo.py`, usada por H14) já resolve isso: devolve `"inconclusivo"` explicitamente quando `total_trades < EDGE_MIN_TRADES`, **antes** de avaliar profit factor ou drawdown — mas `evaluate_approval()` (`backtesting/approval.py`), compartilhada por `grid`/`carteira`/`leadlag`/`pairs`, não tinha essa distinção | **Corrigido** (2026-09-03) — checagem de amostra movida para antes de qualquer outro critério, retorno antecipado com `"inconclusivo"` e motivo único, mesmo padrão de `classificar_avaliacao()`. Auditoria de vereditos publicados afetados: ver nota abaixo |
 
 **Observação.** M6 e M7 emergiram da própria investigação de H7 e são,
 argumentavelmente, o produto de maior valor obtido: ambos previnem classes de
@@ -1767,6 +1770,21 @@ de virar veredito.
 função de aprovação mais usada do projeto, nunca recebeu a mesma correção.
 O defeito ficou latente até H10 (spec 039) produzir uma validação com
 amostra pequena o bastante para expor.
+
+**Auditoria de vereditos publicados afetados (2026-09-03, mesmo dia da
+correção).** Busca por toda menção a amostra abaixo do mínimo neste
+registro: H10 (spec 039, E3 e a validação de 6 trades) já estava rotulada
+`INCONCLUSIVA` no quadro-resumo (§4.1) e na narrativa (§4.11,
+"Por que INCONCLUSIVA e não REPROVADA") — a leitura humana já havia
+corrigido manualmente para o mesmo veredito que a função corrigida produz
+agora, então nada muda no texto publicado. H17 (on-chain, primeira
+execução) usa `classificar_avaliacao()`, não `evaluate_approval()` — já
+tinha a distinção desde antes, também sem mudança. H18 (grid) e H21
+(lead-lag) reprovam por profit factor/drawdown genuínos sobre amostras
+grandes (centenas de trades), não por amostra insuficiente — fora do
+alcance do defeito. **Único resultado publicado cujo texto mudou de fato:
+H14/circuit breaker isolado (spec 044, §4.15)**, atualizado no mesmo
+commit da correção.
 
 **M12 tem procedência diferente das demais.** Não veio de confrontar resultado
 com predição, e sim de um **teste de fumaça em dado real** rodado antes da

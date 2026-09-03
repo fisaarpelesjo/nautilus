@@ -59,9 +59,21 @@ def evaluate_approval(
             reasons=["preco abaixo de MIN_PRICE_USDT -- o bot nunca opera este par em producao"],
         )
 
-    reasons: List[str] = []
+    # Amostra insuficiente: nada foi provado sobre profit factor/drawdown/retorno
+    # com tao poucos trades -- "inconclusivo", nao "reprovado" (M14,
+    # docs/research/registro-de-hipoteses.md S5). Checado ANTES de qualquer
+    # outro criterio, mesmo padrao de
+    # backtesting/modelo.py::classificar_avaliacao -- misturar essa razao com
+    # profit factor/drawdown no mesmo "reprovado" da a entender que a
+    # estrategia foi testada e falhou, quando a amostra e pequena demais para
+    # qualquer leitura ter significado.
     if result.total_trades < min_trades:
-        reasons.append(f"apenas {result.total_trades} trades na validacao (minimo {min_trades})")
+        return ApprovalVerdict(
+            status="inconclusivo",
+            reasons=[f"apenas {result.total_trades} trades na validacao (minimo {min_trades})"],
+        )
+
+    reasons: List[str] = []
     if require_beat_buy_hold and result.total_return_pct <= result.buy_hold_return_pct:
         reasons.append(
             f"retorno {result.total_return_pct:+.2f}% nao supera buy-and-hold "
