@@ -1,0 +1,42 @@
+---
+
+description: "Task list for H20 backtest real -- geometria propaga ao motor de simulacao (spec 049)"
+---
+
+# Tasks: H20 — geometria propaga ao backtest real
+
+**Input**: Design documents from `/specs/049-h20-backtest-real/`
+
+**Prerequisites**: plan.md, spec.md, data-model.md, quickstart.md (sem research.md — achado já declarado em spec.md)
+
+**Tests**: obrigatórios — Princípio III da constitution.
+
+**Organization**: uma única user story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+---
+
+## Phase 1: User Story 1 - A geometria rotulada é a geometria simulada (Priority: P1) 🎯 MVP
+
+### Tests
+
+- [ ] T001 [US1] Teste em `tests/test_modelo.py`: `avaliar_par(params=ParametrosBarreira(tp_mult=2.0, sl_mult=1.5))` chama `simulate_backtest` com `atr_tp_multiplier=2.0`/`atr_sl_multiplier=1.5` (spy sobre `backtesting.engine.simulate_backtest`) — para as duas linhas de base (modelo e embaralhado)
+- [ ] T002 [P] [US1] Confirmar que `test_avaliar_par_sem_parametros_novos_reproduz_resultado_atual` (pré-existente) continua passando sem alteração — regressão do caminho default (FR-002)
+
+### Implementation
+
+- [ ] T003 [US1] Adicionar `atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult` às duas chamadas de `_resultado_modelo(...)` em `backtesting/modelo.py::avaliar_par` (depende de T001-T002)
+- [ ] T004 [US1] Estender `cmd_geometria()` em `main.py`: roda `avaliar_par` por par sobre `UNIVERSO_H11` com a geometria selecionada, imprime backtest real por par (trades/retorno/drawdown/profit factor), comparado aos números por-par já publicados de H14 onde disponíveis (depende de T003)
+- [ ] T005 Rodar `python main.py geometria` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — resultado real do backtest por par
+- [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §4.16 (H20) — comparação por par contra H14 (`tp=3,0`); texto depende do resultado medido, não escrito antes de T005
+- [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+
+**Checkpoint**: spec fechada em dois commits (T001-T004 implementação e testes) + (T005-T007 execução real e registro).
+
+---
+
+## Implementation Strategy
+
+T001-T004 (testes + correção + extensão CLI) → commit → push;
+T005-T007 (execução real + registro + suite completa) → commit → push.
