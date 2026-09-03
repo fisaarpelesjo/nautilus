@@ -1608,6 +1608,69 @@ def cmd_carteira_ampla():
     )
 
 
+def cmd_carteira_vol():
+    """Dimensionamento por volatilidade na carteira de H14 (spec 041,
+    redirecionamento de H12).
+
+    H12 nunca foi testavel sobre as 4 estrategias de regra -- nenhuma
+    tinha expectativa positiva (docs/research/registro-de-hipoteses.md
+    4.13). H14 e a unica avaliacao com sinal real, reprovada duas vezes
+    especificamente por drawdown (28,66%/35,08%). Reusa
+    fator_volatilidade (spec 025) sem alteracao -- so reduz o tamanho de
+    entradas em candles de alta volatilidade, nunca amplia.
+    """
+    from backtesting.approval import evaluate_approval
+    from backtesting.horizonte import UNIVERSO_H11
+    from backtesting.portfolio_h14 import simular_carteira
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]dimensionamento por volatilidade na carteira de H14[/]")
+    console.print(f"  [{C_DIM}]fator_volatilidade (spec 025) aplicado a cada entrada -- "
+                  f"reduz o tamanho em candles de alta volatilidade, nunca amplia. "
+                  f"Mesmos 12 pares do resultado ja publicado (spec 037)[/{C_DIM}]")
+    console.print()
+
+    resultado = simular_carteira(pares=list(UNIVERSO_H11), usar_dimensionamento_vol=True)
+
+    if resultado is None:
+        console.print(f"  [{C_NEG}]sem dados suficientes para simular a carteira[/{C_NEG}]")
+        return
+
+    veredito = evaluate_approval(resultado)
+
+    cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+    pf = "inf" if resultado.profit_factor == float("inf") else f"{resultado.profit_factor:.2f}"
+
+    console.print(f"  [{C_LABEL}]capital[/] ${resultado.initial_capital:.2f} -> "
+                  f"${resultado.final_capital:.2f}   "
+                  f"[{C_LABEL}]retorno[/] {resultado.total_return_pct:+.2f}%   "
+                  f"[{C_LABEL}]buy&hold[/] {resultado.buy_hold_return_pct:+.2f}%")
+    console.print(f"  [{C_LABEL}]drawdown agregado (com dimensionamento)[/] "
+                  f"[bold {C_NEG}]{resultado.max_drawdown_pct:.2f}%[/bold {C_NEG}]   "
+                  f"[{C_LABEL}]profit factor[/] {pf}")
+    console.print(f"  [{C_LABEL}]drawdown agregado ja publicado (sem dimensionamento, spec 037)[/] 28.66%")
+    console.print()
+    console.print(f"  [bold]veredito[/bold] [{cor}]{veredito.status}[/{cor}]"
+                  + (f" — {'; '.join(veredito.reasons)}" if veredito.reasons else ""))
+
+    export_report(
+        "carteira_vol",
+        {"universo": list(UNIVERSO_H11), "capital_inicial": resultado.initial_capital,
+         "drawdown_sem_dimensionamento_publicado": 28.66},
+        {
+            "total_trades": resultado.total_trades,
+            "total_return_pct": resultado.total_return_pct,
+            "buy_hold_return_pct": resultado.buy_hold_return_pct,
+            "max_drawdown_pct": resultado.max_drawdown_pct,
+            "profit_factor": resultado.profit_factor,
+            "status": veredito.status,
+            "motivos": veredito.reasons,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -1630,6 +1693,7 @@ COMMANDS = {
     "leadlag":       cmd_leadlag,
     "pairs":         cmd_pairs,
     "carteira_ampla": cmd_carteira_ampla,
+    "carteira_vol":  cmd_carteira_vol,
     "multimercado":  cmd_multimarket,
     "analyze":       cmd_analisar,
     "decisions":     cmd_decisions,

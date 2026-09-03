@@ -55,7 +55,7 @@ carteira de H14, sem alterar o resultado default.
 
 ## Phase 3: Polish & Cross-Cutting Concerns
 
-- [ ] T006 Criar `cmd_carteira_vol()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_dimensionamento_vol=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e o drawdown já publicado sem dimensionamento (28,66%, spec 037) lado a lado; registrar `"carteira_vol": cmd_carteira_vol` em `COMMANDS`; exportar via `export_report("carteira_vol", ...)`
+- [X] T006 Criar `cmd_carteira_vol()` em `main.py`: chama `simular_carteira(pares=UNIVERSO_H11, usar_dimensionamento_vol=True)`, imprime a curva de capital agregada, o veredito de `evaluate_approval()`, e o drawdown já publicado sem dimensionamento (28,66%, spec 037) lado a lado; registrar `"carteira_vol": cmd_carteira_vol` em `COMMANDS`; exportar via `export_report("carteira_vol", ...)`
 - [ ] T007 Rodar `python main.py carteira_vol` contra dados reais (12 pares, VPS `vps-limulus`/`nautilus-research`) — validação manual do passo 2 do `quickstart.md`, resultado real
 - [ ] T008 Registrar o resultado real de T007 em `docs/research/registro-de-hipoteses.md` §4.13 (H12) e §4.15 (H14) — comparação explícita contra os 28,66% já publicados; texto depende do resultado medido, não escrito antes de T007
 - [ ] T009 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão em `backtesting/volatilidade.py`/`backtesting/engine.py`/`backtesting/approval.py` (intocados)
