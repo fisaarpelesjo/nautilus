@@ -2076,6 +2076,7 @@ def cmd_geometria():
     antes aplicado aqui (D2 de spec 036 excluiu este modulo). Regra de
     selecao e procedimento estatistico de avaliacao intocados.
     """
+    from backtesting.approval import evaluate_approval
     from backtesting.geometria import run_geometria_scan
     from backtesting.modelo import resumo_agregado, run_modelo_scan
     from strategy.barreira_tripla import ParametrosBarreira
@@ -2124,6 +2125,29 @@ def cmd_geometria():
                   f"razao base 0,6223   razao pooled decidida 0,7478   "
                   f"supera empate = nao (z=-0,07, p=0,535)")
 
+    # Backtest real por par (spec 049): a mesma geometria usada para rotular
+    # agora tambem decide o take-profit/stop-loss simulado -- antes desta
+    # correcao, `avaliacoes` refletiria sempre os multiplicadores de producao
+    # (3.0/1.5), independente da geometria selecionada aqui.
+    console.print()
+    console.print(f"  [bold {C_CYAN}]backtest real por par (tp={sel.tp_mult:.1f}, geometria rotulada = geometria simulada)[/]")
+    backtests_por_par = []
+    for a in avaliacoes:
+        bt = a.modelo.backtest if a.modelo else None
+        if bt is None:
+            console.print(f"  [{C_DIM}]{a.par}: sem backtest ({a.status})[/{C_DIM}]")
+            continue
+        veredito = evaluate_approval(bt)
+        cor = {"aprovado": C_POS, "reprovado": C_NEG, "inconclusivo": C_DIM}.get(veredito.status, C_DIM)
+        pf = "inf" if bt.profit_factor == float("inf") else f"{bt.profit_factor:.2f}"
+        console.print(f"  {a.par:<10}  trades={bt.total_trades:<4}  retorno={bt.total_return_pct:+.2f}%  "
+                      f"drawdown={bt.max_drawdown_pct:.2f}%  pf={pf}  [{cor}]{veredito.status}[/{cor}]")
+        backtests_por_par.append({
+            "par": a.par, "total_trades": bt.total_trades,
+            "total_return_pct": bt.total_return_pct, "max_drawdown_pct": bt.max_drawdown_pct,
+            "profit_factor": bt.profit_factor, "status": veredito.status,
+        })
+
     export_report(
         "geometria_estendida",
         {"candles": 6000, "tp_selecionado_publicado": 2.0,
@@ -2136,6 +2160,7 @@ def cmd_geometria():
             "razao_empate": resumo["razao_empate"],
             "supera_empate": resumo["supera_empate"],
             "supera_empate_pontual": resumo["supera_empate_pontual"],
+            "backtests_por_par": backtests_por_par,
         },
     )
 

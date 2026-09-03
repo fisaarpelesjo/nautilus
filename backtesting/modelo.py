@@ -532,7 +532,8 @@ def avaliar_par(
                         [float(v) for v in ajuste.params], strict=False))
         setattr(a, nome, _resultado_modelo(
             prob, teste_deste_par, prep_teste, estrategia, limiar, div,
-            int(len(treino)), coef))
+            int(len(treino)), coef,
+            atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult))
 
     # E6 -- custo de giro.
     if a.modelo is not None and a.modelo.convergiu:
@@ -542,7 +543,8 @@ def avaliar_par(
             sc = _simular_com_sinais(
                 prep_teste, estrategia,
                 _sinais_do_modelo(prob, prep_teste.index, limiar),
-                fee_rate=0.0, slippage_pct=0.0)
+                fee_rate=0.0, slippage_pct=0.0,
+                atr_tp_multiplier=p.tp_mult, atr_sl_multiplier=p.sl_mult)
             a.retorno_sem_custo_modelo = sc.total_return_pct if sc else None
     sc_reg = _simular(prep_teste, estrategia, fee_rate=0.0, slippage_pct=0.0)
     a.retorno_sem_custo_regras = sc_reg.total_return_pct if sc_reg else None

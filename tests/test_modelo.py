@@ -514,3 +514,61 @@ def test_avaliar_par_aceita_atributos_customizados_sem_quebrar_default():
 
     assert a_default.status == a_explicito.status
     assert a_default.modelo.coeficientes == a_explicito.modelo.coeficientes
+
+
+# ==================================== spec 049 (H20 backtest real) — T001
+
+def test_avaliar_par_propaga_geometria_ao_backtest_real(monkeypatch):
+    """A geometria usada para rotular/treinar (ParametrosBarreira) MUST chegar
+    ao backtest real das linhas de base que decidem pelo MODELO (modelo,
+    embaralhado, custo de giro) -- antes desta correcao, essas chamadas sempre
+    saiam aos multiplicadores fixos de producao, independente do tp_mult/
+    sl_mult declarado (achado de auditoria, specs/049-h20-backtest-real/
+    spec.md). A linha de base de REGRAS continua nos multiplicadores de
+    producao de proposito -- ela nao usa geometria de barreira alguma, sempre
+    espelha o que o bot realmente operaria."""
+    import backtesting.engine as engine_mod
+    from backtesting.modelo import avaliar_par
+    from strategy.barreira_tripla import ParametrosBarreira
+
+    capturados = []
+    original = engine_mod.simulate_backtest
+
+    def _spy(*args, **kwargs):
+        capturados.append((kwargs.get("atr_tp_multiplier"), kwargs.get("atr_sl_multiplier")))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "simulate_backtest", _spy)
+
+    # n=2000/semente=7: fixture onde a estimacao converge tambem sob tp=2.0 --
+    # a serie padrao de 1200 candles produz matriz singular com esta geometria.
+    df = _serie_onchain_regressao(n=2000, semente=7)
+    a = avaliar_par("BTC/USDT", params=ParametrosBarreira(tp_mult=2.0, sl_mult=1.5), df=df)
+
+    assert a.modelo is not None and a.modelo.convergiu
+    assert (2.0, 1.5) in capturados, capturados
+
+
+def test_avaliar_par_default_propaga_multiplicadores_de_producao(monkeypatch):
+    """params=None MUST propagar exatamente os multiplicadores de producao --
+    o comportamento antigo (sem propagacao alguma) e este (propagando o default,
+    que ja coincide) sao indistinguiveis, o que torna a correcao retrocompativel
+    por construcao (FR-002)."""
+    import backtesting.engine as engine_mod
+    from backtesting.modelo import avaliar_par
+    from config.settings import ATR_SL_MULTIPLIER, ATR_TP_MULTIPLIER
+
+    capturados = []
+    original = engine_mod.simulate_backtest
+
+    def _spy(*args, **kwargs):
+        capturados.append((kwargs.get("atr_tp_multiplier"), kwargs.get("atr_sl_multiplier")))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(engine_mod, "simulate_backtest", _spy)
+
+    df = _serie_onchain_regressao()
+    avaliar_par("BTC/USDT", df=df)
+
+    assert capturados
+    assert all(tp == ATR_TP_MULTIPLIER and sl == ATR_SL_MULTIPLIER for tp, sl in capturados), capturados
