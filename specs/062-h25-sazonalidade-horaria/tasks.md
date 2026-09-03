@@ -32,9 +32,9 @@ description: "Task list for H25 sazonalidade por sessao de negociacao (spec 062)
 
 - [X] T007 [US1] Criar `backtesting/sazonalidade.py`: `JANELAS`, `filtrar_por_sessao` (pura), `_avaliar_par_janela`, `avaliar_sazonalidade` — reusa `precompute_signals`/`simulate_backtest`/`split_train_validation`/`multimarket.classify` sem alteração (depende de T001-T006)
 - [X] T008 [US1] Criar `cmd_sazonalidade()` em `main.py`: roda `avaliar_sazonalidade()` sobre `UNIVERSO_H11` × `JANELAS`, imprime as 36 combinações e o resumo por status, exporta via `export_report`; registrar `"sazonalidade": cmd_sazonalidade` em `COMMANDS`; sincronizar `CLAUDE.md`/`AGENTS.md` (depende de T007)
-- [ ] T009 Rodar `python main.py sazonalidade` contra dados reais
-- [ ] T010 Registrar o resultado real de T009 em `docs/research/registro-de-hipoteses.md` §6.3 (H25) — write-up datado, full transparência sobre quantas combinações confirmaram
-- [ ] T011 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T009 Rodar `python main.py sazonalidade` contra dados reais
+- [X] T010 Registrar o resultado real de T009 em `docs/research/registro-de-hipoteses.md` §6.3 (H25) — write-up datado, full transparência sobre quantas combinações confirmaram
+- [X] T011 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T008 implementação e testes) + (T009-T011 execução real e registro).
 

@@ -3023,6 +3023,34 @@ liquidez restrita; fora do escopo spot.
 - *Custo:* baixo — reusa toda a infraestrutura de backtest existente, só
   filtra candles por hora UTC antes de aplicar a estratégia já testada.
 
+**Atualização — testada e reprovada, mesmo padrão de H5 (2026-09-03, spec 062).**
+`python main.py sazonalidade`, `UNIVERSO_H11` (12 pares) × 3 janelas UTC
+pré-registradas (ásia 0-8h, europa 8-16h, eua 16-24h) = 36 combinações,
+todas classificadas via `backtesting.multimarket.classify` (mesma
+bateria de confirmação fora da amostra de H10/H14/H20 — nenhum critério
+novo).
+
+**Resultado: 0 de 36 combinações confirmadas. `reprovado` em todas.**
+Alguns profit factors filtrados parecem promissores isolados — ETH em
+europa 2,21, TRX em europa 5,31, ATOM em europa `inf` (0 stops), AVAX em
+eua 2,48 — mas nenhum sobrevive `evaluate_approval()` na busca E na
+validação simultaneamente (a maioria falha por drawdown ou contagem
+mínima de trades, não só por profit factor). A tentação de ler os
+números individuais soltos como "quase lá" é exatamente o que a
+disciplina de pré-registro (todas as 36, nenhuma seleção post-hoc) e a
+bateria de confirmação existem para impedir — mesma leitura de H5
+("só na busca"), agora numa granularidade diferente e com zero exceção.
+
+**Fecha a família "filtro de tempo sobre H1".** As duas granularidades
+óbvias de restringir entrada por horário (dia da semana, H5; hora do
+dia, H25) foram testadas com a mesma disciplina de confirmação fora da
+amostra, e nenhuma produziu evidência real. Uma variação de janela
+horária futura precisaria de uma hipótese de mecanismo genuinamente
+nova — não mais um ajuste dos limites das mesmas três janelas.
+
+**Reprodução:** `python main.py sazonalidade` ·
+`specs/062-h25-sazonalidade-horaria/`.
+
 **H26 — Reversão contra funding extremo (crowding/liquidação)** *(adicionada em 2026-09-03)*
 
 - *Fundamentação:* diferente do carry contínuo de H8 (aposta a favor do
