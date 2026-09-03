@@ -2597,6 +2597,88 @@ def cmd_basis():
     )
 
 
+def cmd_funding_cross():
+    """H24 -- diferencial de funding rate entre corretoras, perp x perp,
+    sem perna a vista (spec 061).
+
+    Em vez de comprar a vista e vender perpetuo (H8, exige 2x capital),
+    vende o perpetuo na corretora com funding mais alto e compra o
+    mesmo perpetuo na corretora com funding mais baixo -- explora a
+    DIFERENCA entre corretoras, muitas vezes maior que o funding
+    absoluto de uma corretora isolada. A eficiencia de capital foi
+    investigada, nao presumida (research.md D3): NAO e melhor que H8 --
+    cada corretora exige margem propria (sem margem cruzada entre
+    contas), entao a exigencia de capital e igual (2x o nocional), com
+    risco adicional de capital em duas corretoras. So BTC/USDT e
+    ETH/USDT, 5 corretoras qualificadas (Kraken excluido -- so
+    perpetuo inverso USD/BTC-margined).
+    """
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.funding_cross_carry import BENCHMARK_RENDA_FIXA_AA, avaliar_universo
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H24 -- diferencial de funding entre corretoras (perp x perp)[/]")
+    console.print(f"  [{C_DIM}]sem perna a vista -- explora a DIFERENCA de funding entre "
+                  f"corretoras, nao o funding absoluto de uma so. Eficiencia de capital "
+                  f"investigada: IGUAL a H8 (2x nocional), nao melhor -- cada corretora exige "
+                  f"margem propria[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo()
+    resultados.sort(key=lambda r: r.diferencial_liquido_aa_capital_implantado, reverse=True)
+
+    if not resultados:
+        console.print(f"  [{C_NEG}]nenhum par de corretoras com historico suficiente[/{C_NEG}]")
+        return
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Par")
+    t.add_column("Corretoras")
+    for col in ("dias", "bruto a.a.", "liq./nocional", "liq./capital"):
+        t.add_column(col, justify="right")
+    t.add_column("Direcao")
+    t.add_column("Supera benchmark")
+
+    for r in resultados:
+        cor = C_POS if r.supera_benchmark else C_NEG
+        t.add_row(
+            r.par, f"{r.corretora_a}/{r.corretora_b}", str(r.dias_cobertos),
+            f"{r.diferencial_bruto_aa:+.2%}", f"{r.diferencial_liquido_aa_nocional:+.2%}",
+            f"{r.diferencial_liquido_aa_capital_implantado:+.2%}", r.direcao,
+            f"[{cor}]{r.supera_benchmark}[/{cor}]",
+        )
+    console.print(t)
+    console.print()
+
+    n_supera = sum(1 for r in resultados if r.supera_benchmark)
+    console.print(f"  [{C_LABEL}]{n_supera} de {len(resultados)}[/] pares de corretoras superam "
+                  f"o benchmark ({BENCHMARK_RENDA_FIXA_AA:.0%} a.a.) sobre capital implantado")
+    console.print(f"  [{C_LABEL}]ja publicado (H8, mesma corretora, spot x perp)[/] "
+                  f"BTC +1.54%   ETH +1.07% sobre capital implantado (spec 058)")
+
+    export_report(
+        "funding_cross",
+        {"pares": ["BTC/USDT", "ETH/USDT"], "benchmark_renda_fixa_aa": BENCHMARK_RENDA_FIXA_AA},
+        {
+            "resultados": [
+                {"corretora_a": r.corretora_a, "corretora_b": r.corretora_b, "par": r.par,
+                 "dias_cobertos": r.dias_cobertos, "n_periodos": r.n_periodos,
+                 "diferencial_bruto_aa": r.diferencial_bruto_aa,
+                 "diferencial_liquido_aa_nocional": r.diferencial_liquido_aa_nocional,
+                 "diferencial_liquido_aa_capital_implantado": r.diferencial_liquido_aa_capital_implantado,
+                 "direcao": r.direcao, "supera_benchmark": r.supera_benchmark}
+                for r in resultados
+            ],
+            "n_supera_benchmark": n_supera,
+            "n_total": len(resultados),
+        },
+    )
+
+
 def cmd_triangular():
     """H22 -- arbitragem triangular intra-corretora (spec 060).
 
@@ -2960,6 +3042,7 @@ COMMANDS = {
     "carteira_barreira_corr": cmd_carteira_barreira_corr,
     "funding": cmd_funding,
     "basis": cmd_basis,
+    "funding_cross": cmd_funding_cross,
     "triangular": cmd_triangular,
     "sazonalidade": cmd_sazonalidade,
     "multimercado":  cmd_multimarket,

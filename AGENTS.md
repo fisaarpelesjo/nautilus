@@ -70,6 +70,7 @@ python main.py onchain               # H17 -- isolated BTC-only comparison with/
 python main.py grid                  # H18 -- grid trading with tail-risk management (ADX regime), UNIVERSO_H11 (spec 035)
 python main.py funding               # H8 -- funding rate arbitrage, wide universe and capital efficiency correction (spec 058)
 python main.py basis                 # H23 -- quarterly futures premium (contango) vs perpetual funding (spec 059)
+python main.py funding_cross         # H24 -- cross-exchange funding differential, perp x perp (spec 061)
 python main.py triangular [ETH] [BTC] [USDT]  # H22 -- triangular arbitrage within a single exchange (spec 060)
 python main.py sazonalidade          # H25 -- trading-session seasonality, hour of day UTC (spec 062)
 python main.py funding_extremo       # H26 -- reversal against extreme funding, directional family (spec 063)
