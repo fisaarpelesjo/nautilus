@@ -3281,6 +3281,65 @@ def cmd_fator_tamanho():
     )
 
 
+def cmd_liquidacao():
+    """H34 -- reversao pos-liquidacao, proxy pavio+volume (spec 070).
+
+    Cascatas de liquidacao forcada deixam assinatura observavel em OHLCV --
+    pavio inferior >= 50% do range do candle, volume >= 3x a media movel e
+    fechamento de recuperacao -- proxy declarado ANTES de medir (D1/D2),
+    sem dado real de liquidacao (Binance nao publica historico livre de
+    forceOrder). Avaliada pela bateria comum E1-E6
+    (backtesting/bateria_hipotese.py) sobre UNIVERSO_H11 (12 pares).
+    """
+    import dataclasses
+
+    from rich import box
+    from rich.table import Table
+
+    from backtesting.approval import verdict_markup
+    from backtesting.reversao_pos_liquidacao import avaliar_universo
+    from utils.display import C_CYAN, C_DIM, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H34 -- reversao pos-liquidacao[/]")
+    console.print(f"  [{C_DIM}]proxy: pavio >= 50% do range + volume >= 3x a media + fechamento de "
+                  f"recuperacao -- sem dado real de liquidacao (Binance nao publica forceOrder)[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo()
+
+    t = Table(box=box.SIMPLE_HEAD)
+    t.add_column("Par")
+    t.add_column("E1 sanidade")
+    t.add_column("E2 janela unica")
+    t.add_column("E3 status")
+    t.add_column("E4 timing medio pp", justify="right")
+    t.add_column("E5 timing pp", justify="right")
+    t.add_column("E6 com custo")
+    t.add_column("E6 sem custo")
+
+    for par, r in resultados.items():
+        timing_medio = r.e4_resumo.get("timing_medio_pp")
+        t.add_row(
+            par,
+            str(r.e1_sanidade_ok),
+            verdict_markup(r.e2_janela_unica),
+            r.e3_status or "--",
+            f"{timing_medio:+.2f}" if timing_medio is not None else "--",
+            f"{r.e5_ganho_de_timing_pp:+.2f}" if r.e5_ganho_de_timing_pp is not None else "--",
+            verdict_markup(r.e6_com_custo),
+            verdict_markup(r.e6_sem_custo),
+        )
+    console.print(t)
+
+    export_report(
+        "liquidacao",
+        {"universo": list(resultados.keys())},
+        {par: dataclasses.asdict(r) for par, r in resultados.items()},
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3316,6 +3375,7 @@ COMMANDS = {
     "carteira_teto": cmd_carteira_teto,
     "geometria": cmd_geometria,
     "fator_tamanho": cmd_fator_tamanho,
+    "liquidacao": cmd_liquidacao,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "meta_labeling": cmd_meta_labeling,
