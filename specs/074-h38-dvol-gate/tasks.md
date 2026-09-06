@@ -28,9 +28,9 @@ description: "Task list for H38 dvol gate precondicao (spec 074)"
 - [X] T002 [P] [US1] Criar `data/deribit.py`: `fetch_dvol_history(currency, dias, resolution)` via `get_volatility_index_data` (mesmo padrão de `data/onchain.py` — levanta exceção em falha, nunca DataFrame parcial como sucesso) (depende de T001)
 - [X] T003 [US1] Criar `backtesting/dvol_gate.py`: docstring com D1-D5 declarados antes de medir; reconstrói a população "entrada primária" de H27 (mesmos blocos — `EmaRsiStrategy`, `precompute_signals`, `rotular`, `UNIVERSO_H11` — sem importar/alterar `meta_labeling.py`), divide por decil de DVOL (D3), `avaliar_precondicao_dvol()` chama `meta_labeling.avaliar_precondicao()` uma vez para reportar o número já publicado de H27 lado a lado (depende de T002)
 - [X] T004 [US1] Criar `cmd_dvol_gate()` em `main.py`: roda `avaliar_precondicao_dvol()`, imprime os dois subgrupos e o veredito de precondição, exporta via `export_report`; registrar `"dvolgate": cmd_dvol_gate` em `COMMANDS`; sincronizar `CLAUDE.md`/`AGENTS.md` (depende de T003)
-- [ ] T005 Rodar `python main.py dvolgate` contra dados reais
-- [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §6.1 (H38) — comparação explícita com H27 (FR-009), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
-- [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T005 Rodar `python main.py dvolgate` contra dados reais
+- [X] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §6.1 (H38) — comparação explícita com H27 (FR-009), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
+- [X] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T004 implementação e testes) + (T005-T007 execução real e registro).
 

@@ -3415,6 +3415,34 @@ quando o horizonte declarado diverge do típico das demais hipóteses.
   `yfinance`/`blockchain.info`) — precisa de um cliente HTTP simples novo em
   `data/sources/`.
 
+**Atualização — testada, PRECONDIÇÃO NÃO ATENDIDA, na direção OPOSTA à declarada (2026-09-06, spec 074).**
+`python main.py dvolgate`, `UNIVERSO_H11` (mesma população de H27, 6.000
+candles/par): decil mais alto de DVOL calibrado em 60,03 sobre a série
+real do índice (12 pares com DVOL alinhável). Baseline já publicado por
+H27 sobre a mesma população: n=745, razão 0,5022, não supera o empate.
+
+**Resultado: o subgrupo de DVOL alto teve razão MELHOR, não pior.**
+`dvol alto` (decil 90+): n=44, alvo=15, stop=25, razão 0,6000. `resto`:
+n=601, alvo=184, stop=368, razão 0,5000 — exatamente no empate. A
+direção observada é a OPOSTA da hipótese principal declarada em D1
+(esperava-se `resto > dvol_alto`, DVOL em stress discriminando para
+pior). Nenhum dos dois subgrupos supera o empate com confiança
+isoladamente (amostra de 44 eventos no grupo de stress é pequena demais
+para qualquer leitura ter peso individual — mesma disciplina de M9/M13).
+
+**Veredito: PRECONDIÇÃO NÃO ATENDIDA — mesmo desfecho estrutural de H27,
+por um motivo diferente e mais específico.** H27 encerrou por o sinal
+primário como um todo não superar o empate (0,5011 global). H38 mostra
+que, mesmo dividindo essa população por DVOL, não há evidência de que a
+volatilidade implícita discrimine eventos bons de ruins na direção
+esperada — o ponto estimado aponta na direção contrária, mas com amostra
+pequena demais (n=44) para essa inversão ser lida como um achado real,
+não ruído. Spec encerrada por desenho: não prossegue para uma
+implementação completa do gate aditivo em produção, que não teria o que
+filtrar. Comparação com H27 (FR-009): mesma arquitetura de precondição,
+mesma conclusão prática (gate/filtro não testável sobre este sinal
+primário), motivos tecnicamente distintos.
+
 **H39 — Arbitragem estatística via PCA/eigenportfolio**
 *(adicionada em 2026-09-06, deepsearch)*
 
