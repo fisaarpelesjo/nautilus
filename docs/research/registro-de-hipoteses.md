@@ -2823,6 +2823,32 @@ medição desta vez (98 eventos foi amostra suficiente), então o resultado
   motor existente (estratégia de reversão à média de H3, sem mudança) sobre
   `USDC/USDT`.
 
+**Atualização — testada, INCONCLUSIVA por amostra insuficiente (2026-09-06, spec 072).**
+`python main.py stablecoin`, `USDC/USDT` (4h, 2000 candles ≈ 11 meses):
+`strategy/mean_reversion.py::MeanReversionStrategy` (H3, sem nenhuma
+alteração) produziu apenas 5 trades na janela única completa — abaixo do
+mínimo de 10 exigido por `evaluate_approval`, tanto na janela única quanto
+na busca (3 trades) e na confirmação (1 trade). E1 sanidade passou `True`
+(harness sem defeito de motor). Walk-forward (5 janelas): timing médio
+−0,0099pp, pior −0,0211pp, retorno médio −0,0224%, drawdown máximo 0,033%
+— números pequenos em módulo absoluto, condizentes com um instrumento de
+volatilidade quase nula, mas amostra pequena demais (0-2 trades por janela)
+para qualquer leitura ter peso.
+
+**Veredito: INCONCLUSIVA — confirma a expectativa alternativa declarada
+antes de medir, não a REPROVAÇÃO originalmente esperada.** Diferente de H3
+nos outros pares (BTC/SOL/ETH, seção 4.4: 25-35 trades, win rate mensurável
+de 20-31%, REPROVADA com sinal claro), aqui a estratégia BB+RSI simplesmente
+quase não encontra evento em `USDC/USDT` no horizonte de 4h — a banda
+inferior raramente é tocada num preço que oscila em torno de 1,0000 com
+desvio padrão de ~0,02%. Isso confirma diretamente D3 (research.md): se a
+reversão real do par acontece em segundos (dominada por bots MEV, como a
+literatura descreve), um candle de 4h não tem resolução para gerar
+eventos suficientes — o resultado é ausência de amostra, não um sinal
+capturado e ruim. O instrumento muda o comportamento da mesma estratégia
+de forma qualitativa (poucos eventos) e não só quantitativa (eventos ruins),
+diferença que só a medição direta revelou.
+
 ### 6.2 Prioridade média
 
 *(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.
