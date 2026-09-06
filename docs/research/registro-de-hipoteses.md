@@ -3360,6 +3360,39 @@ para ser descartada.
   dificuldade, usada por H17/H32); só precisa da razão de médias móveis e do
   cruzamento como sinal de entrada/saída sobre o motor de backtest existente.
 
+**Atualização — testada e REPROVADA, com amostra real (2026-09-06, spec 073).**
+`python main.py hashribbons`, `BTC/USDT` (candles cobrindo a janela real
+de hashrate disponível, ~2023-09 em diante): cruzamento de médias de
+30/60 dias do hashrate como sinal de entrada/saída direto, SL/TP por ATR
+do motor ativo sem alteração. E1 sanidade passou `True`.
+
+**Resultado: profit factor abaixo do mínimo em todas as janelas.** Janela
+única: retorno −1,30%, profit factor 0,50 (mínimo exigido 1,2), não supera
+buy-and-hold (+199,61% no período — forte alta de BTC). Busca: retorno
+−0,76%, PF 0,50, buy-and-hold +330,20%. Confirmação: PF 0,49. Walk-forward
+(5 janelas): timing médio −0,44pp, pior −1,45pp, só 1 de 5 janelas com
+timing positivo, drawdown máximo 1,08%. Sensibilidade a custo (E6): PF
+melhora de 0,50 para 0,71 sem custo, mas ainda abaixo do mínimo — custo de
+execução não é o que decide esta reprovação, a assinatura de
+ganho/perda por trade é.
+
+**Veredito: REPROVADA — diferente de H34 (inconclusiva por amostra quase
+nula), aqui a amostra foi suficiente em todas as etapas para o resultado
+ter peso estatístico real, e o resultado é consistentemente negativo.**
+Comparação com H17/H32 (FR-008): mesma fonte de dado
+(`api.blockchain.info`), mecanismo de sinal categoricamente diferente —
+H17/H32 usam atividade de rede/volume transacionado como ATRIBUTO de um
+classificador supervisionado (H14), aqui o hashrate dirige o sinal de
+entrada/saída DIRETAMENTE, sem modelo intermediário. Os dois mecanismos
+falharam, mas por caminhos distintos: H17 foi `insuficiente` (sinal
+estatístico não demonstrado), H36 teve sinal claro e mensurável, só que na
+direção errada para pagar a barreira de risco/retorno do bot. O
+SL/TP/trailing por ATR do motor não impediu a medição do holding longo
+original (~253 dias na literatura) — a bateria completa rodou sem
+travar, mesmo com esse descompasso de horizonte, confirmando que a
+infraestrutura de risco existente processa o sinal normalmente mesmo
+quando o horizonte declarado diverge do típico das demais hipóteses.
+
 **H38 — Gate por volatilidade implícita (Deribit DVOL)**
 *(adicionada em 2026-09-06, deepsearch)*
 
