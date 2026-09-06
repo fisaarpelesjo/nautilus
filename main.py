@@ -3453,6 +3453,49 @@ def cmd_mean_reversion_stablecoin():
     export_report("stablecoin", {"par": PAR}, dataclasses.asdict(relatorio))
 
 
+def cmd_hash_ribbons():
+    """H36 -- hash ribbons, capitulacao de mineradores (spec 073).
+
+    Cruzamento de medias moveis de 30/60 dias do hashrate de Bitcoin
+    (Charles Edwards/Capriole) -- mecanismo de OFERTA (economia de
+    mineracao), categoricamente diferente de qualquer sinal de preco,
+    posicionamento ou atividade de rede ja testado (H14, H17, H32).
+    Cruzamento de alta = BUY, cruzamento de baixa = SELL -- sem SL/TP
+    artificial, o ATR do motor permanece ativo. BTC-only por natureza
+    (hashrate e exclusivo da rede Bitcoin), amostra esperada pequena
+    (no maximo ~16 cruzamentos de alta na serie completa).
+    """
+    import dataclasses
+
+    from backtesting.hash_ribbons import PAR, avaliar
+    from utils.display import C_CYAN, C_DIM, C_NEG, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H36 -- hash ribbons ({PAR})[/]")
+    console.print(f"  [{C_DIM}]cruzamento de medias de 30/60 dias do hashrate -- entrada/saida pelo "
+                  f"proprio indicador, sem SL/TP artificial. BTC-only, amostra esperada pequena[/{C_DIM}]")
+    console.print()
+
+    relatorio = avaliar()
+
+    if relatorio is None:
+        console.print(f"  [{C_NEG}]sem historico suficiente de candles ou hashrate para {PAR}[/{C_NEG}]")
+        return
+
+    console.print(f"  e1_sanidade_ok        = {relatorio.e1_sanidade_ok}")
+    console.print(f"  e2_janela_unica       = {relatorio.e2_janela_unica}")
+    console.print(f"  e3_busca              = {relatorio.e3_busca}")
+    console.print(f"  e3_confirmacao        = {relatorio.e3_confirmacao}")
+    console.print(f"  e3_status             = {relatorio.e3_status}")
+    console.print(f"  e4_resumo             = {relatorio.e4_resumo}")
+    console.print(f"  e5_ganho_de_timing_pp = {relatorio.e5_ganho_de_timing_pp}")
+    console.print(f"  e6_com_custo          = {relatorio.e6_com_custo}")
+    console.print(f"  e6_sem_custo          = {relatorio.e6_sem_custo}")
+
+    export_report("hash_ribbons", {"par": PAR}, dataclasses.asdict(relatorio))
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3491,6 +3534,7 @@ COMMANDS = {
     "liquidacao": cmd_liquidacao,
     "crowding": cmd_crowding,
     "stablecoin": cmd_mean_reversion_stablecoin,
+    "hashribbons": cmd_hash_ribbons,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "meta_labeling": cmd_meta_labeling,

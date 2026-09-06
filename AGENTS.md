@@ -80,6 +80,7 @@ python main.py fator_tamanho         # H30 -- size/illiquidity factor, cross-sec
 python main.py liquidacao            # H34 -- post-liquidation reversal, wick+volume proxy (spec 070)
 python main.py crowding              # H35 -- crowding via long/short ratio and open interest (spec 071)
 python main.py stablecoin            # H37 -- mean reversion on stablecoin pair, USDC/USDT (spec 072)
+python main.py hashribbons           # H36 -- hash ribbons, miner capitulation BTC-only (spec 073)
 python main.py optimize             # grid search best EMA/RSI/ATR/volume/BB parameters
 python main.py analyze              # summarize data/trades.csv
 python main.py decisions            # summarize data/decisions.csv: signals, blockers, average RSI by signal
