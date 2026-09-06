@@ -1,12 +1,14 @@
 -r requirements.txt
-ruff
-mypy
-pytest-cov
-pre-commit
+ruff==0.16.3
+mypy==2.3.0
+pytest-cov==7.1.0
+pytest-xdist==3.8.0
+pre-commit==4.6.2
+detect-secrets==1.5.0
 # Pesquisa apenas (teste ADF em backtesting/pairs_trading.py).
 # NAO entra em requirements.txt: o bot em producao nao negocia pares.
-statsmodels
+statsmodels==0.15.0
 # Pesquisa apenas (copula gaussiana em backtesting/pairs_copula.py, H29).
 # Instalada como dependencia transitiva ate aqui -- declarada explicitamente
 # para nao depender disso continuar sendo verdade.
-scipy
+scipy==1.18.1

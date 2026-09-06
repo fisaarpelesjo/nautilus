@@ -451,3 +451,8 @@ dash          # local web server for interactive chart
 - Always validate in **paper mode for weeks** before going live
 - Bot operates **long positions only** (buy). Short is not implemented.
 - Treat `TRADING_MODE=live` changes as high risk — explicit confirmation required.
+- **Secret scanner in pre-commit** (`detect-secrets`, `.secrets.baseline`): blocks committing a real
+  key/token before it ever reaches `.gitignore` — defense in depth after the real leak in M5
+  (`.env.bak*` outside `.gitignore`, fixed manually on 2026-09-01). A genuine new finding should
+  never be resolved by regenerating the baseline without investigating; only a confirmed false
+  positive goes into the baseline.

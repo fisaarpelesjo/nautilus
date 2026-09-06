@@ -429,3 +429,9 @@ dash          # servidor web local para o chart interativo
 - **Nunca habilitar saque nas API keys da Binance** — permissões necessárias: Leitura + Trading Spot apenas
 - Sempre validar no **modo paper por semanas** antes de ir para live
 - O bot opera apenas posições **long** (compra). Short não está implementado.
+- Trate mudanças em `TRADING_MODE=live` como alto risco — exigem confirmação explícita.
+- **Scanner de segredos no pre-commit** (`detect-secrets`, `.secrets.baseline`): bloqueia commit de
+  chave/token real antes de chegar ao `.gitignore` — defesa em profundidade depois do vazamento real
+  de M5 (`.env.bak*` fora do `.gitignore`, corrigido manualmente em 2026-09-01). Um achado novo real
+  nunca deve ser resolvido regenerando o baseline sem investigar; só falso positivo comprovado entra
+  no baseline.
