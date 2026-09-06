@@ -3789,6 +3789,17 @@ para passar esta, por construcao, reprovada.
 | E5 — Desconto de exposicao | `ganho_de_timing_pp` | Ganho de timing proximo de zero: o resultado e ausencia, nao selecao |
 | E6 — Sensibilidade a custo | Reexecucao com taxa e slippage zerados | Vantagem desaparece integralmente ao reintroduzir custo realista |
 
+**Harness comum, a partir de H34 (2026-09-06).** `backtesting/bateria_hipotese.py::rodar_bateria`
+orquestra E1-E6 reusando as pecas ja genericas (`evaluate_approval`, `split_train_validation`,
+`multimarket.classify`, `WalkForwardFold`/`resumir_walk_forward`, `exposicao_de_capital`,
+`ganho_de_timing`) — a unica peca que faltava era um walk-forward generico sobre um unico
+dataframe (`walk_forward_generico`, o `walk_forward` de `cross_sectional.py` e especifico de
+carteira). Reduz H8-H33 reimplementando a mesma orquestracao modulo a modulo para uma chamada:
+`rodar_bateria(candles, gerar_resultado, teste_sanidade=...)`. Deliberadamente **nao** retroage
+sobre H8-H33 — mudar o motor de uma hipotese ja publicada arriscaria alterar um numero ja citado
+neste registro sem necessidade (licao de M1, §5). Hipoteses novas (H34+) devem importar dali em vez
+de reimplementar a bateria por conta propria.
+
 **E1 e E5 sao as etapas mais recentes e as que mais reprovaram.** E1 impede que
 um defeito de motor seja lido como resultado de estrategia; E5 impede que
 exposicao reduzida seja lida como habilidade.
