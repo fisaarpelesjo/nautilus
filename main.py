@@ -3340,6 +3340,75 @@ def cmd_liquidacao():
     )
 
 
+def cmd_crowding():
+    """H35 -- crowding via long/short ratio e open interest (spec 071).
+
+    Diferente de funding rate (H8/H23/H24/H26, mede o CUSTO de manter a
+    posicao), long/short ratio e open interest medem o POSICIONAMENTO em
+    si -- contas compradas vs. vendidas e capital comprometido. Aposta
+    CONTRARIA long-only: ratio no decil mais baixo do proprio par
+    (crowded short) confirmado por open interest acima da mediana de
+    treino, avaliada pela mesma barreira tripla de H14/H26. Retencao real
+    do endpoint medida empiricamente (~31 dias, D6) -- muito menor que a
+    de funding rate, por isso pooled entre pares em vez do harness E1-E6.
+    Familia direcional que ja falhou em 22 avaliacoes anteriores deste
+    registro -- expectativa honesta declarada e REPROVADA/INCONCLUSIVA,
+    nao aprovacao.
+    """
+    from backtesting.crowding_extremo import agregar_pooled, avaliar_universo
+    from utils.display import C_CYAN, C_DIM, C_LABEL, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H35 -- crowding via long/short ratio e open interest[/]")
+    console.print(f"  [{C_DIM}]long/short ratio no decil mais baixo (crowded short, calibrado so no "
+                  f"treino) + open interest acima da mediana de treino -- gatilho de entrada longa "
+                  f"contraria, avaliado pela barreira tripla de H14. Familia direcional, expectativa "
+                  f"honesta: REPROVADA/INCONCLUSIVA[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo()
+
+    if not resultados:
+        console.print(f"  [{C_NEG}]nenhum par do universo tem mercado perpetuo com historico "
+                       f"suficiente das duas series[/{C_NEG}]")
+        return
+
+    for r in resultados:
+        razao_txt = "inf" if r.razao_validacao == float("inf") else f"{r.razao_validacao:.4f}"
+        console.print(f"  [{C_LABEL}]{r.par:<10}[/] retencao={r.retencao_dias:5.1f}d  "
+                      f"limiar_ratio={r.limiar_ratio:.4f}  mediana_oi=${r.mediana_oi:,.0f}  "
+                      f"eventos_treino={r.n_eventos_treino:4d}  eventos_val={r.n_eventos_validacao:4d}  "
+                      f"alvo={r.alvo_validacao:4d}  stop={r.stop_validacao:4d}  razao={razao_txt:>7}")
+    console.print()
+
+    agregado = agregar_pooled(resultados)
+    razao_txt = "inf" if agregado["razao"] == float("inf") else f"{agregado['razao']:.4f}"
+    cor = C_POS if agregado["supera_empate"] else C_NEG
+
+    console.print(f"  [bold {C_CYAN}]pooled[/] pares={agregado['n_pares']}  "
+                  f"alvo={agregado['n_alvo']}  stop={agregado['n_stop']}  razao={razao_txt}  "
+                  f"empate={agregado['empate']:.4f}")
+    console.print(f"  [bold]supera_empate_ci95[/bold] [{cor}]{agregado['supera_empate']}[/{cor}]")
+
+    export_report(
+        "crowding",
+        {"n_pares_universo": len(resultados)},
+        {
+            "por_par": [
+                {"par": r.par, "retencao_dias": r.retencao_dias, "limiar_ratio": r.limiar_ratio,
+                 "mediana_oi": r.mediana_oi, "n_treino": r.n_treino,
+                 "n_eventos_treino": r.n_eventos_treino, "n_validacao": r.n_validacao,
+                 "n_eventos_validacao": r.n_eventos_validacao, "alvo_validacao": r.alvo_validacao,
+                 "stop_validacao": r.stop_validacao, "razao_validacao": r.razao_validacao,
+                 "supera_empate_validacao": r.supera_empate_validacao}
+                for r in resultados
+            ],
+            "pooled": agregado,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3376,6 +3445,7 @@ COMMANDS = {
     "geometria": cmd_geometria,
     "fator_tamanho": cmd_fator_tamanho,
     "liquidacao": cmd_liquidacao,
+    "crowding": cmd_crowding,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "meta_labeling": cmd_meta_labeling,

@@ -2755,6 +2755,8 @@ declarados, no universo/histórico usado, gerem amostra suficiente para
 julgá-la. Reabrir exigiria limiares mais permissivos (ex.: pavio ≥ 30-40%,
 volume ≥ 2x) declarados de novo ANTES de medir, ou histórico mais longo por
 par — não um ajuste post-hoc para "passar" com os mesmos dados já vistos.
+
+**H35 — Crowding via long/short ratio e open interest (Binance)**
 *(adicionada em 2026-09-06, deepsearch)*
 
 - *Fundamentação:* `GET /futures/data/globalLongShortAccountRatio` e o

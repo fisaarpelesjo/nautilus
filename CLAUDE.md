@@ -76,6 +76,7 @@ python main.py funding_extremo       # H26 -- reversao contra funding extremo, f
 python main.py meta_labeling         # H27 -- meta-labeling, precondicao sobre o sinal primario EMA/RSI (spec 064)
 python main.py fator_tamanho         # H30 -- fator de tamanho/iliquidez, cross-sectional sem timing (spec 067)
 python main.py liquidacao            # H34 -- reversao pos-liquidacao, proxy pavio+volume (spec 070)
+python main.py crowding              # H35 -- crowding via long/short ratio e open interest (spec 071)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal
