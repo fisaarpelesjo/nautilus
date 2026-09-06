@@ -1,9 +1,9 @@
 # Registro de Hipóteses — Avaliação Sistemática de Estratégias
 
-**Documento vivo.** Última atualização: 2026-09-03
+**Documento vivo.** Última atualização: 2026-09-06
 **Escopo:** todas as hipóteses de geração de retorno avaliadas neste projeto,
 com veredito, evidência e procedência.
-**Status:** busca ativa encerrada por decisão em 2026-09-03 — ver §8.
+**Status:** busca reaberta por decisão em 2026-09-06 — ver §6.0 e §8.
 
 ---
 
@@ -2666,7 +2666,94 @@ declarado ainda merece ser olhado por dentro antes de virar conclusão.
 
 Fila de avaliação, ordenada por razão evidência-publicada / custo-de-implementação.
 
+### 6.0 Reabertura da busca (2026-09-06)
+
+O encerramento de §7.2/§8 (2026-09-03) foi uma decisão sobre onde investir
+esforço, não uma afirmação de impossibilidade — o próprio texto já previa
+reabertura "com uma hipótese de mecanismo genuinamente novo". Em 2026-09-06 o
+usuário decidiu reabrir o ciclo, pedindo explicitamente mecanismos ainda não
+cogitados neste registro, não variações paramétricas das 33 hipóteses já
+fechadas (H1-H33).
+
+**Deepsearch realizado (2026-09-06)** sobre categorias fora das quatro famílias
+já esgotadas (§8): posicionamento/crowding via dados diferentes de funding rate,
+padrões ligados a liquidação forçada, economia de mineração, matemática de
+arbitragem estatística não-supervisionada (PCA), volatilidade implícita de
+opções como filtro externo, e microestrutura de order book. Resultado: sete
+hipóteses novas (H34-H40), cada uma com fonte de dado ou mecanismo que nenhuma
+das 33 anteriores usou, adicionadas à fila abaixo nas seções correspondentes de
+prioridade. Descartadas do deepsearch por caírem em família já fechada sem
+mecanismo novo: sazonalidade fim-de-semana (mesma família de H5/H25, ver
+§6.3-b) e "efeito de nova listagem" (é regra defensiva de exclusão de par, não
+fonte de alpha, dado que o bot só compra).
+
+**Ordem de execução decidida com o usuário:** autônoma, por razão
+evidência/custo — H34 → H35 → H37 → H36 → H38 → H39 → H40, registrando cada
+veredito neste documento conforme sai, sem pausa para aprovação entre uma e
+outra.
+
 ### 6.1 Prioridade alta
+
+**H34 — Reversão pós-liquidação (padrão de vela: pavio + pico de volume)**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* cascatas de liquidação forçada (traders alavancados
+  liquidados em cadeia, cada rodada de venda forçada gerando a próxima) deixam
+  uma assinatura observável em candles: pavio longo (preço ultrapassa e volta),
+  pico de volume muito acima da média, e recuperação rápida — literatura de
+  mercado (Bitsgap, XT Exchange, smartmoneyapi, 2026) descreve o padrão em
+  detalhe: bounce tipicamente 30-120s após o início da cascata, recuperando
+  metade do território perdido em minutos. Mecanismo é liquidação forçada de
+  terceiros, não previsão de direção do preço — categoricamente diferente de
+  H1-H7/H13 (que leem o mesmo OHLCV como sinal técnico de tendência/reversão).
+- *Obstáculo, real:* não temos dado de liquidação real (Binance não publica
+  histórico livre de `forceOrder`) — o teste usa pavio+volume como PROXY da
+  cascata, não a cascata medida diretamente. Risco de reproduzir H3 (reversão à
+  média via BB+RSI, reprovada, win rate 20-31%) com um filtro de entrada
+  diferente sobre o mesmo fenômeno de ruído. Precisa declarar o limiar de
+  pavio/volume ANTES de medir (mesma disciplina de H5/H13/H20), para não
+  ajustar até passar.
+- *Custo:* mínimo — nenhuma infraestrutura nova. OHLCV já coletado, motor de
+  backtest existente. Primeira hipótese desta leva testável no mesmo dia.
+
+**H35 — Crowding via long/short ratio e open interest (Binance)**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* `GET /futures/data/globalLongShortAccountRatio` e o
+  endpoint de open interest (API pública Binance, sem chave, confirmado nesta
+  sessão) medem POSICIONAMENTO bruto — contagem de contas compradas vs.
+  vendidas e capital total comprometido — categoricamente diferente de funding
+  rate (H8/H26, mede o CUSTO de manter a posição, não o volume dela). Extremos
+  de long/short ratio são citados na literatura prática como indicador
+  contrário de crowding, distinto do gatilho de H26 (funding extremo).
+- *Obstáculo:* mesma base rate que já reprovou H26 (22 hipóteses direcionais
+  consecutivas sem sobreviver a confirmação — §6.3-b) — declarar expectativa
+  honesta baixa antes de medir, não é razão para pular a medição, já que o dado
+  subjacente é genuinamente diferente (posição vs. custo de posição). Histórico
+  do endpoint é limitado (Binance não garante retenção longa) — precisa medir
+  quanto histórico real está disponível antes de dimensionar a bateria.
+- *Custo:* baixo — mesmo padrão de `data/funding.py` (spec 058): um fetcher
+  novo, sem mudar execução.
+
+**H37 — Mean reversion em par de stablecoin (USDC/USDT)**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* USDC/USDT é um símbolo negociável na Binance hoje, nunca
+  testado neste registro. Literatura (Bitsgap 2026, ResearchGate) documenta
+  desvios de US$0,003-0,010 do par revertendo em minutos por arbitragem de
+  resgate — instrumento categoricamente diferente de qualquer par já testado
+  (volatilidade quase nula, reversão determinística por design do emissor, não
+  por comportamento de mercado).
+- *Obstáculo, esperado a partir da própria literatura:* as janelas de
+  arbitragem "duram segundos", dominadas por bots MEV — mesmo padrão que já
+  zerou H15/H22 (arbitragem pura). Expectativa honesta de reprovação declarada
+  antes de medir; o valor do teste é descartar a família com evidência própria
+  em vez de só citar a literatura de terceiros.
+- *Custo:* quase zero — símbolo já suportado por `PAIRS`/backtest, só roda o
+  motor existente (estratégia de reversão à média de H3, sem mudança) sobre
+  `USDC/USDT`.
+
+### 6.2 Prioridade média
 
 *(H10 avaliada em 2026-09-01 — ver seção 4.11. Status: inconclusiva, requer reavaliação com histórico mais longo.
 Reavaliada em 2026-09-02 (`specs/039-reavaliar-h10-pairs-trading/`): seletor
@@ -3153,6 +3240,99 @@ para ser descartada.
 `specs/067-h30-fator-tamanho-iliquidez/`.
 
 ### 6.2 Prioridade média
+
+**H36 — Hash Ribbons: capitulação de mineradores (BTC-only)**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* indicador de Charles Edwards/Capriole (2019): cruzamento da
+  média de 30d sobre a de 60d do hashrate de Bitcoin. "Capitulação" (30d < 60d,
+  mineradores desligando) seguida de recuperação (30d cruza acima de novo)
+  historicamente precede fundos de ciclo — mecanismo de OFERTA (economia de
+  mineração: custo de energia vs. preço do BTC), categoricamente diferente de
+  qualquer sinal de preço, posicionamento ou on-chain de demanda já testado
+  (H14: técnico: H17/H32: atividade de rede/volume transacionado). Backtest
+  público (Look Into Bitcoin) reporta 64,29% de sinais lucrativos desde 2013,
+  batendo buy-and-hold no agregado — não é a barra de aprovação deste projeto,
+  mas indica que vale medir com o critério próprio.
+- *Obstáculo:* BTC-only por natureza (hashrate é da rede Bitcoin, não de
+  altcoins) — amostra pequena por construção: ~14 sinais em 13 anos, holding
+  médio de 253 dias. Ao critério de `EDGE_MIN_TRADES` (≥10) deste projeto,
+  meio histórico completo da Binance mal cobre trades suficientes — risco real
+  de esbarrar em `inconclusivo` por amostra, não por ausência de sinal (mesma
+  categoria de H10 antes da correção de spec 054).
+- *Custo:* baixo — mesma fonte já integrada (`api.blockchain.info`, hashrate e
+  dificuldade, usada por H17/H32); só precisa da razão de médias móveis e do
+  cruzamento como sinal de entrada/saída sobre o motor de backtest existente.
+
+**H38 — Gate por volatilidade implícita (Deribit DVOL)**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* Deribit publica DVOL (índice de volatilidade implícita de
+  30 dias de BTC/ETH) via API pública, sem chave — fonte de dado nova,
+  proveniente do mercado de OPÇÕES, nunca usada neste registro. Filtro
+  aditivo sobre a estratégia spot já existente (mesmo padrão de
+  `REGIME_FILTER_ENABLED`/H28), não uma estratégia de opções nova — não exige
+  negociar o instrumento cuja informação está sendo lida, só usa o nível/
+  variação do DVOL como gate de regime (ex.: suspender entradas quando IV
+  dispara, sinal de crowding/stress que o ADX interno não captura).
+- *Obstáculo:* mesma disciplina de pré-registro de H28 (declarar limiar/direção
+  do gate ANTES de medir) — e o mesmo risco de fundo: um filtro aditivo sobre
+  uma estratégia primária sem edge comprovado (H1, reprovada) tem o mesmo
+  problema estrutural que quase bloqueou H27 (meta-labeling) — precisa
+  verificar precondição (o gate discrimina eventos bons/ruins de verdade) antes
+  de declarar aprovação.
+- *Custo:* baixo-médio — API nova (Deribit, pública, sem chave), mas
+  categoricamente diferente de qualquer fonte já integrada (`ccxt`/
+  `yfinance`/`blockchain.info`) — precisa de um cliente HTTP simples novo em
+  `data/sources/`.
+
+**H39 — Arbitragem estatística via PCA/eigenportfolio**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* matemática genuinamente diferente de H10 (cointegração par
+  a par, z-score) e H29 (cópula, par a par): decompõe o universo inteiro por
+  componentes principais dos retornos, constrói eigenportfolios, estima
+  reversão à média do resíduo via processo de Ornstein-Uhlenbeck (framework
+  clássico de Avellaneda-Lee) — relação MUITAS-para-muitas, não par a par.
+- *Obstáculo, já medido na literatura (SSRN, Jay Jung, 2025):* a abordagem
+  citada testa exatamente isso em cripto e reporta resultado majoritariamente
+  negativo — a estrutura de fatores cripto (fator BTC dominante, correlações
+  de altcoin que mudam rápido) não produz resíduos estáveis de reversão à
+  média como em equities. Expectativa honesta declarada baixa antes de medir,
+  no mesmo padrão de H26 (a literatura já aponta o resultado provável; medir
+  aqui é confirmar com o critério e o universo próprios do projeto, não
+  redescobrir do zero).
+- *Custo:* médio — precisa de decomposição PCA (`numpy`/`scikit-learn`, nenhuma
+  dependência nova de peso) sobre o universo já usado por H10/H29
+  (`UNIVERSO_AMPLO_HISTORICO_COMPLETO`), estimação de OU no resíduo, e
+  critério de entrada/saída novo — reusa seleção de universo e motor de
+  aprovação, não o seletor par a par de H10.
+
+### 6.3 Prioridade baixa (nova entrada)
+
+**H40 — Desequilíbrio de order book / toxicidade de fluxo (VPIN)**
+*(adicionada em 2026-09-06, deepsearch)*
+
+- *Fundamentação:* categoria inteiramente nova — microestrutura, nunca tocada
+  neste registro (todas as 33 hipóteses anteriores usam OHLCV ou dado
+  agregado por candle). Literatura acadêmica recente (SSRN 2025, ScienceDirect
+  2025, arXiv 2026) documenta que desequilíbrio no topo do livro de ofertas e
+  VPIN (probabilidade de negociação informada) preveem retorno de curtíssimo
+  prazo e saltos de preço em perpétuos de BTC — sinal que não deriva de preço
+  passado nem de indicador técnico.
+- *Obstáculo, o mais caro desta leva:* o horizonte preditivo documentado é de
+  segundos a poucos minutos — muito abaixo do candle de 4h e do poll de 60s do
+  bot. Não é retrotestável (livro de ofertas histórico não existe, mesmo
+  princípio de H15) — exigiria uma campanha de medição ao vivo (reusando
+  `execution/liquidity.py`, já lê o book real) e, provavelmente, mudança de
+  frequência de decisão para caber no horizonte do sinal. Maior mudança de
+  arquitetura de toda a leva de H34-H40.
+- *Custo:* alto — infraestrutura de captura de snapshots do book em alta
+  frequência, definição de VPIN/desequilíbrio a partir daí, e um instrumento
+  de amostragem no padrão `FR-010` (H15/H22: nunca produz veredito formal
+  rápido, só acumula evidência). Fica no fim da fila por isso, não por falta
+  de fundamentação — é a hipótese com mecanismo mais forte na literatura desta
+  leva inteira.
 
 **H24 — Diferencial de funding rate entre corretoras (perp × perp, sem perna a vista)** *(adicionada em 2026-09-03)*
 
@@ -3649,6 +3829,14 @@ inclusive com itens nunca testados — H16, H19, e qualquer hipótese
 nova de mecanismo genuinamente diferente) — não é uma afirmação de que
 nenhuma vantagem jamais existirá, é o registro de uma escolha sobre
 onde investir esforço a partir de agora.
+
+**Reabertura, 2026-09-06.** Ver §6.0. O usuário decidiu reabrir o ciclo,
+pedindo explicitamente deepsearch por mecanismos nunca cogitados (não
+variação paramétrica das 33 hipóteses fechadas). Sete hipóteses novas
+(H34-H40) entraram na fila com fonte de dado ou matemática que nenhuma
+anterior usou — ver §6.1-6.3. Ordem de execução decidida com o usuário:
+autônoma, por razão evidência/custo, H34 → H35 → H37 → H36 → H38 → H39 →
+H40, mesma bateria de §7.1 sem exceção nem adaptação de critério.
 
 ---
 
