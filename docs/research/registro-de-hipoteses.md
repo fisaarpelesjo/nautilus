@@ -2716,7 +2716,45 @@ outra.
 - *Custo:* mínimo — nenhuma infraestrutura nova. OHLCV já coletado, motor de
   backtest existente. Primeira hipótese desta leva testável no mesmo dia.
 
-**H35 — Crowding via long/short ratio e open interest (Binance)**
+**Atualização — testada, INCONCLUSIVA por amostra insuficiente em todos os 12 pares (2026-09-06, spec 070).**
+`python main.py liquidacao`, `UNIVERSO_H11` (12 pares, 4h, 2000 candles ≈
+333 dias): proxy declarado antes de medir (D1: pavio inferior ≥ 50% do
+range + D2: volume ≥ 3x a média de 20 candles + fechamento de recuperação),
+avaliado pela bateria comum E1-E6 (`backtesting/bateria_hipotese.py` —
+primeira hipótese a rodar inteiramente por esse harness, sem defeito de
+motor: E1 sanidade passou `True` nos 12 pares).
+
+**Resultado: o proxy quase nunca dispara.** Contagem de trades na janela
+única completa (2000 candles), por par:
+
+| Par | Trades (janela única) | Par | Trades (janela única) |
+|---|---|---|---|
+| BTC/USDT | 3 | AVAX/USDT | 1 |
+| ETH/USDT | 1 | LTC/USDT | 3 |
+| SOL/USDT | 0 | DOT/USDT | 0 |
+| LINK/USDT | 1 | ADA/USDT | 2 |
+| BCH/USDT | 1 | ATOM/USDT | 2 |
+| TRX/USDT | 0 | XRP/USDT | 3 |
+
+0 a 3 trades por par em ~333 dias — todos abaixo do mínimo de 10 exigido
+por `evaluate_approval`. Nenhum dos 12 pares produziu amostra suficiente
+para E2 (janela única), nem para a busca ou a confirmação de E3 (a
+confirmação, a metade final da janela, teve 0-1 trade em 11 dos 12 pares).
+E6 (com/sem custo) herda o mesmo veredito `inconclusivo` — sem trade
+suficiente, sensibilidade a custo não tem o que medir.
+
+**Veredito: INCONCLUSIVA — não REPROVADA.** Diferente do risco declarado na
+fundamentação (reproduzir H3, que teve trades abundantes e win rate baixo
+20-31%), aqui o padrão nunca chega a ser testado de fato: os limiares D1/D2
+(pavio ≥ 50%, volume ≥ 3x), tomados em conjunto com o fechamento de
+recuperação, descrevem um evento raro demais para o histórico disponível —
+não uma estratégia que opera com frequência e perde. A hipótese sobre o
+*mecanismo* (liquidação forçada deixa assinatura de vela) segue sem
+resposta; o que foi refutado nesta rodada é apenas que os limiares
+declarados, no universo/histórico usado, gerem amostra suficiente para
+julgá-la. Reabrir exigiria limiares mais permissivos (ex.: pavio ≥ 30-40%,
+volume ≥ 2x) declarados de novo ANTES de medir, ou histórico mais longo por
+par — não um ajuste post-hoc para "passar" com os mesmos dados já vistos.
 *(adicionada em 2026-09-06, deepsearch)*
 
 - *Fundamentação:* `GET /futures/data/globalLongShortAccountRatio` e o

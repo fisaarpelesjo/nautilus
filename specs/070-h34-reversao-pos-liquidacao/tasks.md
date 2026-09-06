@@ -28,9 +28,9 @@ description: "Task list for H34 reversao pos-liquidacao (spec 070)"
 - [X] T002 [P] [US1] Criar `strategy/reversao_pos_liquidacao.py`: `ReversaoPosLiquidacaoStrategy` (subclasse de `BaseStrategy`, mesmo padrão de `strategy/breakout.py`) — `calculate_indicators` adiciona `volume_ma` (janela própria do módulo, D2) e `atr`(14, para o SL/TP/trailing genérico de `simulate_backtest`); `generate_signal` aplica D1 (pavio ≥ 50% do range) + D2 (volume ≥ 3x a média) + fechamento de recuperação (`close > open`) → BUY, sem SELL próprio (depende de T001)
 - [X] T003 [US1] Criar `backtesting/reversao_pos_liquidacao.py`: docstring com D1-D4 declarados antes de medir; `gerar_resultado(candles, custo_zero)` (usa `simulate_backtest` com a estratégia de T002, fee/slippage zerados quando `custo_zero=True`); `teste_sanidade()` (série sintética sem pavio/volume); `avaliar_par(par)` (fetch + `bateria_hipotese.rodar_bateria`); `avaliar_universo(pares=None)` (loop sobre `UNIVERSO_H11`, D3) (depende de T002)
 - [X] T004 [US1] Criar `cmd_liquidacao()` em `main.py`: roda `avaliar_universo()`, imprime por par o status de cada etapa E1-E6 do `RelatorioBateria`; registrar `"liquidacao": cmd_liquidacao` em `COMMANDS`; sincronizar `CLAUDE.md`/`AGENTS.md` (depende de T003)
-- [ ] T005 Rodar `python main.py liquidacao` contra dados reais
-- [ ] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §6.1 (H34) — comparação explícita com H3 (FR-005), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
-- [ ] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T005 Rodar `python main.py liquidacao` contra dados reais
+- [X] T006 Registrar o resultado real de T005 em `docs/research/registro-de-hipoteses.md` §6.1 (H34) — comparação explícita com H3 (FR-005), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
+- [X] T007 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T004 implementação e testes) + (T005-T007 execução real e registro).
 
