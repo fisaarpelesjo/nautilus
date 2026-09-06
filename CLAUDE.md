@@ -77,6 +77,7 @@ python main.py meta_labeling         # H27 -- meta-labeling, precondicao sobre o
 python main.py fator_tamanho         # H30 -- fator de tamanho/iliquidez, cross-sectional sem timing (spec 067)
 python main.py liquidacao            # H34 -- reversao pos-liquidacao, proxy pavio+volume (spec 070)
 python main.py crowding              # H35 -- crowding via long/short ratio e open interest (spec 071)
+python main.py stablecoin            # H37 -- mean reversion em par de stablecoin, USDC/USDT (spec 072)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal

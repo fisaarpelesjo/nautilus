@@ -3409,6 +3409,50 @@ def cmd_crowding():
     )
 
 
+def cmd_mean_reversion_stablecoin():
+    """H37 -- mean reversion em par de stablecoin, USDC/USDT (spec 072).
+
+    strategy/mean_reversion.py::MeanReversionStrategy (H3, ja testada e
+    reprovada em BTC/SOL/ETH) roda SEM NENHUMA alteracao sobre USDC/USDT,
+    unico par avaliado -- a hipotese e sobre o mecanismo de reversao
+    deterministica desse instrumento (resgate 1:1 garantido pelo emissor),
+    nao uma familia de pares. Obstaculo declarado: a literatura descreve
+    a janela de arbitragem de stablecoin como durando segundos, dominada
+    por bots MEV -- um candle de 4h pode nao ter resolucao para capturar
+    isso. Avaliada pela bateria comum E1-E6.
+    """
+    import dataclasses
+
+    from backtesting.mean_reversion_stablecoin import PAR, avaliar
+    from utils.display import C_CYAN, C_DIM, C_NEG, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H37 -- mean reversion em par de stablecoin ({PAR})[/]")
+    console.print(f"  [{C_DIM}]MeanReversionStrategy (H3) sem alteracao, unico par -- obstaculo "
+                  f"declarado: janela de arbitragem real dura segundos, candle de 4h pode nao "
+                  f"capturar[/{C_DIM}]")
+    console.print()
+
+    relatorio = avaliar()
+
+    if relatorio is None:
+        console.print(f"  [{C_NEG}]sem historico suficiente para {PAR}[/{C_NEG}]")
+        return
+
+    console.print(f"  e1_sanidade_ok        = {relatorio.e1_sanidade_ok}")
+    console.print(f"  e2_janela_unica       = {relatorio.e2_janela_unica}")
+    console.print(f"  e3_busca              = {relatorio.e3_busca}")
+    console.print(f"  e3_confirmacao        = {relatorio.e3_confirmacao}")
+    console.print(f"  e3_status             = {relatorio.e3_status}")
+    console.print(f"  e4_resumo             = {relatorio.e4_resumo}")
+    console.print(f"  e5_ganho_de_timing_pp = {relatorio.e5_ganho_de_timing_pp}")
+    console.print(f"  e6_com_custo          = {relatorio.e6_com_custo}")
+    console.print(f"  e6_sem_custo          = {relatorio.e6_sem_custo}")
+
+    export_report("stablecoin", {"par": PAR}, dataclasses.asdict(relatorio))
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3446,6 +3490,7 @@ COMMANDS = {
     "fator_tamanho": cmd_fator_tamanho,
     "liquidacao": cmd_liquidacao,
     "crowding": cmd_crowding,
+    "stablecoin": cmd_mean_reversion_stablecoin,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "meta_labeling": cmd_meta_labeling,
