@@ -3465,6 +3465,38 @@ primário), motivos tecnicamente distintos.
   critério de entrada/saída novo — reusa seleção de universo e motor de
   aprovação, não o seletor par a par de H10.
 
+**Atualização — testada, resultado direto confirma a literatura (2026-09-06, spec 075).**
+`python main.py pcaeigen`, 22 pares: **1 componente principal já explica
+60,36% da variância** dos retornos padronizados de treino — o fator BTC é
+tão dominante que o critério de 55%/teto 10 (D2) para no primeiro
+componente sozinho, exatamente o padrão que a literatura descreve para
+cripto (diferente de equities, onde vários fatores setoriais dividem a
+variância).
+
+**Resultado: 21 dos 22 resíduos não revertem em horizonte negociável.**
+Meia-vida do resíduo integrado (via `meia_vida_reversao`, mesma função de
+H10) variou de 180 a 2.247 candles — ordens de grandeza acima do teto de
+120 já usado por H10 — para 21 pares. Só `T/USDT` teve meia-vida dentro
+da faixa (90,3 candles) e foi avaliado pela bateria completa: E1 sanidade
+`True`, E2 (janela única) profit factor 0,78 (mínimo 1,2), E3 busca PF
+0,39, E3 confirmação inconclusiva (7 trades, mínimo 10), E6 PF melhora de
+0,78 para 0,92 sem custo mas continua abaixo do mínimo. **Reprovado em
+toda etapa com amostra suficiente para julgar.**
+
+**Veredito: REPROVADA — confirma diretamente o resultado já reportado na
+literatura (SSRN, Jay Jung 2025) para cripto, não com base só na citação,
+mas com o critério e universo próprios do projeto.** O mecanismo
+(resíduo após remover exposição a fatores comuns reverte à média) não se
+sustenta quando um único fator (BTC) domina quase toda a variância — não
+sobra estrutura idiossincrática suficiente nos resíduos para gerar
+reversão previsível, quase todo "resíduo" é, na prática, passeio
+aleatório de longuíssimo prazo. **Limitação de não-hedge (D6) declarada
+antes de medir não chegou a ser o fator decisivo**: mesmo o único par que
+passou pelo filtro de meia-vida (onde o risco de fator sem hedge se
+aplicaria de fato) reprovou por profit factor baixo, não por um
+movimento de fator claramente identificável — a causa raiz é a ausência
+de reversão residual estável em si, anterior à questão do hedge.
+
 ### 6.3 Prioridade baixa (nova entrada)
 
 **H40 — Desequilíbrio de order book / toxicidade de fluxo (VPIN)**

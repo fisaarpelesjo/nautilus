@@ -27,9 +27,9 @@ description: "Task list for H39 PCA eigenportfolio (spec 075)"
 
 - [X] T002 [US1] Criar `backtesting/pca_eigenportfolio.py`: docstring com D1-D6 declarados antes de medir; `_indice_comum`, `_componentes_pca` (PCA via `numpy.linalg.eigh`), `_ajustar_ou` (AR(1) via `numpy.linalg.lstsq`), `ResiduoStrategy` (`BaseStrategy`), `precompute_signals`, `gerar_resultado_par`, `teste_sanidade`, `avaliar_universo` (reusa `UNIVERSO_AMPLO_HISTORICO_COMPLETO`/`meia_vida_reversao` de `pairs_trading.py`, `split_train_validation` de `validation.py`, `rodar_bateria` de `bateria_hipotese.py`) (depende de T001)
 - [X] T003 [US1] Criar `cmd_pca_eigenportfolio()` em `main.py`: roda `avaliar_universo()`, imprime por ativo (componentes, variância explicada, meia-vida, status E1-E6 ou motivo de exclusão) e um resumo agregado com a limitação de não-hedge (D6), exporta via `export_report`; registrar `"pcaeigen": cmd_pca_eigenportfolio` em `COMMANDS`; sincronizar `CLAUDE.md`/`AGENTS.md` (depende de T002)
-- [ ] T004 Rodar `python main.py pcaeigen` contra dados reais
-- [ ] T005 Registrar o resultado real de T004 em `docs/research/registro-de-hipoteses.md` §6.3 (H39) — comparação explícita com a literatura (FR-008) e a limitação de não-hedge (FR-006), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
-- [ ] T006 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T004 Rodar `python main.py pcaeigen` contra dados reais
+- [X] T005 Registrar o resultado real de T004 em `docs/research/registro-de-hipoteses.md` §6.3 (H39) — comparação explícita com a literatura (FR-008) e a limitação de não-hedge (FR-006), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
+- [X] T006 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T003 implementação e testes) + (T004-T006 execução real e registro).
 
