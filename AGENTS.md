@@ -98,7 +98,9 @@ Default to `TRADING_MODE=paper` while developing.
 
 ## Incremental Workflow
 
-For any non-trivial change in this project, split the work into small topical steps. After each completed topic, run the relevant tests, commit with a concise Conventional Commit message in Portuguese, push to `origin/main`, and only then continue to the next topic. Do not commit runtime artifacts.
+For any non-trivial change in this project, split the work into small topical steps. After each completed topic: run the relevant tests, run `/code-review medium` on the topic's diff and address the findings (apply what's real, justify what's dismissed), only then commit with a concise Conventional Commit message in Portuguese, push to `origin/main`, and continue to the next topic. Do not commit runtime artifacts.
+
+**Mandatory code review.** `/code-review medium` runs before every commit in this project — not optional, not specific to one spec/hypothesis, applies to any code change (new specs, research-battery hypotheses, hardening, anything). `medium` effort is the default (few findings, high confidence); going up to `high`/`ultra` is the operator's call for higher-risk changes, never a replacement for the mandatory `medium` pass. Documentation-only changes (`docs:`, no code) are exempt — there's no code diff to review.
 
 ## CLAUDE.md ↔ AGENTS.md Sync
 

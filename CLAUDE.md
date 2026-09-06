@@ -94,7 +94,9 @@ python main.py replay [PAR]         # roda o caminho de decisao real sobre histo
 
 ## Fluxo Incremental
 
-Para qualquer mudança não trivial neste projeto, separe o trabalho em tópicos pequenos. Ao terminar cada tópico, rode os testes relevantes, faça commit com mensagem Conventional Commit concisa em português, envie para `origin/main` e só então continue para o próximo tópico. Não commite artefatos de runtime.
+Para qualquer mudança não trivial neste projeto, separe o trabalho em tópicos pequenos. Ao terminar cada tópico: rode os testes relevantes, rode `/code-review medium` sobre o diff do tópico e trate os achados (aplicar o que for real, justificar o que for descartado), só então faça commit com mensagem Conventional Commit concisa em português, envie para `origin/main` e continue para o próximo tópico. Não commite artefatos de runtime.
+
+**Code review obrigatório.** `/code-review medium` roda antes de todo commit neste projeto — não é etapa opcional nem específica de uma spec/hipótese, vale para qualquer mudança de código (specs novas, hipóteses da bateria de pesquisa, hardening, o que for). Efeito `medium` é o padrão (poucos achados, alta confiança); subir para `high`/`ultra` é escolha pontual do operador para mudanças de maior risco, nunca substitui a passada obrigatória em `medium`. Mudanças puramente de documentação (`docs:`, sem código) ficam de fora — não há diff de código para revisar.
 
 ## Padrão de commits
 
