@@ -79,6 +79,7 @@ python main.py liquidacao            # H34 -- reversao pos-liquidacao, proxy pav
 python main.py crowding              # H35 -- crowding via long/short ratio e open interest (spec 071)
 python main.py stablecoin            # H37 -- mean reversion em par de stablecoin, USDC/USDT (spec 072)
 python main.py hashribbons           # H36 -- hash ribbons, capitulacao de mineradores BTC-only (spec 073)
+python main.py dvolgate              # H38 -- gate por volatilidade implicita, Deribit DVOL (spec 074)
 python main.py optimize             # grid search dos melhores parâmetros
 python main.py analyze              # resumo do data/trades.csv
 python main.py decisions            # resume data/decisions.csv: sinais, bloqueios e RSI médio por sinal

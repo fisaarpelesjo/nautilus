@@ -3496,6 +3496,65 @@ def cmd_hash_ribbons():
     export_report("hash_ribbons", {"par": PAR}, dataclasses.asdict(relatorio))
 
 
+def cmd_dvol_gate():
+    """H38 -- gate por volatilidade implicita, Deribit DVOL (spec 074).
+
+    Verifica se DVOL (volatilidade implicita de 30 dias de BTC, mercado
+    de opcoes) discrimina eventos de entrada bons de ruins do sinal
+    primario (EMA/RSI) -- precondicao antes de declarar qualquer
+    aprovacao de um gate aditivo completo, mesmo desenho de H27
+    (meta-labeling): a MESMA populacao de eventos e dividida por decil de
+    DVOL (mais alto = stress) e os dois subgrupos comparados.
+    """
+    from backtesting.dvol_gate import avaliar_precondicao_dvol
+    from utils.display import C_CYAN, C_DIM, C_NEG, C_POS, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H38 -- gate por volatilidade implicita (DVOL)[/]")
+    console.print(f"  [{C_DIM}]divide a populacao de entrada primaria (EMA/RSI, mesma de H27) por "
+                  f"decil de DVOL no momento do evento -- precondicao: resto deve ter razao maior "
+                  f"que dvol alto[/{C_DIM}]")
+    console.print()
+
+    resultado = avaliar_precondicao_dvol()
+
+    console.print(f"  empate                = {resultado.empate:.4f}")
+    console.print(f"  limiar_dvol (decil90) = {resultado.limiar_dvol:.2f}")
+    console.print(f"  n_pares_com_dvol      = {resultado.n_pares_com_dvol}")
+    console.print()
+    console.print(f"  [{C_CYAN}]H27 (baseline ja publicado)[/] entrada_primaria: "
+                  f"n={resultado.baseline_h27.entrada_primaria.n} "
+                  f"razao={resultado.baseline_h27.entrada_primaria.razao:.4f} "
+                  f"supera_empate={resultado.baseline_h27.entrada_primaria.supera_empate}")
+    console.print()
+    for r in (resultado.dvol_alto, resultado.resto):
+        razao_txt = "inf" if r.razao == float("inf") else f"{r.razao:.4f}"
+        console.print(f"  {r.nome:<20} n={r.n:4d}  alvo={r.alvo:4d}  stop={r.stop:4d}  "
+                      f"razao={razao_txt:>7}  supera_empate={r.supera_empate}")
+
+    cor = C_POS if resultado.precondicao_atendida else C_NEG
+    console.print()
+    console.print(f"  [bold]precondicao_atendida[/bold] [{cor}]{resultado.precondicao_atendida}[/{cor}]")
+
+    export_report(
+        "dvol_gate",
+        {"percentil_alto_dvol": 0.90},
+        {
+            "empate": resultado.empate, "limiar_dvol": resultado.limiar_dvol,
+            "n_pares_com_dvol": resultado.n_pares_com_dvol,
+            "h27_entrada_primaria": {
+                "n": resultado.baseline_h27.entrada_primaria.n,
+                "razao": resultado.baseline_h27.entrada_primaria.razao,
+                "supera_empate": resultado.baseline_h27.entrada_primaria.supera_empate,
+            },
+            "dvol_alto": vars(resultado.dvol_alto),
+            "resto": vars(resultado.resto),
+            "precondicao_atendida": resultado.precondicao_atendida,
+        },
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3535,6 +3594,7 @@ COMMANDS = {
     "crowding": cmd_crowding,
     "stablecoin": cmd_mean_reversion_stablecoin,
     "hashribbons": cmd_hash_ribbons,
+    "dvolgate": cmd_dvol_gate,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "meta_labeling": cmd_meta_labeling,
