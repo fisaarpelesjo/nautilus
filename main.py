@@ -3555,6 +3555,70 @@ def cmd_dvol_gate():
     )
 
 
+def cmd_pca_eigenportfolio():
+    """H39 -- arbitragem estatistica via PCA/eigenportfolio, Avellaneda-Lee (spec 075).
+
+    Decompoe o universo inteiro (UNIVERSO_AMPLO_HISTORICO_COMPLETO, 22
+    pares) em componentes principais dos retornos, regride cada ativo
+    contra os fatores comuns, integra o residuo e modela como processo
+    Ornstein-Uhlenbeck -- relacao MUITAS-para-muitas, diferente de H10
+    (cointegracao par-a-par) e H29 (copula par-a-par). LIMITACAO: sem
+    hedge dos fatores (bot long-only) -- aposta direcional no ativo, nao
+    posicao dollar-neutral como o metodo original. Literatura ja reporta
+    resultado majoritariamente negativo em cripto.
+    """
+    import dataclasses
+
+    from backtesting.approval import verdict_markup
+    from backtesting.pca_eigenportfolio import avaliar_universo
+    from utils.display import C_CYAN, C_DIM, C_NEG, console, header
+    from utils.report_export import export_report
+
+    header()
+    console.print(f"[bold {C_CYAN}]H39 -- PCA/eigenportfolio (Avellaneda-Lee)[/]")
+    console.print(f"  [{C_DIM}]residuo apos remover exposicao aos fatores comuns, entrada/saida por "
+                  f"s-score -- SEM HEDGE dos fatores (bot long-only): aposta direcional, nao posicao "
+                  f"dollar-neutral[/{C_DIM}]")
+    console.print()
+
+    resultados = avaliar_universo()
+
+    if not resultados:
+        console.print(f"  [{C_NEG}]universo insuficiente para decompor (menos de 3 pares com dado)[/{C_NEG}]")
+        return
+
+    avaliados = [r for r in resultados if not r.excluido]
+    excluidos = [r for r in resultados if r.excluido]
+
+    for r in resultados:
+        if r.excluido:
+            console.print(f"  {r.par:<10} componentes={r.n_componentes}  "
+                          f"variancia_explicada={r.variancia_explicada:.2%}  "
+                          f"meia_vida={r.meia_vida_residuo:8.1f}  "
+                          f"[{C_NEG}]excluido ({r.motivo_exclusao})[/{C_NEG}]")
+        else:
+            rel = r.relatorio
+            console.print(f"  {r.par:<10} componentes={r.n_componentes}  "
+                          f"variancia_explicada={r.variancia_explicada:.2%}  "
+                          f"meia_vida={r.meia_vida_residuo:8.1f}  "
+                          f"e2={verdict_markup(rel.e2_janela_unica)}  e3_status={rel.e3_status}")
+
+    console.print()
+    console.print(f"  [bold]{len(avaliados)}[/bold] avaliados, [bold]{len(excluidos)}[/bold] "
+                  f"excluidos (meia-vida fora da faixa ou OU nao-estacionario), de {len(resultados)} pares")
+
+    export_report(
+        "pca_eigenportfolio",
+        {"variancia_alvo": 0.55, "max_componentes": 10, "s_score_entrada": -1.25, "s_score_saida": -0.5},
+        {r.par: {
+            "n_componentes": r.n_componentes, "variancia_explicada": r.variancia_explicada,
+            "meia_vida_residuo": r.meia_vida_residuo, "excluido": r.excluido,
+            "motivo_exclusao": r.motivo_exclusao,
+            "relatorio": dataclasses.asdict(r.relatorio) if r.relatorio is not None else None,
+        } for r in resultados},
+    )
+
+
 COMMANDS = {
     "backtest":      cmd_backtest,
     "edge":          cmd_edge,
@@ -3595,6 +3659,7 @@ COMMANDS = {
     "stablecoin": cmd_mean_reversion_stablecoin,
     "hashribbons": cmd_hash_ribbons,
     "dvolgate": cmd_dvol_gate,
+    "pcaeigen": cmd_pca_eigenportfolio,
     "calibracao": cmd_calibracao,
     "funding_extremo": cmd_funding_extremo,
     "meta_labeling": cmd_meta_labeling,
