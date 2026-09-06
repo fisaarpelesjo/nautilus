@@ -2775,6 +2775,36 @@ par — não um ajuste post-hoc para "passar" com os mesmos dados já vistos.
 - *Custo:* baixo — mesmo padrão de `data/funding.py` (spec 058): um fetcher
   novo, sem mudar execução.
 
+**Atualização — testada e REPROVADA, com amostra real (2026-09-06, spec 071).**
+`python main.py crowding`, `UNIVERSO_H11` (12 pares): retenção real medida
+do endpoint confirmada em ~30,8 dias para os 12 pares (uniforme, condizente
+com o probe inicial de 31 dias) — muito menor que os 2.000 candles de
+funding rate, mas suficiente para uma amostra real desta vez (diferente de
+H34): 98 eventos confirmados na validação, agregados entre pares (alvo=31,
+stop=67).
+
+**Resultado pooled: razão 0,4627, abaixo do ponto de equilíbrio (0,5000) —
+`supera_empate_ci95 = False`.** Diferente de H34 (INCONCLUSIVA por amostra
+quase nula), aqui a razão pontual já fica abaixo do empate, então nem é
+questão de intervalo de confiança apertado — o padrão testado (long/short
+ratio no decil mais baixo + open interest acima da mediana de treino →
+long contrário) não supera o ponto de equilíbrio da relação risco/retorno
+do bot nesta amostra. Por par, o quadro é misto: `TRX/USDT` (razão 2,33,
+14 alvo/6 stop) e `BCH/USDT` (razão 1,00) tiveram resultado individual
+positivo/neutro, mas `SOL/USDT` (razão 0,00, 0 alvo/23 stop) e `BTC/USDT`
+(razão 0,00, 0 alvo/5 stop) dominam o lado negativo do pool — nenhum par
+isolado teria amostra própria suficiente para decidir (M9/M13), por isso
+o veredito é sobre o agregado, não sobre `TRX/USDT` isoladamente.
+
+**Veredito: REPROVADA — 23ª hipótese direcional consecutiva sem superar a
+confirmação fora da amostra (S6.3-b).** O dado subjacente (posicionamento
+via long/short ratio e open interest) era genuinamente novo neste registro
+— diferente de custo de posição (funding, H8/H26) — mas o padrão de
+resultado se repete: aposta contrária direcional não sobrevive à medição
+com rigor estatístico. Retenção curta do endpoint (D6) não impediu a
+medição desta vez (98 eventos foi amostra suficiente), então o resultado
+é uma reprovação real, não uma inconclusão por falta de dado.
+
 **H37 — Mean reversion em par de stablecoin (USDC/USDT)**
 *(adicionada em 2026-09-06, deepsearch)*
 

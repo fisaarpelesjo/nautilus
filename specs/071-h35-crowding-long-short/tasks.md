@@ -29,9 +29,9 @@ description: "Task list for H35 crowding long/short ratio e open interest (spec 
 - [X] T003 [P] [US1] Criar `data/long_short_ratio.py`: `fetch_long_short_ratio_history`/`fetch_open_interest_history` via os métodos unificados ccxt (`fetch_long_short_ratio_history`/`fetch_open_interest_history`, mesma exchange futures de `data/funding.py`), devolvem DataFrame vazio para par sem mercado perpétuo (depende de T001)
 - [X] T004 [US1] Criar `backtesting/crowding_extremo.py`: docstring com D1-D6 declarados antes de medir; `avaliar_par` (corta treino/validação dentro da retenção real do par, calibra decil de ratio + mediana de open interest só no treino, descarta candles anteriores ao início real de qualquer série, rotula pela barreira tripla), `avaliar_universo` (loop sobre `UNIVERSO_H11`), `agregar_pooled` (delega a `supera_empate_com_confianca`) (depende de T002, T003)
 - [X] T005 [US1] Criar `cmd_crowding()` em `main.py`: roda sobre `UNIVERSO_H11`, imprime a retenção real medida por par e o resultado pooled, exporta via `export_report`; registrar `"crowding": cmd_crowding` em `COMMANDS`; sincronizar `CLAUDE.md`/`AGENTS.md` (depende de T004)
-- [ ] T006 Rodar `python main.py crowding` contra dados reais
-- [ ] T007 Registrar o resultado real de T006 em `docs/research/registro-de-hipoteses.md` §6.1 (H35) — incluir a retenção real medida (FR-002/SC-002), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
-- [ ] T008 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
+- [X] T006 Rodar `python main.py crowding` contra dados reais
+- [X] T007 Registrar o resultado real de T006 em `docs/research/registro-de-hipoteses.md` §6.1 (H35) — incluir a retenção real medida (FR-002/SC-002), "Atualização — testada" no mesmo estilo das demais hipóteses desta rodada
+- [X] T008 Rodar a suite completa (`pytest -q`) para confirmar ausência de regressão
 
 **Checkpoint**: spec fechada em dois commits (T001-T005 implementação e testes) + (T006-T008 execução real e registro).
 
