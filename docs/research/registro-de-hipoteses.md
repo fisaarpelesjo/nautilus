@@ -4038,6 +4038,42 @@ anterior usou — ver §6.1-6.3. Ordem de execução decidida com o usuário:
 autônoma, por razão evidência/custo, H34 → H35 → H37 → H36 → H38 → H39 →
 H40, mesma bateria de §7.1 sem exceção nem adaptação de critério.
 
+### 7.3 H41 — Carteira combinada H8 (funding carry) + H14 (direcional)
+
+**Fora da leva H34-H40, pedido direto do operador (2026-09-06).** Combina as
+duas ÚNICAS hipóteses deste registro com sinal REAL medido (não "sem sinal",
+categoria distinta de "reprovado" — §6.3-b): H8 (+3,21%/ano líquido,
+delta-neutro) e H14 (z=+5,21 a +7,97, preditivo, mas profit factor de carteira
+nunca passou de 0,75). Mecanismos diferentes (custo de posição vs. previsão de
+direção) — motivo estrutural para diversificar, ao contrário de combinar duas
+hipóteses direcionais. `backtesting/carteira_h8_h14.py::avaliar_combinado()`:
+blend 50/50 pré-registrado (D2) sobre retornos anualizados (D3, aproximação —
+não simulação conjunta candle a candle), drawdown combinado aproximado por
+`alocacao_h14 × drawdown_h14` (D4, assume a perna de carry ~0 drawdown, risco
+de base/liquidação não capturado). Critério de aprovação (D5, corrigido em
+code review 2026-09-06: a primeira versão comparava o drawdown combinado
+contra o de H14 sozinho, verdadeiro por construção para qualquer alocação
+< 1, nunca falsificável) exige retorno combinado acima do benchmark de 5%
+a.a. **e** drawdown combinado dentro de `MAX_ACCEPTABLE_DRAWDOWN_PCT` (10%,
+mesmo teto de `evaluate_approval()`).
+
+**Encerrada sem execução real (2026-09-06).** Decisão do operador: mesmo uma
+aprovação preliminar do modelo simplificado não autorizaria capital real —
+combina duas pernas onde nenhuma é aprovada isoladamente (H8 abaixo do
+benchmark, H14 com retorno econômico negativo apesar do sinal estatístico) e
+usa uma aproximação declaradamente otimista (D3/D4: sem curvas sincronizadas,
+sem risco de basis/liquidação/contraparte). Nesse cenário, rodar a avaliação
+real (dados de funding e OHLCV atuais do universo H11) não mudaria a decisão
+de alocação — o resultado nunca seria decisivo o bastante para justificar o
+custo de medir. Fechada como hipótese pré-registrada, não como "reprovada":
+diferente de H16/H19 (nunca medidas por raciocínio de infraestrutura), aqui
+o código e o critério existem e passam nos 976 testes do projeto — só a
+execução com dado real nunca foi disparada, por decisão consciente de
+prioridade, não por limitação técnica. Decisão mais ampla do operador em
+2026-09-06 (plano "Cofre e Laboratório", ainda não incorporado ao código):
+nenhuma hipótese especulativa — aprovada ou não — recebe capital real; H41
+permanece como registro fechado, sem promoção a produção.
+
 ---
 
 ## 8. Conclusão do estado atual — encerramento da busca ativa (2026-09-03)
