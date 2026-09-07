@@ -32,12 +32,34 @@ D4: drawdown combinado aproximado por `alocacao_h14 * drawdown_h14`
 (assume a perna de carry contribui ~0 drawdown por ser delta-neutra por
 construcao). Risco de base/liquidacao da perna de funding nao e
 capturado neste modelo simplificado -- limitacao declarada.
+
+D5 (criterio de aprovacao, pre-registrado 2026-09-06): diversificacao reduz
+variancia, mas nao cria expectativa positiva sozinha -- H8 sozinho fica abaixo do
+benchmark e H14 sozinho tem retorno economico negativo apesar do sinal
+estatistico, entao um blend pode ficar menos volatil e ainda assim reprovado.
+`aprovado` exige as DUAS condicoes: `retorno_combinado_aa` supera
+`BENCHMARK_RENDA_FIXA_AA` (mesmo piso ja usado por H8) E
+`drawdown_combinado_aproximado_pct` fica dentro de `MAX_ACCEPTABLE_DRAWDOWN_PCT`
+(mesmo teto que `evaluate_approval()` ja usa para qualquer hipotese,
+`backtesting/approval.py`) -- NAO comparado contra o drawdown de H14 sozinho:
+sob D4 (H8 assumido ~0 drawdown), `alocacao_h14 * drawdown_h14 < drawdown_h14` e
+verdadeiro por construcao para qualquer `alocacao_h14 < 1` e drawdown positivo,
+o que tornaria essa condicao vazia (achado de code review, 2026-09-06) -- exigia
+"reducao de risco de fato, nao so por construcao do blend" e a formula original
+garantia exatamente o oposto. O teto absoluto e falsificavel; a comparacao
+relativa contra a propria perna nao era. Pesos 50/50 (D2) nao sao reotimizados
+apos ver o resultado -- reprovacao aqui encerra a combinacao.
 """
 from dataclasses import dataclass
 from typing import List, Optional
 
+from backtesting.approval import MAX_ACCEPTABLE_DRAWDOWN_PCT
 from backtesting.engine import BacktestResult
-from backtesting.funding_carry import ResultadoFundingPar, avaliar_universo as avaliar_universo_h8
+from backtesting.funding_carry import (
+    BENCHMARK_RENDA_FIXA_AA,
+    ResultadoFundingPar,
+    avaliar_universo as avaliar_universo_h8,
+)
 from backtesting.horizonte import UNIVERSO_H11
 from backtesting.portfolio_h14 import simular_carteira
 
@@ -52,6 +74,9 @@ class ResultadoCombinado:
     taxa_carry_pooled_aa: float
     retorno_combinado_aa: float
     drawdown_combinado_aproximado_pct: float
+    supera_benchmark: bool
+    drawdown_aceitavel: bool
+    aprovado: bool
 
 
 def avaliar_combinado(alocacao_h14: float = ALOCACAO_H14,
@@ -76,8 +101,13 @@ def avaliar_combinado(alocacao_h14: float = ALOCACAO_H14,
     )
     drawdown_combinado_aproximado_pct = alocacao_h14 * resultado_h14.max_drawdown_pct
 
+    supera_benchmark = retorno_combinado_aa > BENCHMARK_RENDA_FIXA_AA * 100
+    drawdown_aceitavel = drawdown_combinado_aproximado_pct <= MAX_ACCEPTABLE_DRAWDOWN_PCT
+    aprovado = supera_benchmark and drawdown_aceitavel  # D5
+
     return ResultadoCombinado(
         alocacao_h14=alocacao_h14, resultado_h14=resultado_h14, resultados_h8=resultados_h8,
         taxa_carry_pooled_aa=taxa_carry_pooled_aa, retorno_combinado_aa=retorno_combinado_aa,
         drawdown_combinado_aproximado_pct=drawdown_combinado_aproximado_pct,
+        supera_benchmark=supera_benchmark, drawdown_aceitavel=drawdown_aceitavel, aprovado=aprovado,
     )

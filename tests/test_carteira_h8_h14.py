@@ -43,6 +43,50 @@ def test_avaliar_combinado_blend_50_50_dos_retornos_anualizados(monkeypatch):
     assert resultado.taxa_carry_pooled_aa == 0.04
     # combinado = 0.5*(-17.0) + 0.5*(0.04*100) = -8.5 + 2.0 = -6.5
     assert resultado.retorno_combinado_aa == -6.5
+    assert resultado.supera_benchmark is False
+    assert resultado.aprovado is False
+
+
+def test_avaliar_combinado_aprovado_exige_benchmark_e_drawdown_aceitavel(monkeypatch):
+    # drawdown de H14 baixo o bastante para o combinado (metade dele) ficar
+    # dentro do teto absoluto MAX_ACCEPTABLE_DRAWDOWN_PCT (10%) -- ambas as
+    # condicoes de D5 sao checadas de forma independente.
+    monkeypatch.setattr(mod, "simular_carteira", lambda pares: _resultado_h14(
+        annualized_return_pct=20.0, max_drawdown_pct=15.0,
+    ))
+    monkeypatch.setattr(mod, "avaliar_universo_h8", lambda pares: [
+        _resultado_h8("BTC/USDT", 0.06),
+    ])
+
+    resultado = mod.avaliar_combinado(alocacao_h14=0.5, pares=["BTC/USDT"])
+
+    # combinado = 0.5*20.0 + 0.5*(0.06*100) = 10.0 + 3.0 = 13.0 > 5.0
+    assert resultado.retorno_combinado_aa == 13.0
+    assert resultado.supera_benchmark is True
+    # drawdown combinado = 0.5*15.0 = 7.5 <= 10.0 (MAX_ACCEPTABLE_DRAWDOWN_PCT)
+    assert resultado.drawdown_aceitavel is True
+    assert resultado.aprovado is True
+
+
+def test_avaliar_combinado_nao_aprova_quando_drawdown_combinado_excede_teto(monkeypatch):
+    # retorno combinado supera o benchmark, mas o drawdown combinado (mesmo
+    # ja escalado pela alocacao) ainda ultrapassa o teto absoluto -- reduzir
+    # drawdown "por construcao do blend" nao bastava para aprovar; o teto e
+    # falsificavel, a comparacao contra H14 sozinho nao era (achado de code
+    # review).
+    monkeypatch.setattr(mod, "simular_carteira", lambda pares: _resultado_h14(
+        annualized_return_pct=20.0, max_drawdown_pct=28.66,
+    ))
+    monkeypatch.setattr(mod, "avaliar_universo_h8", lambda pares: [
+        _resultado_h8("BTC/USDT", 0.06),
+    ])
+
+    resultado = mod.avaliar_combinado(alocacao_h14=0.5, pares=["BTC/USDT"])
+
+    assert resultado.supera_benchmark is True
+    # drawdown combinado = 0.5*28.66 = 14.33 > 10.0 (MAX_ACCEPTABLE_DRAWDOWN_PCT)
+    assert resultado.drawdown_aceitavel is False
+    assert resultado.aprovado is False
 
 
 def test_avaliar_combinado_drawdown_escalado_pela_alocacao_h14(monkeypatch):
