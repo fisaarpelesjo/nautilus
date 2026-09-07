@@ -1,8 +1,19 @@
 # CLAUDE.md — Crypto Day Trader Bot
 
+## Estado do projeto (2026-09-06): laboratório de pesquisa pausado, não produto
+
+Este projeto é um **laboratório de pesquisa** sobre trading algorítmico de cripto, não uma
+ferramenta com vantagem comprovada. Depois de **41 hipóteses testadas com dados reais, 0
+aprovadas** (`docs/research/registro-de-hipoteses.md`, fonte da verdade), confirmado por
+evidência externa independente (fundos profissionais de cripto perdendo pra buy-and-hold desde
+2017; estudo acadêmico brasileiro — Chague/De-Losso/Giovannetti — achando 97% dos day traders
+persistentes perdendo dinheiro), o operador decidiu pausar o projeto em 2026-09-06. Não está em
+desenvolvimento ativo nem operando dinheiro real. Se essa decisão mudar, esta seção é atualizada
+primeiro — não assuma retomada de trabalho especulativo sem confirmação explícita do operador.
+
 ## Visão geral
 
-Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via `ccxt`. Suporta modo **paper** (simulado) e **live** (dinheiro real). Estratégia principal: EMA crossover (default 9/21, configurável) com filtro de tendência EMA50, confirmação RSI e entrada por pullback em tendência.
+Bot de trading algorítmico para cripto escrito em Python. Opera na Binance via `ccxt`. Suporta modo **paper** (simulado) e **live** (dinheiro real, nunca autorizado por nenhuma estratégia atual — ver seção acima). Estratégia principal: EMA crossover (default 9/21, configurável) com filtro de tendência EMA50, confirmação RSI e entrada por pullback em tendência. **Reprovada** pelo critério do próprio projeto, mantida como infraestrutura de pesquisa.
 
 ---
 

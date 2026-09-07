@@ -1,5 +1,7 @@
 # Documentação — Nautilus
 
+**Nautilus é um laboratório de pesquisa, não um produto de geração de renda.** 41 hipóteses testadas, 0 aprovadas, projeto pausado desde 2026-09-06 — ver [Registro de Hipóteses](research/registro-de-hipoteses.md), a fonte da verdade sobre o que foi testado e o resultado de cada teste, antes de qualquer outro capítulo abaixo.
+
 Documentação completa do bot, organizada por capítulos. Cada capítulo é independente — pode ler na ordem ou pular direto pro tópico que precisa.
 
 ## Sumário
@@ -20,6 +22,7 @@ Documentação completa do bot, organizada por capítulos. Cada capítulo é ind
 | 12 | [Desenvolvimento](12-desenvolvimento.md) | Fluxo de contribuição, testes, como adicionar uma estratégia |
 | 13 | [Metodologia SDD](13-metodologia-sdd.md) | Como o projeto é desenvolvido (spec-driven development) |
 | 14 | [Multi-mercado](14-multi-mercado.md) | Avaliar estratégias em ações, forex e futuros (pesquisa, não operação) |
+| — | [Registro de Hipóteses](research/registro-de-hipoteses.md) | **Fonte da verdade**: as 41 hipóteses, evidência e veredito de cada uma |
 
 ## Convenções usadas nesta documentação
 

@@ -1,8 +1,19 @@
 # AGENTS.md — Crypto Day Trader Bot
 
+## Project status (2026-09-06): paused research lab, not a product
+
+This project is a **research laboratory** on algorithmic crypto trading, not a tool with proven
+edge. After **41 hypotheses tested with real data, 0 approved** (`docs/research/registro-de-hipoteses.md`,
+source of truth), confirmed by independent external evidence (professional crypto quant funds
+underperforming buy-and-hold since 2017; a Brazilian academic study — Chague/De-Losso/Giovannetti —
+finding 97% of persistent day traders losing money), the operator decided to pause the project on
+2026-09-06. It is not under active development and is not trading real money. If that changes,
+this section gets updated first — do not assume speculative work resumes without explicit operator
+confirmation.
+
 ## Overview
 
-Algorithmic trading bot for crypto written in Python. Connects to Binance via `ccxt`. Supports **paper** (simulated) and **live** (real money) modes. Main strategy: EMA crossover (default 9/21, configurable) with EMA50 trend filter, RSI confirmation, and trend-pullback entry.
+Algorithmic trading bot for crypto written in Python. Connects to Binance via `ccxt`. Supports **paper** (simulated) and **live** (real money, never authorized by any current strategy — see section above) modes. Main strategy: EMA crossover (default 9/21, configurable) with EMA50 trend filter, RSI confirmation, and trend-pullback entry. **Rejected** by the project's own criteria, kept as research infrastructure.
 
 ---
 

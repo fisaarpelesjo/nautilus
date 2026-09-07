@@ -4,7 +4,9 @@
 
 ## O que é
 
-**Nautilus** é um bot de trading algorítmico para criptomoedas, escrito em Python, operando na Binance via [ccxt](https://github.com/ccxt/ccxt). Ele monitora múltiplos pares simultaneamente, calcula indicadores técnicos a cada ciclo de 60 segundos, e decide entrar ou sair de posições **long** (o bot não opera short) com gestão de risco embutida — stop loss e take profit dinâmicos via ATR, trailing stop, limites de drawdown e um circuit breaker por perdas consecutivas.
+**Nautilus é um laboratório de pesquisa sobre trading algorítmico de criptomoedas — não um produto de geração de renda.** Foi construído pra responder, com disciplina empírica, se existe vantagem sistemática real e capturável por um operador solo pequeno em algum mecanismo de trade de cripto. Depois de 41 hipóteses testadas com dados reais (`docs/research/registro-de-hipoteses.md`), a resposta é **não** — 0 aprovadas, confirmado por evidência externa independente (fundos profissionais perdendo pra buy-and-hold, estudos acadêmicos sobre day trader de varejo). O projeto está pausado desde 2026-09-06; o texto abaixo descreve a infraestrutura como ela foi construída, não uma recomendação de uso.
+
+Tecnicamente, é um bot que opera na Binance via [ccxt](https://github.com/ccxt/ccxt): monitora múltiplos pares simultaneamente, calcula indicadores técnicos a cada ciclo de 60 segundos, e decide entrar ou sair de posições **long** (o bot não opera short) com gestão de risco embutida — stop loss e take profit dinâmicos via ATR, trailing stop, limites de drawdown e um circuit breaker por perdas consecutivas. Nenhuma das estratégias implementadas foi aprovada pelo critério do próprio projeto, e o código nunca operou dinheiro real com fins lucrativos.
 
 O bot tem dois modos:
 
@@ -13,6 +15,7 @@ O bot tem dois modos:
 
 ## Filosofia do projeto
 
+0. **A pergunta vem antes da estratégia.** O objetivo nunca foi "fazer a EMA/RSI funcionar" — foi descobrir honestamente se *alguma* estratégia funciona, aceitando resposta negativa como resultado válido. Ver [Metodologia SDD](13-metodologia-sdd.md) e o [Registro de Hipóteses](research/registro-de-hipoteses.md).
 1. **Paper mode primeiro, sempre.** Nenhuma mudança de estratégia vai para live sem semanas de validação em paper mode rodando 24/7. Ver [capítulo 13](13-metodologia-sdd.md) para como o projeto decide quando algo está "pronto".
 2. **Falha conservadora (fail closed).** Sempre que o bot não consegue determinar um estado com confiança — order book indisponível, candle MTF não carregou, regime de mercado indefinido — a decisão padrão é **bloquear a entrada**, nunca aprovar por omissão de dado.
 3. **Custo de execução realista desde o paper mode.** Taxa (`BACKTEST_FEE_RATE`) e slippage (`BACKTEST_SLIPPAGE_PCT`) são aplicados tanto no backtest quanto no paper mode — o histórico simulado não é sistematicamente mais otimista que a realidade.

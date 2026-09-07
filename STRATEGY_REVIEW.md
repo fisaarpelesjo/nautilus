@@ -1,5 +1,12 @@
 # Revisao da Estrategia
 
+> **Superado pelo registro de hipoteses (2026-09-06).** Este documento e um snapshot antigo da
+> avaliacao da estrategia EMA/RSI (preset e amostra desatualizados — ver datas internas). A
+> avaliacao atual, rigorosa e completa, esta em `docs/research/registro-de-hipoteses.md`: a
+> estrategia EMA/RSI (H1) e suas variantes foram testadas e **reprovadas**, junto com outras 40
+> hipoteses (0 de 41 aprovadas). Projeto pausado — ver `README.md`. Mantido por historico, nao
+> como referencia ativa.
+
 Este documento registra a avaliacao atual da estrategia do bot e os proximos experimentos para validar se ela tem vantagem real. Ele complementa o `ROADMAP.md`: aqui ficam hipoteses, resultados e diagnosticos; no roadmap ficam features e tarefas.
 
 ## Estrategia Atual

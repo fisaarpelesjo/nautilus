@@ -1,5 +1,11 @@
 # Roadmap
 
+> **Projeto pausado (2026-09-06).** Este roadmap documenta o processo de validacao construido
+> ate aqui, nao um plano ativo. O resultado desse processo esta em
+> `docs/research/registro-de-hipoteses.md`: 41 hipoteses testadas, 0 aprovadas, confirmado por
+> evidencia externa independente. Nao ha trabalho especulativo em andamento — ver `README.md`
+> ("Estado da pesquisa") antes de retomar qualquer item abaixo.
+
 Este roteiro organiza as proximas melhorias do bot por impacto na chance de lucro real e reducao de risco. A prioridade nao e adicionar mais sinais rapidamente; e criar um processo confiavel para provar se uma estrategia tem vantagem antes de considerar `TRADING_MODE=live`.
 
 O projeto ja possui uma base importante: backtest com taxas e slippage, metricas como profit factor/drawdown/Sharpe, otimizador de parametros, analise de `data/trades.csv`, selecao dinamica de pares, blacklist, paper mode, persistencia de estado e limites basicos de risco. Os itens abaixo focam no que ainda falta para transformar esses recursos em um fluxo de validacao mais rigoroso.
